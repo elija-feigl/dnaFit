@@ -2,3 +2,4 @@ testing
 *.pyc
 *.coor
 *.psf
+*.dcd
