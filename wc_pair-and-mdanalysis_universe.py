@@ -176,17 +176,17 @@ def main():
 
     # process input
     top, trj, output, deviations = proc_input()
-    print(top, trj, deviations)
-    print(output)
+    print("read ", top, trj, deviations)
+    print("output to ", output)
 
 
     # initialize universe
     u = mda.Universe(top, trj)
 
     for dev in deviations:
-        print("dev is ", dev)
+        print("performing wc- analysis for dev = ", dev)
         wc_pairs, wc_index_pairs = get_wc_dict(u, Hbond_dev=dev)
-        pickle.dump(( (top, trj), wc_pairs, wc_index_pairs), open(
+        pickle.dump(( deviations, (top, trj), wc_pairs, wc_index_pairs), open(
             str(output) + "__wc_pairs-" + str(dev) + ".p", "wb"))
     
 
