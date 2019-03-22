@@ -1,5 +1,7 @@
-testing
+test*
 *.pyc
 *.coor
 *.psf
 *.dcd
+*.ipynb*
+*.p
