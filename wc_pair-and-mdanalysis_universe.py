@@ -1,6 +1,7 @@
 import MDAnalysis as mda
 import numpy as np
 import sys
+import os
 
 from MDAnalysis.lib import mdamath
 import MDAnalysis.analysis.distances
@@ -38,7 +39,8 @@ def get_wc(universe, segid, resid, Hbond_dev=0.1):
         print("inncorrect id:", segid, resid, sys.exc_info()[0])
         return
 
-    # if segment is longer than SCAFFOLD_LENGTH residues, its the scaffold, define complementary segments
+    # if segment is longer than SCAFFOLD_LENGTH residues, 
+    # its the scaffold, define complementary segments
     if len(seg.residues) > SCAFFOLD_LENGTH:
         res_compl = universe.segments[1:].residues
     else:
@@ -59,7 +61,8 @@ def get_wc(universe, segid, resid, Hbond_dev=0.1):
     res_candidates = res_close[np.where(
         res_close.resnames == WC_DICT[res.resname])]
 
-    # check candidates for WC-Hbonds. due to numbering 5'-> 3' its probably best to search cadidates in regular direction
+    # check candidates for WC-Hbonds. due to numbering 5'-> 3' 
+    # its probably best to search cadidates in regular direction
     hbond_res = res.atoms.select_atoms(
         "name " + ' or name '.join(map(str, WC_HBONDS[res.resname])))
 
@@ -138,8 +141,11 @@ def print_usage():
     initializes MDAnalysis universe and compoutes watson scric base pairs. they are returned as to dictionaries. this process is repeated for each Hbond-deviation criterion
     subsequently universe and dicts are stored into a pickle. each deviation criterion is stored in one pickle
 
-    "usage: projectname designname [dev = 0.1] [dev2] [dev3] ..." 
-    """)
+    usage: projectname designname [dev = 0.1] [dev2] [dev3] ... 
+
+    return: creates a pickle for each deviation: the pickle contains: (top, trj), wc_pairs, wc_index_pairs
+            the tuple contains the absolute path of the files md-files (universe cannot be pickled), second and third are the two dictionaries
+        """)
 
 
 def proc_input():
@@ -150,13 +156,14 @@ def proc_input():
     project = sys.argv[1]
     # if isinstance(sys.argv[2], str):
     name = sys.argv[2]
+    cwd = os.getcwd()
 
-    top = "./" + project + "/" + name + ".psf"
-    trj = "./" + project + "/" + name + "-out.dcd"
-    output = "./" + project + "/" + name
+    top = cwd + "/" + project + "/" + name + ".psf"
+    trj = cwd + "/" + project + "/" + name + "-out.dcd"
+    output = cwd + "/" + project + "/" + name
 
     dev = []
-    if len(sys.argv) == 2:
+    if len(sys.argv) == 3:
         dev.append(0.1)
 
     for av in sys.argv[3:]:
@@ -170,6 +177,8 @@ def main():
     # process input
     top, trj, output, deviations = proc_input()
     print(top, trj, deviations)
+    print(output)
+
 
     # initialize universe
     u = mda.Universe(top, trj)
@@ -177,8 +186,9 @@ def main():
     for dev in deviations:
         print("dev is ", dev)
         wc_pairs, wc_index_pairs = get_wc_dict(u, Hbond_dev=dev)
-        pickle.dump((u, wc_pairs, wc_index_pairs), open(
-            output + "__wc_pairs-" + dev + ".p", "wb"))
+        pickle.dump(( (top, trj), wc_pairs, wc_index_pairs), open(
+            str(output) + "__wc_pairs-" + str(dev) + ".p", "wb"))
+    
 
 
 if __name__ == "__main__":
