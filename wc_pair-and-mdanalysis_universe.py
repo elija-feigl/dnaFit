@@ -180,8 +180,9 @@ def main():
     print("output to ", output)
 
 
-    # initialize universe
+    # initialize universe and select final frame
     u = mda.Universe(top, trj)
+    u.trajectory[-1]
 
     for dev in deviations:
         print("performing wc- analysis for dev = ", dev)
