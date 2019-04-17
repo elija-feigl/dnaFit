@@ -59,7 +59,7 @@ def mrc(atoms_selection, path, context=2):
     return
 
 
-def fit_widget(atoms_selection, atoms_scaffold, atoms_staple, path, opacity_map=0.9, isolevel=5., backbone=True):
+def fit_widget(atoms_selection, atoms_scaffold, atoms_staple, path, opacity_map=0.9, isolevel=5., backbone=True, fast=False):
     
     #TODO get cadnano staple colors not genreic ones
     colors= ["red","green","black", "brown", "gold", "navy", "teal", "orange", "pink"]
@@ -86,13 +86,17 @@ def fit_widget(atoms_selection, atoms_scaffold, atoms_staple, path, opacity_map=
     view.component_1.clear()
     view.add_surface(component=1, color='grey', wireframe=True, opacity=opacity_map, isolevel=isolevel)
 
-    
-    segnames = [seg.segid  for seg in staple_view.segments]
-    for i, segid in enumerate(segnames):
-        s_view = staple_view.select_atoms("segid "+str(segid))
-        view.add_trajectory(s_view)
-        view.clear(component = (i+ 2) )
-        view.add_spacefill(component =(i+ 2), radius = 0.6 , color=colors[i % len(colors)])
+    if fast: #no staple coloring
+            view.add_trajectory(staple_view)
+            view.clear(component = 2 )
+            view.add_spacefill(component =2, radius = 0.6 , color="red")
+    else:    
+        segnames = [seg.segid  for seg in staple_view.segments]
+        for i, segid in enumerate(segnames):
+            s_view = staple_view.select_atoms("segid "+str(segid))
+            view.add_trajectory(s_view)
+            view.clear(component = (i+ 2) )
+            view.add_spacefill(component =(i+ 2), radius = 0.6 , color=colors[i % len(colors)])
 
     display(view)
     
