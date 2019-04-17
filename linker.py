@@ -7,6 +7,8 @@ import numpy as np
 import mrcfile
 import nanodesign as nd 
 from nanodesign.converters import Converter
+import nglview as nv
+from IPython.display import display
 
 class Linker(object):
     def __init__(self, path):

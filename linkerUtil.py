@@ -3,6 +3,7 @@ import numpy as np
 import ipywidgets as widgets
 import MDAnalysis as mda
 import nglview as nv
+from IPython.display import display
 
 
 def mrc(atoms_selection, path, context=2):
@@ -78,25 +79,24 @@ def fit_widget(atoms_selection, atoms_scaffold, atoms_staple, path, opacity_map=
     
     view = nv.show_mdanalysis(scaffold_view)
     
-    view.component_0.clear()
-    view.component_0.add_spacefill(radius = 0.6 , color="blue")
+    view.clear(component = 0 )
+    view.add_representation("spacefill",component = 0,  radius = 0.6 , color="blue")#add_representation("spacefill", component = 0,  radius = 0.6 , color="blue")
 
 
     view.add_component(path +"-temp.mrc")
-    view.component_1.clear()
-    view.add_surface(component=1, color='grey', wireframe=True, opacity=opacity_map, isolevel=isolevel)
-
+    view.clear(component = 1 )
+    view.add_representation("surface", component = 1, color='grey', wireframe=True, opacity=opacity_map, isolevel=isolevel)
     if fast: #no staple coloring
             view.add_trajectory(staple_view)
             view.clear(component = 2 )
-            view.add_spacefill(component =2, radius = 0.6 , color="red")
+            view.add_representation("spacefill", component =2, radius = 0.6 , color="red")
     else:    
         segnames = [seg.segid  for seg in staple_view.segments]
         for i, segid in enumerate(segnames):
             s_view = staple_view.select_atoms("segid "+str(segid))
             view.add_trajectory(s_view)
             view.clear(component = (i+ 2) )
-            view.add_spacefill(component =(i+ 2), radius = 0.6 , color=colors[i % len(colors)])
+            view.add_representation("spacefill", component =(i+ 2), radius = 0.6 , color=colors[i % len(colors)])
 
     display(view)
     
