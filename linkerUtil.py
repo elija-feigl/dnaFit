@@ -61,16 +61,8 @@ def mrc(atoms_selection, path, context=2):
 
 def fit_widget(atoms_selection, atoms_scaffold, atoms_staple, path, opacity_map=0.9, isolevel=5., backbone=True):
     
-    colors= ["red","green","black", "brown", "gold", "navy", "teal", "orange", "pink", "red","green","black", 
-             "brown", "gold", "navy", "teal", "orange", "pink", "red","green","black", "brown", "gold", "navy", 
-             "teal", "orange", "pink", "red","green","black", "brown", "gold", "navy", "teal", "orange", "pink",
-             "red","green","black", "red","green","black", "brown", "gold", "navy", "teal", "orange", "pink", "red","green","black", 
-            "red","green","black", "brown", "gold", "navy", "teal", "orange", "pink", "red","green","black", 
-            "red","green","black", "brown", "gold", "navy", "teal", "orange", "pink", "red","green","black", 
-            "red","green","black", "brown", "gold", "navy", "teal", "orange", "pink", "red","green","black", ]
-    
-    
-    
+    #TODO get cadnano staple colors not genreic ones
+    colors= ["red","green","black", "brown", "gold", "navy", "teal", "orange", "pink"]
     
     if not len(atoms_selection):
         print("NOTHING TO DISPLAY - no atoms in this selection")
@@ -87,22 +79,21 @@ def fit_widget(atoms_selection, atoms_scaffold, atoms_staple, path, opacity_map=
     view = nv.show_mdanalysis(scaffold_view)
     
     view.component_0.clear()
-    
-
     view.component_0.add_spacefill(radius = 0.6 , color="blue")
-    
-    view.add_trajectory(staple_view)
-    view.component_1.clear()
-    view.component_1.add_spacefill(radius = 0.6 , color="red")
-    
-    #segnames = [seg.segid  for seg in atoms_staple.segments]
-    #for i, segid in enumerate(segnames):
-    #    selectX = atoms_selection.select_atoms("segid "+str(segid))
-    #    view.component_0.add_spacefill(selection = selectX, radius = 0.6 , color=colors[i])
-    
+
+
     view.add_component(path +"-temp.mrc")
-    view.component_2.clear()
-    view.add_surface(component=2, color='grey', wireframe=True, opacity=opacity_map, isolevel=isolevel)
+    view.component_1.clear()
+    view.add_surface(component=1, color='grey', wireframe=True, opacity=opacity_map, isolevel=isolevel)
+
+    
+    segnames = [seg.segid  for seg in staple_view.segments]
+    for i, segid in enumerate(segnames):
+        s_view = staple_view.select_atoms("segid "+str(segid))
+        view.add_trajectory(s_view)
+        view.clear(component = (i+ 2) )
+        view.add_spacefill(component =(i+ 2), radius = 0.6 , color=colors[i % len(colors)])
+
     display(view)
     
     return
