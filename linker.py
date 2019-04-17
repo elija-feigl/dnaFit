@@ -115,7 +115,7 @@ class Linker(object):
         
         layout_w = widgets.Layout(width= '500px', height = '70px')
         layout_h = widgets.Layout(width= '50px')
-        layout_label = widgets.Layout(width= '500px')
+        #layout_label = widgets.Layout(width= '500px')
         layout_box = widgets.Layout(width= '600px', border= '1px solid black')
         layout_button = widgets.Layout(width='30px', height='30px')
 
@@ -214,7 +214,7 @@ class Linker(object):
 
     def writepdb(self, atoms_selection, path):
         with mda.Writer(path +"-temp.pdb", multiframe=True,  n_atoms=atoms_selection.n_atoms) as W:
-            for ts in self.fit.u.trajectory:
+            for _ in self.fit.u.trajectory:
                 W.write(atoms_selection)
         return
     
