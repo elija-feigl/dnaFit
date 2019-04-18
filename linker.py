@@ -234,7 +234,7 @@ class Fit(object):
 
     def _get_universe(self):
         top = self.path + ".psf"
-        trj = self.path  + "-out.dcd"
+        trj = self.path  + ".dcd"
         
         u = mda.Universe(top, trj)
         u.trajectory[-1]
