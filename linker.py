@@ -133,12 +133,6 @@ class Linker(object):
         minc = min(col)
         maxc = max(col) 
 
-
-
-
-
-
-
         helix_buttons = []
         for r in range(minr, maxr+1):
             row = []
