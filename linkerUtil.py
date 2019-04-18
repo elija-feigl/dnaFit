@@ -12,7 +12,8 @@ def mrc(atoms_selection, path, context=2):
         print("EXIT - no atoms in this selection")
         return
         
-    
+    u = atoms_selection.universe
+    u.trajectory[-1]
     
     with mrcfile.open( path +".mrc", mode='r+')  as mrc:
         m_o = np.array(mrc.header["origin"])
