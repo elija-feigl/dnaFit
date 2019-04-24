@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import MDAnalysis as mda
 import numpy as np
 import sys
@@ -148,7 +150,10 @@ def print_usage():
         """)
 
 
-def proc_input():
+def proc_input(i):
+    
+
+    
     if len(sys.argv) < 2:
         print_usage()
 
@@ -158,9 +163,19 @@ def proc_input():
     name = sys.argv[2]
     cwd = os.getcwd()
 
+
+    if i == -1:
+        try:
+            os.mkdir(cwd + "/" + project + "/" + str(i))
+        except FileExistsError:
+            pass
+        j = 0
+    else:
+        j = i
+
     top = cwd + "/" + project + "/" + name + ".psf"
-    trj = cwd + "/" + project + "/" + name + "-out.dcd"
-    output = cwd + "/" + project + "/" + name
+    trj = cwd + "/" + project + "/" + str(j) + "/" + name + ".dcd"
+    output = cwd + "/" + project + "/" + str(i)+ "/" + name
 
     dev = []
     if len(sys.argv) == 3:
@@ -174,21 +189,28 @@ def proc_input():
 
 def main():
 
-    # process input
-    top, trj, output, deviations = proc_input()
-    print("read ", top, trj, deviations)
-    print("output to ", output)
+
+    for i in reversed(range(-1, 8)):
+        print("processing folder "+ str(i))
+        # process input
+        top, trj, output, deviations = proc_input(i)
+        print("read ", top, trj, deviations)
+        print("output to ", output)
 
 
-    # initialize universe and select final frame
-    u = mda.Universe(top, trj)
-    u.trajectory[-1]
+        # initialize universe and select final frame
+        u = mda.Universe(top, trj)
 
-    for dev in deviations:
-        print("performing wc- analysis for dev = ", dev)
-        wc_pairs, wc_index_pairs = get_wc_dict(u, Hbond_dev=dev)
-        pickle.dump(( deviations, (top, trj), wc_pairs, wc_index_pairs), open(
-            str(output) + "__wc_pairs-" + str(dev) + ".p", "wb"))
+        if i == -1:
+            u.trajectory[0]
+        else:    
+            u.trajectory[-1]
+
+        for dev in deviations:
+            print("performing wc- analysis for dev = ", dev)
+            wc_pairs, wc_index_pairs = get_wc_dict(u, Hbond_dev=dev)
+            pickle.dump(( deviations, (top, trj), wc_pairs, wc_index_pairs), open(
+                str(output) + "__wc_pairs-" + str(dev) + ".p", "wb"))
     
 
 
