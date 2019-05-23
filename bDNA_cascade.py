@@ -203,7 +203,7 @@ def proc_input(folder):
 def main():
 
     # perform for each step
-    for i in range(-1, 8):
+    for i in reversed(range(-1, 8)):
         print("processing folder "+ str(i))
         # process input
         path, devs = proc_input(i)
