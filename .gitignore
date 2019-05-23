@@ -1,4 +1,5 @@
 test*
+temp
 *.pyc
 *.coor
 *.psf

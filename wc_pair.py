@@ -1,3 +1,5 @@
+#!/usr/bin/env python#
+
 import MDAnalysis as mda
 import numpy as np
 import sys
@@ -159,7 +161,7 @@ def proc_input():
     cwd = os.getcwd()
 
     top = cwd + "/" + project + "/" + name + ".psf"
-    trj = cwd + "/" + project + "/" + name + "-out.dcd"
+    trj = cwd + "/" + project + "/" + name + ".dcd"
     output = cwd + "/" + project + "/" + name
 
     dev = []
