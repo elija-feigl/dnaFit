@@ -45,9 +45,9 @@ class BDna(object):
 
         self.d_crossoverid = None #derive from dicts? #TODO: -mid-
 
-        self.wc_quality = None   #dict: references residue index -> bond quality #TODO: over-under
+        self.wc_quality = None   #dict: references residue index -> bond quality 
         self.wc_geometry = None   
-        self.dh_quality = None #TODO: -high- TODO: -mid- add xi
+        self.dh_quality = None  #TODO: -mid- add xi
         self.distances = None    #only scaffold bases have complement
 
     def _get_next_wc(self, resindex, resindex_wc):
@@ -414,13 +414,33 @@ def main():
             bDNA.eval_wc()
             bDNA.eval_distances()
             bDNA.eval_dh()
-
+            ipdb.set_trace()
             properties.append(bDNA)
             pickle.dump((ts, bDNA), open( traj_out + name + "__bDNA-" + str(i) + ".p", "wb"))
     
-            #TODO: -mid-
-            #write data topdbs
-            #write.pdb (tempFactor = bDNA.wc_quality)
+            #write to pdb #TODO: -low- move code
+            u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
+            u.atoms.tempfactors = -1.
+            for res in u.residues:
+                res.atoms.tempfactors = bDNA.wc_quality[res.resindex]["C1'C1'"]
+            u.atoms.write(output + name + "__wc_quality.pdb")
+            u.atoms.tempfactors = -1.
+            for res in u.residues:
+                res.atoms.tempfactors = bDNA.wc_geometry[res.resindex]["rise"]["center"]
+            u.atoms.write(output + name + "__wc_rise.pdb")
+            u.atoms.tempfactors = -1.
+            for res in u.residues:
+                res.atoms.tempfactors = bDNA.wc_geometry[res.resindex]["twist"]["center"]
+            u.atoms.write(output + name + "__wc_twist.pdb")
+            
+            u.atoms.tempfactors = -1.
+            ing = 0.00
+            for resindex, resindex_wc in bDNA.d_idid.items():
+                u.residues[resindex].atoms.tempfactors = ing
+                u.residues[resindex_wc].atoms.tempfactors = ing
+                ing += 0.01
+
+ 
 
 
 
