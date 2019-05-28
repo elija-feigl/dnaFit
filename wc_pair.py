@@ -29,9 +29,12 @@ WC_HBONDS_DIST = {"DA": (N6O4, N1N3_AT), "A": (N6O4, N1N3_AT), "ADE": (N6O4, N1N
                   "DG": (O6N4, N1N3_GC, N2O2), "G": (O6N4, N1N3_GC, N2O2), "GUA": (O6N4, N1N3_GC, N2O2),
                   "DC": (O6N4, N1N3_GC, N2O2), "C": (O6N4, N1N3_GC, N2O2), "CYT": (O6N4, N1N3_GC, N2O2)}
 DH_ATOMS = {"alpha":("O3' -","P","O5'","C5'"), "beta":("P","O5'","C5'","C4'"),
-                         "gamma":("O5'","C5'","C4'","C3'"), "delta":("C5'","C4'","C3'","O3'"),
-                         "epsilon":("C4'","C3'","O3'","P +"), "zeta":("C3'","O3'","P +","O5' +") }
-BB_ATOMS = ["O3'","C3'","P","C4'", "O5'","C5'"]
+                        "gamma":("O5'","C5'","C4'","C3'"), "delta":("C5'","C4'","C3'","O3'"),
+                        "epsilon":("C4'","C3'","O3'","P +"), "zeta":("C3'","O3'","P +","O5' +"),
+                        "xi":{"pyr":("C4'","C1'","N1","C2"), "pur":("C4'","C1'","N9","C4")} }
+BB_ATOMS = ["C1'","O3'","C3'","P","C4'", "O5'","C5'"]
+PYR_ATOMS = ["N1","C2"]
+PUR_ATOMS = ["N9","C4"]
 
 
 
@@ -47,7 +50,7 @@ class BDna(object):
 
         self.wc_quality = None   #dict: references residue index -> bond quality 
         self.wc_geometry = None   
-        self.dh_quality = None  #TODO: -mid- add xi
+        self.dh_quality = None  
         self.distances = None    #only scaffold bases have complement
 
     def _get_next_wc(self, resindex, resindex_wc):
@@ -186,8 +189,12 @@ class BDna(object):
 
         atoms, logic = self._get_residue_BB(res)
         dh_valid = self._get_valid_DH(*logic)
+        if res.resname in ["ADE", "GUA"]:
+            pyr = False
+        else:
+            pyr = True
 
-        dh = self._get_dh_for_res(atoms, dh_valid) 
+        dh = self._get_dh_for_res(atoms, pyr, dh_valid) 
         return dh
 
     def _get_residue_BB(self, res):
@@ -203,6 +210,12 @@ class BDna(object):
 
         for xx in ["O5'","C5'","C4'","O3'","C3'"]:
             atoms[xx] = res.atoms.select_atoms("name " + xx)[0].position
+        if res.resname in ["ADE", "GUA"]:
+            YY = PUR_ATOMS
+        else:
+            YY = PYR_ATOMS
+        for yy in YY:
+            atoms[yy] = res.atoms.select_atoms("name " + yy)[0].position
 
         try:
             n_res = self.u.residues[res.resindex +1 ]
@@ -229,7 +242,7 @@ class BDna(object):
         return atoms, (ter5, terSeg, iniSeg)
 
     def _get_valid_DH(self, ter5, terSeg, iniSeg):   
-        dh_valid = ["gamma","delta"]
+        dh_valid = ["gamma","delta", "xi"]
         if terSeg is False:
             dh_valid.extend(["epsilon","zeta"])
         if iniSeg is False:
@@ -238,17 +251,17 @@ class BDna(object):
             dh_valid.append("beta")
         return dh_valid
 
-    def _get_dh_for_res(self, atoms, dh_valid):
+    def _get_dh_for_res(self, atoms, pyr, dh_valid):
         dh = {}
         for dh_name in ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"]:
             if dh_name in dh_valid:
-                angle = self._get_angle(atoms, dh_name)
+                angle = self._get_angle(atoms, pyr, dh_name)
             else:
                 angle = None
             dh[dh_name] = angle
         return dh
 
-    def _get_angle(self, atoms, dh_name):
+    def _get_angle(self, atoms, pyr, dh_name):
 
         def _dh_angle(p1, p2, p3, p4, as_rad= False):
       
@@ -270,7 +283,14 @@ class BDna(object):
             return angle if as_rad else np.rad2deg(angle)
         
         p = []
+        
         for i in DH_ATOMS[dh_name]:
+            if dh_name == "xi":
+                if pyr:
+                    p.append(atoms[i]["pyr"])
+                else:
+                    p.append(atoms[i]["pur"])
+            else:
             p.append(atoms[i])
 
         angle = _dh_angle(p[0],p[1],p[2],p[3])
