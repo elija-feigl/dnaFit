@@ -32,7 +32,7 @@ DH_ATOMS = {"alpha":("O3' -","P","O5'","C5'"), "beta":("P","O5'","C5'","C4'"),
                         "gamma":("O5'","C5'","C4'","C3'"), "delta":("C5'","C4'","C3'","O3'"),
                         "epsilon":("C4'","C3'","O3'","P +"), "zeta":("C3'","O3'","P +","O5' +"),
                         "xi":{"pyr":("C4'","C1'","N1","C2"), "pur":("C4'","C1'","N9","C4")} }
-BB_ATOMS = ["C1'","O3'","C3'","P","C4'", "O5'","C5'"]
+BB_ATOMS = ["C1'","O3'","C3'","C4'", "O5'","C5'","P"]
 PYR_ATOMS = ["N1","C2"]
 PUR_ATOMS = ["N9","C4"]
 
@@ -208,7 +208,7 @@ class BDna(object):
         except (KeyError, IndexError):
             ter5 = True 
 
-        for xx in ["O5'","C5'","C4'","O3'","C3'"]:
+        for xx in BB_ATOMS[:-1]:
             atoms[xx] = res.atoms.select_atoms("name " + xx)[0].position
         if res.resname in ["ADE", "GUA"]:
             YY = PUR_ATOMS
@@ -253,7 +253,7 @@ class BDna(object):
 
     def _get_dh_for_res(self, atoms, pyr, dh_valid):
         dh = {}
-        for dh_name in ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"]:
+        for dh_name in ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "xi"]:
             if dh_name in dh_valid:
                 angle = self._get_angle(atoms, pyr, dh_name)
             else:
@@ -284,14 +284,16 @@ class BDna(object):
         
         p = []
         
-        for i in DH_ATOMS[dh_name]:
-            if dh_name == "xi":
-                if pyr:
-                    p.append(atoms[i]["pyr"])
-                else:
-                    p.append(atoms[i]["pur"])
+        if dh_name == "xi":
+            if pyr:
+                for i in DH_ATOMS[dh_name]["pyr"]:
+                    p.append(atoms[i])
             else:
-            p.append(atoms[i])
+                for i in DH_ATOMS[dh_name]["pur"]:
+                    p.append(atoms[i])
+        else:
+            for i in DH_ATOMS[dh_name]:
+                p.append(atoms[i])
 
         angle = _dh_angle(p[0],p[1],p[2],p[3])
         #angle = _dh_angle(*p) 'PYTHON3
@@ -427,8 +429,9 @@ def write_pdb(u, bDNA, output, name):
         u.residues[resindex].atoms.tempfactors = ing
         u.residues[resindex_wc].atoms.tempfactors = ing
         ing += 0.01
-    return
+    u.atoms.write(output + name + "__wc_bp.pdb")
 
+    return
 
 def main():
     top, trj, base, name ,output, deviations, n_frames = proc_input()
