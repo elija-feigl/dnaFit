@@ -381,15 +381,24 @@ def write_pdb(u, bDNA, output, name):
     u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
     u.atoms.tempfactors = -1.
     for res in u.residues:
-        res.atoms.tempfactors = bDNA.wc_quality[res.resindex]["C1'C1'"]
+        try:
+            res.atoms.tempfactors = bDNA.wc_quality[res.resindex]["C1'C1'"]
+        except KeyError:
+            pass
     u.atoms.write(output + name + "__wc_quality.pdb")
     u.atoms.tempfactors = -1.
     for res in u.residues:
-        res.atoms.tempfactors = bDNA.wc_geometry[res.resindex]["rise"]["center"]
+        try:
+            res.atoms.tempfactors = bDNA.wc_geometry[res.resindex]["rise"]["center"]
+        except KeyError:
+            pass
     u.atoms.write(output + name + "__wc_rise.pdb")
     u.atoms.tempfactors = -1.
     for res in u.residues:
-        res.atoms.tempfactors = bDNA.wc_geometry[res.resindex]["twist"]["center"]
+        try:
+            res.atoms.tempfactors = bDNA.wc_geometry[res.resindex]["twist"]["center"]
+        except KeyError:
+            pass
     u.atoms.write(output + name + "__wc_twist.pdb")
             
     u.atoms.tempfactors = -1.
@@ -437,7 +446,10 @@ def main():
         bDNA.eval_distances()
         bDNA.eval_dh()
         properties.append(bDNA)
-        pickle.dump((ts, bDNA), open( traj_out + name + "__bDNA-" + str(i) + ".p", "wb"))
+        pickle.dump((ts, bDNA.wc_geometry), open( traj_out + name + "__bDNA-wc_geometry-" + str(i) + ".p", "wb"))
+        pickle.dump((ts, bDNA.wc_quality), open( traj_out + name + "__bDNA-wc_quality-" + str(i) + ".p", "wb"))
+        pickle.dump((ts, bDNA.dh_quality), open( traj_out + name + "__bDNA-dh_quality-" + str(i) + ".p", "wb"))
+        pickle.dump((ts, bDNA.distances), open( traj_out + name + "__bDNA-distances-" + str(i) + ".p", "wb"))
         write_pdb(u, bDNA, output, name)
     return
 
