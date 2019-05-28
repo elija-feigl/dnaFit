@@ -470,10 +470,10 @@ def main():
         bDNA.eval_distances()
         bDNA.eval_dh()
         properties.append(bDNA)
-        pickle.dump((ts, bDNA.wc_geometry), open( traj_out + name + "__bDNA-wc_geometry-" + str(i) + ".p", "wb"))
-        pickle.dump((ts, bDNA.wc_quality), open( traj_out + name + "__bDNA-wc_quality-" + str(i) + ".p", "wb"))
-        pickle.dump((ts, bDNA.dh_quality), open( traj_out + name + "__bDNA-dh_quality-" + str(i) + ".p", "wb"))
-        pickle.dump((ts, bDNA.distances), open( traj_out + name + "__bDNA-distances-" + str(i) + ".p", "wb"))
+        props = [(bDNA.wc_geometry,"__bDNA-wc_geometry-"), (bDNA.wc_quality,"__bDNA-wc_quality-"), 
+            (bDNA.dh_quality,"__bDNA-wc_quality-"), (bDNA.distances,"__bDNA-distances-")]
+        for prop, prop_name in props:
+            pickle.dump((ts, prop), open( traj_out + name + prop_name + str(i) + ".p", "wb"))
         write_pdb(u, bDNA, PDBs)
     
     # close PDB files
@@ -484,7 +484,6 @@ def main():
     #TODO: -low-
     return
 
-   
 
 
 if __name__ == "__main__":
