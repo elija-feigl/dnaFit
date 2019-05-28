@@ -28,6 +28,10 @@ WC_HBONDS_DIST = {"DA": (N6O4, N1N3_AT), "A": (N6O4, N1N3_AT), "ADE": (N6O4, N1N
                   "DT": (N6O4, N1N3_AT), "T": (N6O4, N1N3_AT), "THY": (N6O4, N1N3_AT),
                   "DG": (O6N4, N1N3_GC, N2O2), "G": (O6N4, N1N3_GC, N2O2), "GUA": (O6N4, N1N3_GC, N2O2),
                   "DC": (O6N4, N1N3_GC, N2O2), "C": (O6N4, N1N3_GC, N2O2), "CYT": (O6N4, N1N3_GC, N2O2)}
+DH_ATOMS = {"alpha":("O3' -","P","O5'","C5'"), "beta":("P","O5'","C5'","C4'"),
+                         "gamma":("O5'","C5'","C4'","C3'"), "delta":("C5'","C4'","C3'","O3'"),
+                         "epsilon":("C4'","C3'","O3'","P +"), "zeta":("C3'","O3'","P +","O5' +") }
+BB_ATOMS = ["O3'","C3'","P","C4'", "O5'","C5'"]
 
 
 
@@ -41,9 +45,9 @@ class BDna(object):
 
         self.d_crossoverid = None #derive from dicts? #TODO: -mid-
 
-        self.wc_quality = None   #dict: references residue index -> bond quality
+        self.wc_quality = None   #dict: references residue index -> bond quality #TODO: over-under
         self.wc_geometry = None   
-        self.dh_quality = None #TODO: -high-
+        self.dh_quality = None #TODO: -high- TODO: -mid- add xi
         self.distances = None    #only scaffold bases have complement
 
     def _get_next_wc(self, resindex, resindex_wc):
@@ -111,7 +115,7 @@ class BDna(object):
             hbond_should = WC_HBONDS_DIST[res1.resname][idx]
             hbond_dev = abs(hbond_dist - hbond_should)/hbond_should
             bond = WC_HBONDS[res1.resname][idx] + WC_HBONDS[res2.resname][idx]
-            quality[bond] = hbond_dev
+            quality[bond] = hbond_dev if hbond_dist > hbond_should else -hbond_dev
         
         return quality, quality
 
@@ -151,7 +155,7 @@ class BDna(object):
                     "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5) })
 
         geometry = {"twist": _get_twist(basepairs[0], basepairs[1]), "rise": _get_rise(basepairs[0], basepairs[1])} 
-        #geometry = {"twist": _get_twist(*basepairs), "rise": _get_rise(*basepair)} #PYTHON2
+        #geometry = {"twist": _get_twist(*basepairs), "rise": _get_rise(*basepair)} #PYTHON3
         return geometry, geometry
 
     def _get_base_plane(self, res):
@@ -175,10 +179,76 @@ class BDna(object):
         """  dict of dihedrals for each residue (key= resid)
         """
         self.dh_quality = {}
+        for res in self.u.residues: 
+            self.dh_quality[res.resindex] = self._get_dihedrals(res)
+        return
 
+    def _get_dihedrals(self, res):
 
-    """
-    
+        atoms, logic = self._get_residue_BB(res)
+        dh_valid = self._get_valid_DH(*logic)
+
+        dh = self._get_dh_for_res(atoms, dh_valid) 
+        return dh
+
+    def _get_residue_BB(self, res):
+        iniSeg, terSeg, ter5 = False, False, False
+        
+        atoms = {}
+        try:
+            P = res.atoms.select_atoms("name " + "P")[0]
+            atoms["P"] = P.position
+
+        except (KeyError, IndexError):
+            ter5 = True 
+
+        for xx in ["O5'","C5'","C4'","O3'","C3'"]:
+            atoms[xx] = res.atoms.select_atoms("name " + xx)[0].position
+
+        try:
+            n_res = self.u.residues[res.resindex +1 ]
+            if res.segindex == n_res.segindex:
+                n_P = n_res.atoms.select_atoms("name " + "P")[0]
+                n_O5p = n_res.atoms.select_atoms("name " + "O5'")[0]
+                atoms["P +"] = n_P.position
+                atoms["O5' +"] = n_O5p.position
+            else:
+                terSeg = True
+        except (KeyError, IndexError):
+            terSeg = True
+
+        try:
+            p_res = self.u.residues[res.resindex - 1]
+            if res.segindex == p_res.segindex:
+                p_O3p = p_res.atoms.select_atoms("name " + "O3'")[0]
+                atoms["O3' -"] = p_O3p.position
+            else:
+                iniSeg = True
+        except (KeyError, IndexError):
+            iniSeg = True
+                        
+        return atoms, (ter5, terSeg, iniSeg)
+
+    def _get_valid_DH(self, ter5, terSeg, iniSeg):   
+        dh_valid = ["gamma","delta"]
+        if terSeg is False:
+            dh_valid.extend(["epsilon","zeta"])
+        if iniSeg is False:
+            dh_valid.append("alpha")
+        if ter5 is False:
+            dh_valid.append("beta")
+        return dh_valid
+
+    def _get_dh_for_res(self, atoms, dh_valid):
+        dh = {}
+        for dh_name in ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"]:
+            if dh_name in dh_valid:
+                angle = self._get_angle(atoms, dh_name)
+            else:
+                angle = None
+            dh[dh_name] = angle
+        return dh
+
     def _get_angle(self, atoms, dh_name):
 
         def _dh_angle(p1, p2, p3, p4, as_rad= False):
@@ -195,61 +265,20 @@ class BDna(object):
         
             x = np.dot(n1, n2)
             y = np.dot(m1, n2)
-            check = np.dot( v2 / np.linalg.norm(v2), n2)
-            
-            if check > 0.001:
-                print("hm")
 
             angle = - np.arctan2(y, x)
             
             return angle if as_rad else np.rad2deg(angle)
         
         p = []
-        atomindeces = []
-        for i in self.DH_ATOMS[dh_name]:
-            p.append(atoms[i]["pos"])
-            atomindeces.append(atoms[i]["idx"])
+        for i in DH_ATOMS[dh_name]:
+            p.append(atoms[i])
 
-        angle = _dh_angle(*p)
+        angle = _dh_angle(p[0],p[1],p[2],p[3])
+        #angle = _dh_angle(*p) 'PYTHON3
         
-        #if 8325 in atomindeces:
-        #print(dh_name, angle, self.DH_ANGLE[dh_name] )
-        
-        #if np.sign(angle) != np.sign( self.DH_ANGLE[dh_name]):
-        #    print(dh_name, angle, self.DH_ANGLE[dh_name] )
-
         return angle
     
-    
-    def _prep_lines_for_res(self, atoms, dh_valid):
-        lines = ""
-        for dh_name in dh_valid:
-            angle = self._get_angle(atoms, dh_name)
-            line = "dihedral "
-            for a in self.DH_ATOMS[dh_name]:
-                line += str(atoms[a]["idx"]) + " "
-                # for periodicy > 0: -180 because: https://www.ks.uiuc.edu/Research/namd/2.9/ug/node27.html
-            line += str(self.kB_dh) + " " + str(angle) + "\n" 
-            lines += line
-        return lines
-    
-    def _check_dh_for_res(self, atoms, dh_valid):
-        block = False
-        culprit_dh = []
-
-        print("new")
-        for dh_name in dh_valid:         
-            dh_atoms = [atoms[a] for a in self.DH_ATOMS[dh_name]]
-                    
-            dh_is_flipped = self._check_dh_close(self.DH_ANGLE[dh_name], dh_atoms , dh_name)
-            if not dh_is_flipped:
-                culprit_dh.append(dh_name)
-                block = True
-
-        return block, culprit_dh
-        return 
-
-    """
 
     def eval_distances(self):
         """  dict of twist for each wc-pair (key= resid-scaffold)
@@ -266,8 +295,6 @@ class BDna(object):
         d_c = {}
         for res in self.u.residues: 
             resindex = res.resindex
-            if atomname=="P":
-                ipdb.set_trace()
             A = res.atoms.select_atoms("name " + atomname)
 
             if len(A)==0:
@@ -371,32 +398,30 @@ def main():
         pickle.dump(dict_bp, open( output + name + "__bp-dict.p", "wb"))
         pickle.dump(dict_idid, open( output + name + "__idid-dict.p", "wb"))
         pickle.dump(dict_hpid, open( output + name + "__hpid-dict.p", "wb"))
+        pickle.dump((top, trj), open( output + name + "__universe.p", "wb"))
         
-
-        for ts in [u.trajectory[i] for i in frames]:
+        properties = []
+        traj_out = output + "frames/"
+        try:     
+            os.mkdir(traj_out)
+        except  OSError: #FileExistsError: #PYTHON3
+            pass
+        for i, ts in enumerate([u.trajectory[i] for i in frames]):
             print(ts)
             bDNA = BDna(u, dict_bp, dict_idid, dict_hpid)
             
             #perform analyis
             bDNA.eval_wc()
             bDNA.eval_distances()
-            ipdb.set_trace()
             bDNA.eval_dh()
 
-            #TODO: -high- save for frames
-
-            #write data
+            properties.append(bDNA)
+            pickle.dump((ts, bDNA), open( traj_out + name + "__bDNA-" + str(i) + ".p", "wb"))
+    
+            #TODO: -mid-
+            #write data topdbs
             #write.pdb (tempFactor = bDNA.wc_quality)
 
-    
-
-
-            #for dev in deviations:
-             #   print("performing wc- analysis for dev = ", dev)
-              #  wc_pairs, wc_index_pairs = get_wc_dict(u, Hbond_dev=dev)
-               # pickle.dump(( deviations, (top, trj), wc_pairs, wc_index_pairs), open(
-                #    str(output) + "__wc_pairs-" + str(dev) + ".p", "wb"))
-    
 
 
 if __name__ == "__main__":
