@@ -403,7 +403,7 @@ def write_pdb(u, bDNA, output, name):
             
     u.atoms.tempfactors = -1.
     ing = 0.00
-    for resindex, resindex_wc in bDNA.d_idid.items():
+    for resindex, resindex_wc in bDNA.d_bp.items():
         u.residues[resindex].atoms.tempfactors = ing
         u.residues[resindex_wc].atoms.tempfactors = ing
         ing += 0.01
