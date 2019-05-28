@@ -399,29 +399,25 @@ def proc_input():
 
     return top, trj, base, name, output, dev, n_frames
 
-def write_pdb(u, bDNA, output, name):
+def write_pdb(u, bDNA, PDBs):
     u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
+    
     u.atoms.tempfactors = -1.
     for res in u.residues:
         try:
             res.atoms.tempfactors = bDNA.wc_quality[res.resindex]["C1'C1'"]
         except KeyError:
             pass
-    u.atoms.write(output + name + "__wc_quality.pdb")
-    u.atoms.tempfactors = -1.
-    for res in u.residues:
-        try:
-            res.atoms.tempfactors = bDNA.wc_geometry[res.resindex]["rise"]["center"]
-        except KeyError:
-            pass
-    u.atoms.write(output + name + "__wc_rise.pdb")
-    u.atoms.tempfactors = -1.
-    for res in u.residues:
-        try:
-            res.atoms.tempfactors = bDNA.wc_geometry[res.resindex]["twist"]["center"]
-        except KeyError:
-            pass
-    u.atoms.write(output + name + "__wc_twist.pdb")
+    PDBs["qual"].write(u.atoms)
+    
+    for cond in ["rise", "twist"]:
+        u.atoms.tempfactors = -1.
+        for res in u.residues:
+            try:
+                res.atoms.tempfactors = bDNA.wc_geometry[res.resindex][cond]["center"]
+            except KeyError:
+                pass
+        PDBs[cond].write(u.atoms)
             
     u.atoms.tempfactors = -1.
     ing = 0.00
@@ -429,7 +425,7 @@ def write_pdb(u, bDNA, output, name):
         u.residues[resindex].atoms.tempfactors = ing
         u.residues[resindex_wc].atoms.tempfactors = ing
         ing += 0.01
-    u.atoms.write(output + name + "__wc_bp.pdb")
+    PDBs["bp"].write(u.atoms)
 
     return
 
@@ -448,11 +444,9 @@ def main():
 
     linker = bpLinker.Linker( base + name )
     dict_bp, dict_idid, dict_hpid=  linker.link()
-        
-    pickle.dump(dict_bp, open( output + name + "__bp-dict.p", "wb"))
-    pickle.dump(dict_idid, open( output + name + "__idid-dict.p", "wb"))
-    pickle.dump(dict_hpid, open( output + name + "__hpid-dict.p", "wb"))
-    pickle.dump((top, trj), open( output + name + "__universe.p", "wb"))
+    
+    for dict_, dict_name in [(dict_bp,"bp"), (dict_idid,"idid"), (dict_hpid,"hpid"), ((top, trj),"universe")]:
+        pickle.dump(dict_, open( output + name + "__" + dict_name + "-dict.p", "wb"))
     
     properties = []
     traj_out = output + "frames/"
@@ -460,6 +454,13 @@ def main():
         os.mkdir(traj_out)
     except  OSError: #FileExistsError: #PYTHON3
         pass
+
+    # open PDB files
+    PDBs = {}
+    for cond in ["bp", "rise", "twist", "qual"]:
+        PDBs[cond] = mda.Writer(output + name + "__wc_" + cond + ".pdb", multiframe=True)
+  
+    # loop over selected frames
     for i, ts in enumerate([u.trajectory[i] for i in frames]):
         print(ts)
         bDNA = BDna(u, dict_bp, dict_idid, dict_hpid)
@@ -473,8 +474,16 @@ def main():
         pickle.dump((ts, bDNA.wc_quality), open( traj_out + name + "__bDNA-wc_quality-" + str(i) + ".p", "wb"))
         pickle.dump((ts, bDNA.dh_quality), open( traj_out + name + "__bDNA-dh_quality-" + str(i) + ".p", "wb"))
         pickle.dump((ts, bDNA.distances), open( traj_out + name + "__bDNA-distances-" + str(i) + ".p", "wb"))
-        write_pdb(u, bDNA, output, name)
+        write_pdb(u, bDNA, PDBs)
+    
+    # close PDB files
+    for PDB in PDBs:
+        PDB.close()
+    
+    
     return
+
+   
 
 
 if __name__ == "__main__":
