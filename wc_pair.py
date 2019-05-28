@@ -161,11 +161,10 @@ class BDna(object):
     def _get_base_plane(self, res):
 
         atom = []
-        try:
-            for atom_name in ["C2", "C4", "C6", "C1'"]:
-                atom.append(res.atoms.select_atoms("name " + atom_name)[0].position)
-        except:
-            ipdb.set_trace()
+        for atom_name in ["C2", "C4", "C6", "C1'"]:
+            A = res.atoms.select_atoms("name " + atom_name)[0]
+            atom.append(A.position)
+
         nhat = np.cross((atom[1]-atom[0]), (atom[2]-atom[1]))
         n0 = nhat/np.linalg.norm(nhat)
     
@@ -378,70 +377,69 @@ def proc_input():
 
     return top, trj, base, name, output, dev, n_frames
 
+def write_pdb(u, bDNA, output, name):
+    u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
+    u.atoms.tempfactors = -1.
+    for res in u.residues:
+        res.atoms.tempfactors = bDNA.wc_quality[res.resindex]["C1'C1'"]
+    u.atoms.write(output + name + "__wc_quality.pdb")
+    u.atoms.tempfactors = -1.
+    for res in u.residues:
+        res.atoms.tempfactors = bDNA.wc_geometry[res.resindex]["rise"]["center"]
+    u.atoms.write(output + name + "__wc_rise.pdb")
+    u.atoms.tempfactors = -1.
+    for res in u.residues:
+        res.atoms.tempfactors = bDNA.wc_geometry[res.resindex]["twist"]["center"]
+    u.atoms.write(output + name + "__wc_twist.pdb")
+            
+    u.atoms.tempfactors = -1.
+    ing = 0.00
+    for resindex, resindex_wc in bDNA.d_idid.items():
+        u.residues[resindex].atoms.tempfactors = ing
+        u.residues[resindex_wc].atoms.tempfactors = ing
+        ing += 0.01
+    return
+
 
 def main():
-        top, trj, base, name ,output, deviations, n_frames = proc_input()
-        print("read ", top, trj, deviations, n_frames)
-        print("output to ", output)
- 
+    top, trj, base, name ,output, deviations, n_frames = proc_input()
+    print("read ", top, trj, deviations, n_frames)
+    print("output to ", output)
 
 
-        # initialize universe and select final frame
-        u = mda.Universe(top, trj)
 
-        frames_step = int( len(u.trajectory) /  n_frames)
-        frames = list(range(len(u.trajectory)-1,0,-frames_step))
+    # initialize universe and select final frame
+    u = mda.Universe(top, trj)
 
-        linker = bpLinker.Linker( base + name )
-        dict_bp, dict_idid, dict_hpid=  linker.link()
-            
-        pickle.dump(dict_bp, open( output + name + "__bp-dict.p", "wb"))
-        pickle.dump(dict_idid, open( output + name + "__idid-dict.p", "wb"))
-        pickle.dump(dict_hpid, open( output + name + "__hpid-dict.p", "wb"))
-        pickle.dump((top, trj), open( output + name + "__universe.p", "wb"))
+    frames_step = int( len(u.trajectory) /  n_frames)
+    frames = list(range(len(u.trajectory)-1,0,-frames_step))
+
+    linker = bpLinker.Linker( base + name )
+    dict_bp, dict_idid, dict_hpid=  linker.link()
         
-        properties = []
-        traj_out = output + "frames/"
-        try:     
-            os.mkdir(traj_out)
-        except  OSError: #FileExistsError: #PYTHON3
-            pass
-        for i, ts in enumerate([u.trajectory[i] for i in frames]):
-            print(ts)
-            bDNA = BDna(u, dict_bp, dict_idid, dict_hpid)
-            
-            #perform analyis
-            bDNA.eval_wc()
-            bDNA.eval_distances()
-            bDNA.eval_dh()
-            ipdb.set_trace()
-            properties.append(bDNA)
-            pickle.dump((ts, bDNA), open( traj_out + name + "__bDNA-" + str(i) + ".p", "wb"))
+    pickle.dump(dict_bp, open( output + name + "__bp-dict.p", "wb"))
+    pickle.dump(dict_idid, open( output + name + "__idid-dict.p", "wb"))
+    pickle.dump(dict_hpid, open( output + name + "__hpid-dict.p", "wb"))
+    pickle.dump((top, trj), open( output + name + "__universe.p", "wb"))
     
-            #write to pdb #TODO: -low- move code
-            u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
-            u.atoms.tempfactors = -1.
-            for res in u.residues:
-                res.atoms.tempfactors = bDNA.wc_quality[res.resindex]["C1'C1'"]
-            u.atoms.write(output + name + "__wc_quality.pdb")
-            u.atoms.tempfactors = -1.
-            for res in u.residues:
-                res.atoms.tempfactors = bDNA.wc_geometry[res.resindex]["rise"]["center"]
-            u.atoms.write(output + name + "__wc_rise.pdb")
-            u.atoms.tempfactors = -1.
-            for res in u.residues:
-                res.atoms.tempfactors = bDNA.wc_geometry[res.resindex]["twist"]["center"]
-            u.atoms.write(output + name + "__wc_twist.pdb")
-            
-            u.atoms.tempfactors = -1.
-            ing = 0.00
-            for resindex, resindex_wc in bDNA.d_idid.items():
-                u.residues[resindex].atoms.tempfactors = ing
-                u.residues[resindex_wc].atoms.tempfactors = ing
-                ing += 0.01
-
- 
-
+    properties = []
+    traj_out = output + "frames/"
+    try:     
+        os.mkdir(traj_out)
+    except  OSError: #FileExistsError: #PYTHON3
+        pass
+    for i, ts in enumerate([u.trajectory[i] for i in frames]):
+        print(ts)
+        bDNA = BDna(u, dict_bp, dict_idid, dict_hpid)
+        
+        #perform analyis
+        bDNA.eval_wc()
+        bDNA.eval_distances()
+        bDNA.eval_dh()
+        properties.append(bDNA)
+        pickle.dump((ts, bDNA), open( traj_out + name + "__bDNA-" + str(i) + ".p", "wb"))
+        write_pdb(u, bDNA, output, name)
+    return
 
 
 if __name__ == "__main__":
