@@ -480,7 +480,8 @@ def main():
     for PDB in PDBs:
         PDB.close()
     
-    
+    # dosomething with properties
+    #TODO: -low-
     return
 
    
