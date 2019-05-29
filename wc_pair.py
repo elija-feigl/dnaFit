@@ -434,8 +434,6 @@ def main():
     print("read ", top, trj, deviations, n_frames)
     print("output to ", output)
 
-
-
     # initialize universe and select final frame
     u = mda.Universe(top, trj)
 
@@ -445,7 +443,8 @@ def main():
     linker = bpLinker.Linker( base + name )
     dict_bp, dict_idid, dict_hpid=  linker.link()
     
-    for dict_, dict_name in [(dict_bp,"bp"), (dict_idid,"idid"), (dict_hpid,"hpid"), ((top, trj),"universe")]:
+    dicts_tuple = [(dict_bp,"bp"), (dict_idid,"idid"), (dict_hpid,"hpid"), ((top, trj),"universe")]
+    for dict_, dict_name in dicts_tuple:
         pickle.dump(dict_, open( output + name + "__" + dict_name + "-dict.p", "wb"))
     
     properties = []
@@ -457,8 +456,8 @@ def main():
 
     # open PDB files
     PDBs = {}
-    for cond in ["bp", "rise", "twist", "qual"]:
-        PDBs[cond] = mda.Writer(output + name + "__wc_" + cond + ".pdb", multiframe=True)
+    for pdb_name in ["bp", "rise", "twist", "qual"]:
+        PDBs[pdb_name] = mda.Writer(output + name + "__wc_" + pdb_name + ".pdb", multiframe=True)
   
     # loop over selected frames
     for i, ts in enumerate([u.trajectory[i] for i in frames]):
@@ -470,9 +469,9 @@ def main():
         bDNA.eval_distances()
         bDNA.eval_dh()
         properties.append(bDNA)
-        props = [(bDNA.wc_geometry,"__bDNA-wc_geometry-"), (bDNA.wc_quality,"__bDNA-wc_quality-"), 
+        props_tuple = [(bDNA.wc_geometry,"__bDNA-wc_geometry-"), (bDNA.wc_quality,"__bDNA-wc_quality-"), 
             (bDNA.dh_quality,"__bDNA-wc_quality-"), (bDNA.distances,"__bDNA-distances-")]
-        for prop, prop_name in props:
+        for prop, prop_name in props_tuple:
             pickle.dump((ts, prop), open( traj_out + name + prop_name + str(i) + ".p", "wb"))
         write_pdb(u, bDNA, PDBs)
     
