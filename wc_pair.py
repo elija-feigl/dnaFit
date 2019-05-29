@@ -476,7 +476,7 @@ def main():
         write_pdb(u, bDNA, PDBs)
     
     # close PDB files
-    for PDB in PDBs:
+    for _,PDB in PDBs.items():
         PDB.close()
     
     # dosomething with properties
