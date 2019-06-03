@@ -93,6 +93,8 @@ class Linker(object):
         d_idid = {**d_idid_sc, **d_idid_st}
         d_hpid = {**d_hpid_sc, **d_hpid_st}
 
+        #TODO: get crossover id dict
+
         return d_bp, d_idid, d_hpid
     
 
