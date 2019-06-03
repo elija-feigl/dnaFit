@@ -5,6 +5,7 @@ import os
 import MDAnalysis as mda
 import numpy as np
 import pickle
+import ipdb
 
 from nanodesign.converters import Converter
 
@@ -15,6 +16,7 @@ class Linker(object):
         self.fit = Fit(self.path)
         self.design = Design(self.path)
         self.d_bp, self.d_idid, self.d_hpid = None, None, None
+        self.s_co_id = None
 
     def _link_scaffold(self):
         """idea: collect position in scaffold (0-x) by comparing to index in list of scaffold_design positions"""
@@ -91,9 +93,34 @@ class Linker(object):
         self.d_idid = {**d_idid_sc, **d_idid_st}
         self.d_hpid = {**d_hpid_sc, **d_hpid_st}
 
-        # TODO: get crossover id dict
-
         return self.d_bp, self.d_idid, self.d_hpid
+
+    def identify_crossover(self):
+
+        design_allbases = self.design.scaffold.copy()
+        design_allbases.extend([ base for staple in self.design.staples for base in staple])
+
+        set_co_designid = set()
+        for design_base in design_allbases:
+            if design_base.id in set_co_designid:
+                continue
+
+            try: #TODO: -low- DRY
+                up = design_base.up
+                if up.h != design_base.h:
+                    set_co_designid.update([design_base.id, up.id])
+            except AttributeError:
+                pass
+            try: 
+                down = design_base.down
+                if down.h != design_base.h:
+                    set_co_designid.update([design_base.id, down.id])
+            except AttributeError:
+                pass
+
+        self.s_co_id = set_co_designid        
+        return self.s_co_id
+
 
     def _idx_incl(self, idx):
         """ include scaffold from idcount
@@ -220,9 +247,11 @@ def main():
     linker = Linker(path)
 
     d_bp, d_idid, d_hpid = linker.link()
+    s_coid = linker.identify_crossover()
     pickle.dump(d_bp, open(path + "__bp-dict.p", "wb"))
     pickle.dump(d_idid, open(path + "__idid-dict.p", "wb"))
     pickle.dump(d_hpid, open(path + "__hpid-dict.p", "wb"))
+    pickle.dump(s_coid, open(path + "__coid-set.p", "wb"))
 
 
 if __name__ == "__main__":
