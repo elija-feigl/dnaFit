@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import __future__
 import MDAnalysis as mda
 import numpy as np
 import sys
