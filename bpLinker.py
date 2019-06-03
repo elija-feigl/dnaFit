@@ -67,8 +67,8 @@ class Linker(object):
 
             idid_add = dict(zip( design_idx, res_ids))
             hp_add = dict(zip( design_hp, res_ids))
-            d_idid = dict(d_idid.items() + idid_add.items())
-            d_hp = dict(d_hp.items() + hp_add.items())
+            d_idid = {**d_idid, **idid_add}
+            d_hp = {**d_hp, **hp_add}
         return d_idid, d_hp
 
     def _link_bp(self, d_scaffold, d_staple):
@@ -90,8 +90,8 @@ class Linker(object):
         d_idid_st, d_hpid_st = self._link_staples()
 
         d_bp = self._link_bp(d_idid_sc, d_idid_st)
-        d_idid = dict(d_idid_sc.items() + d_idid_st.items())
-        d_hpid = dict(d_hpid_sc.items() + d_hpid_st.items())
+        d_idid = {**d_idid_sc, **d_idid_st}
+        d_hpid = {**d_hpid_sc, **d_hpid_st}
 
         return d_bp, d_idid, d_hpid
     
