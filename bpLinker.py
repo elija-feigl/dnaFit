@@ -7,8 +7,6 @@ import MDAnalysis as mda
 import numpy as np
 import pickle
 
-
-import nanodesign as nd 
 from nanodesign.converters import Converter
 
 
@@ -46,7 +44,7 @@ class Linker(object):
 
         for i, staple in enumerate(self.design.staples):
             idx_segment = self.design.s_dict[i]
-            print("seg", idx_segment, "staple runs", (staple[0].h,staple[0].p), ":", (staple[-1].h,staple[-1].p) )
+            #print("seg", idx_segment, "staple runs", (staple[0].h,staple[0].p), ":", (staple[-1].h,staple[-1].p) )
 
             idx_bases = []
             #get all possible positions for a  base in this specific staple
@@ -74,6 +72,8 @@ class Linker(object):
         return d_idid, d_hp
 
     def _link_bp(self, d_scaffold, d_staple):
+        """ returns id id in fit?
+        """
         bp_u = {}
 
         for base in self.design.scaffold:
