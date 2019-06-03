@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 import __future__
 import MDAnalysis as mda
 import numpy as np
@@ -7,11 +7,10 @@ import os
 
 import ipdb
 from MDAnalysis.lib import mdamath
-#import MDAnalysis.analysis.distances
-#from math import sqrt
+
 import pickle
 
-import bpLinker #PYTHON3 (nanodesign not compatible)
+import bpLinker
 
 C1P_BASEDIST = 10.7
 
@@ -157,8 +156,7 @@ class BDna(object):
                     "dir-center": (bases[i]["anker"] - bases[i+1]["anker"]) ,
                     "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5) })
 
-        geometry = {"twist": _get_twist(basepairs[0], basepairs[1]), "rise": _get_rise(basepairs[0], basepairs[1])} 
-        #geometry = {"twist": _get_twist(*basepairs), "rise": _get_rise(*basepair)} #PYTHON3
+        geometry = {"twist": _get_twist(*basepairs), "rise": _get_rise(*basepairs)}
         return geometry, geometry
 
     def _get_base_plane(self, res):
@@ -295,8 +293,7 @@ class BDna(object):
             for i in DH_ATOMS[dh_name]:
                 p.append(atoms[i])
 
-        angle = _dh_angle(p[0],p[1],p[2],p[3])
-        #angle = _dh_angle(*p) 'PYTHON3
+        angle = _dh_angle(*p) 
         
         return angle
     
@@ -385,7 +382,7 @@ def proc_input():
     output = base + "analysis/"
     try:     
         os.mkdir(output)
-    except  OSError: #FileExistsError: #PYTHON3
+    except  FileExistsError:
         pass
 
     n_frames = int(sys.argv[3])
@@ -441,7 +438,7 @@ def main():
     frames = list(range(len(u.trajectory)-1,0,-frames_step))
 
     linker = bpLinker.Linker( base + name )
-    dict_bp, dict_idid, dict_hpid=  linker.link()
+    dict_bp, dict_idid, dict_hpid =  linker.link()
     
     dicts_tuple = [(dict_bp,"bp"), (dict_idid,"idid"), (dict_hpid,"hpid"), ((top, trj),"universe")]
     for dict_, dict_name in dicts_tuple:
@@ -451,7 +448,7 @@ def main():
     traj_out = output + "frames/"
     try:     
         os.mkdir(traj_out)
-    except  OSError: #FileExistsError: #PYTHON3
+    except  FileExistsError:
         pass
 
     # open PDB files
