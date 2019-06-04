@@ -8,12 +8,12 @@ import pickle
 import ipdb
 
 from nanodesign.converters import Converter
-
+from operator import attrgetter
 
 class Linker(object):
     def __init__(self, path):
         self.path = path
-        self.fit = Fit(self.path)
+        self.fit = Fit(self.path,)
         self.design = Design(self.path)
         self.d_bp, self.d_idid, self.d_hpid = None, None, None
         self.s_co_id = None
@@ -35,12 +35,14 @@ class Linker(object):
         d_idid = dict(zip(design_idx, res_ids))
         d_hp = dict(zip(design_hp, res_ids))
         return d_idid, d_hp
+  
 
     def _link_staples(self):
         """ loop over all staples, then perform the same procesdure as for scaffold
         """
         d_idid = {}
         d_hp = {}
+        d_color = {}
 
         for i, staple in enumerate(self.design.staples):
             idx_segment = self.design.s_dict[i]
@@ -66,12 +68,18 @@ class Linker(object):
                           j, "on helix ", staple[j].h, )
                     res_ids.append(-1)
                     pass
+            # get color
+            color = self.design.design.strands[staple[0].strand].icolor
+            segidxforcolor = self.fit.staples[idx_segment].segindex
+            d_color[segidxforcolor] = color
+            
 
             idid_add = dict(zip(design_idx, res_ids))
             hp_add = dict(zip(design_hp, res_ids))
             d_idid = {**d_idid, **idid_add}
             d_hp = {**d_hp, **hp_add}
-        return d_idid, d_hp
+
+        return d_idid, d_hp, d_color
 
     def _link_bp(self, d_scaffold, d_staple):
         """ returns id id in fit?
@@ -87,40 +95,40 @@ class Linker(object):
     def link(self):
 
         d_idid_sc, d_hpid_sc = self._link_scaffold()
-        d_idid_st, d_hpid_st = self._link_staples()
+        d_idid_st, d_hpid_st, self.d_color = self._link_staples()
 
         self.d_bp = self._link_bp(d_idid_sc, d_idid_st)
         self.d_idid = {**d_idid_sc, **d_idid_st}
         self.d_hpid = {**d_hpid_sc, **d_hpid_st}
 
-        return self.d_bp, self.d_idid, self.d_hpid
+        return self.d_bp, self.d_idid, self.d_hpid, self.d_color
 
     def identify_crossover(self):
 
         design_allbases = self.design.scaffold.copy()
-        design_allbases.extend([ base for staple in self.design.staples for base in staple])
+        design_allbases.extend(
+            [base for staple in self.design.staples for base in staple])
 
         set_co_designid = set()
         for design_base in design_allbases:
             if design_base.id in set_co_designid:
                 continue
 
-            try: #TODO: -low- DRY
+            try:  # TODO: -low- DRY
                 up = design_base.up
                 if up.h != design_base.h:
                     set_co_designid.update([design_base.id, up.id])
             except AttributeError:
                 pass
-            try: 
+            try:
                 down = design_base.down
                 if down.h != design_base.h:
                     set_co_designid.update([design_base.id, down.id])
             except AttributeError:
                 pass
 
-        self.s_co_id = set_co_designid        
+        self.s_co_id = set_co_designid
         return self.s_co_id
-
 
     def _idx_incl(self, idx):
         """ include scaffold from idcount
@@ -138,9 +146,7 @@ class Fit(object):
     def __init__(self, path):
         self.path = path
         self.u = self._get_universe()
-        self.strands = self.u.segments
-        self.scaffold = self.strands[0]
-        self.staples = self.strands[1:]
+        self.scaffold, self.staples = self._split_strands()
 
     def _get_universe(self):
         top = self.path + ".psf"
@@ -148,6 +154,12 @@ class Fit(object):
 
         u = mda.Universe(top, trj)
         return u
+
+    def _split_strands(self):
+        strands = self.u.segments
+        scaffold = max(strands, key=attrgetter('residues.n_residues'))
+        staples = [strand for strand in strands if len(strand.atoms) != len(scaffold.atoms)]
+        return scaffold, staples
 
 
 class Design(object):
@@ -190,7 +202,6 @@ class Design(object):
     def _create_helix_order(self):
         """ helices are not prcessed in the same order as they are listed by idx
         """
-
         helices_dict = self.design.structure_helices_map
         h_dict = {i: h.load_order for (i, h) in helices_dict.items()}
 
@@ -199,7 +210,7 @@ class Design(object):
     def _create_staple_order(self):
         """ exchange staple id with load_id 
             map design-staple-order to universe-staple-order
-            staple order is not the same for mda and nd
+            staple order is not the same for ergy-server and nd
             enrg/MDanalysis: sort left to right top to bottom; only counting 3' ends
             nanodesigns/auto: sort left to right top to bottom; counting every staple piece
         """
@@ -246,11 +257,12 @@ def main():
     print("output to ", path)
     linker = Linker(path)
 
-    d_bp, d_idid, d_hpid = linker.link()
+    d_bp, d_idid, d_hpid, d_color = linker.link()
     s_coid = linker.identify_crossover()
     pickle.dump(d_bp, open(path + "__bp-dict.p", "wb"))
     pickle.dump(d_idid, open(path + "__idid-dict.p", "wb"))
     pickle.dump(d_hpid, open(path + "__hpid-dict.p", "wb"))
+    pickle.dump(d_color, open(path + "__color-dict.p", "wb"))
     pickle.dump(s_coid, open(path + "__coid-set.p", "wb"))
 
 
