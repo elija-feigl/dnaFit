@@ -436,12 +436,13 @@ def main():
     frames_step = int( len(u.trajectory) /  n_frames)
     frames = list(range(len(u.trajectory)-1,0,-frames_step))
 
-    linker = bpLinker.Linker( base + name )
-    dict_bp, dict_idid, dict_hpid =  linker.link()
+    linker = bpLinker.Linker( base + name)
+    dict_bp, dict_idid, dict_hpid, _ =  linker.link()
+    s_coid = linker.identify_crossover()
     
-    dicts_tuple = [(dict_bp,"bp"), (dict_idid,"idid"), (dict_hpid,"hpid"), ((top, trj),"universe")]
+    dicts_tuple = [(dict_bp,"bp-dict"), (dict_idid,"idid-dict"), (dict_hpid,"hpid-dict"), (s_coid,"coid-set"), ((top, trj),"universe")]
     for dict_, dict_name in dicts_tuple:
-        pickle.dump(dict_, open( output + name + "__" + dict_name + "-dict.p", "wb"))
+        pickle.dump(dict_, open( output + name + "__" + dict_name + ".p", "wb"))
     
     properties = []
     traj_out = output + "frames/"
@@ -465,10 +466,10 @@ def main():
         bDNA.eval_distances()
         bDNA.eval_dh()
         properties.append(bDNA)
-        props_tuple = [(bDNA.wc_geometry,"__bDNA-wc_geometry-"), (bDNA.wc_quality,"__bDNA-wc_quality-"), 
-            (bDNA.dh_quality,"__bDNA-wc_quality-"), (bDNA.distances,"__bDNA-distances-")]
+        props_tuple = [(bDNA.wc_geometry,"wc_geometry"), (bDNA.wc_quality,"wc_quality"), 
+            (bDNA.dh_quality,"dh_quality"), (bDNA.distances,"distances")]
         for prop, prop_name in props_tuple:
-            pickle.dump((ts, prop), open( traj_out + name + prop_name + str(i) + ".p", "wb"))
+            pickle.dump((ts, prop), open( traj_out + name + "__bDNA-" + prop_name + "-" + str(i)+ ".p", "wb"))
         write_pdb(u, bDNA, PDBs)
     
     # close PDB files
@@ -476,7 +477,7 @@ def main():
         PDB.close()
     
     # dosomething with properties
-    #TODO: -low-
+    #TODO: -low- ... temporarily moved to  analysis notebook
     return
 
 
