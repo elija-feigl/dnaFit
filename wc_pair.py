@@ -482,12 +482,10 @@ def main():
     frames = list(range(len(u.trajectory)-1,0,-frames_step))
 
     linker = bpLinker.Linker( base + name)
-    dict_bp, dict_idid, dict_hpid, _ =  linker.link()
-    d_coid = linker.identify_crossover()
-    
-    dicts_tuple = [(dict_bp,"bp-dict"), (dict_idid,"idid-dict"), (dict_hpid,"hpid-dict"), (d_coid,"coid-dict"), ((top, trj),"universe")]
-    for dict_, dict_name in dicts_tuple:
-        pickle.dump(dict_, open( output + name + "__" + dict_name + ".p", "wb"))
+    dict_bp, dict_idid, dict_hpid, _ = linker.link()
+    dict_coid = linker.identify_crossover()
+    for dict_name in [ "dict_bp", "dict_idid", "dict__hpid", "dict_coid"]:
+        pickle.dump(eval(dict_name), open( output + name + "__" + dict_name + ".p", "wb"))
     
     properties = []
     traj_out = output + "frames/"
