@@ -159,7 +159,7 @@ class BDna(object):
 
         def _get_slide(basepair, n_basepair):
             slide = []
-            for direct in [("center-anker","dir_anker") , ("center","dir_center") ]:
+            for direct in [("center-anker","dir-anker") , ("center","dir-center") ]:
                 n0 = basepair[direct[1]] 
                 n0 = n0 / (np.linalg.norm(n0))
                 P1 = basepair[direct[0]]
