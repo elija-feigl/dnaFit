@@ -34,6 +34,8 @@ BB_ATOMS = ["C1'","O3'","C3'","C4'", "O5'","C5'","P"]
 PYR_ATOMS = ["N1","C2"]
 PUR_ATOMS = ["N9","C4"]
 
+WC_PROPERTIES = ["rise", "slide", "shift", "twist", "tilt", "roll"]
+
 #TODO: -mid- nicks
 #TODO: -mid- crosover angles
 
@@ -144,6 +146,26 @@ class BDna(object):
 
             return {"anker":rise[0], "center":rise[1]}
 
+        def _get_shift(basepair, n_basepair):
+            shift = []
+            for direct in ["center-anker", "center"]:
+                n0 = np.cross(basepair["n0"], basepair[direct]) 
+                P1 = basepair[direct]
+                P2 = n_basepair[direct]
+                shift.append(np.abs(np.inner((P2 - P1), n0)))
+
+            return {"anker":shift[0], "center":shift[1]}
+
+        def _get_slide(basepair, n_basepair):
+            slide = []
+            for direct in ["center-anker", "center"]:
+                n0 = basepair[direct] 
+                P1 = basepair[direct]
+                P2 = n_basepair[direct]
+                slide.append(np.abs(np.inner((P2 - P1), n0)))
+
+            return {"anker":slide[0], "center":slide[1]}
+
         def _get_tilt(basepair, n_basepair):
             tilt = []
             n0 = basepair["n0"]
@@ -200,7 +222,12 @@ class BDna(object):
                     "dir-center": (bases[i]["anker"] - bases[i+1]["anker"]) ,
                     "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5) })
 
-        geometry = {"twist": _get_twist(*basepairs), "rise": _get_rise(*basepairs),  "tilt": _get_tilt(*basepairs), "roll": _get_roll(*basepairs)}
+        geometry = {"rise": _get_rise(*basepairs), 
+                "slide": _get_slide(*basepairs),
+                "shift": _get_shift(*basepairs),
+                "twist": _get_twist(*basepairs),
+                "tilt": _get_tilt(*basepairs),
+                "roll": _get_roll(*basepairs)}
         return geometry, geometry
 
     def _get_base_plane(self, res):
@@ -448,7 +475,7 @@ def write_pdb(u, bDNA, PDBs):
             pass
     PDBs["qual"].write(u.atoms)
     
-    for cond in ["rise", "twist", "tilt", "roll"]:
+    for cond in WC_PROPERTIES:
         u.atoms.tempfactors = -1.
         for res in u.residues:
             try:
@@ -502,7 +529,7 @@ def main():
 
     # open PDB files
     PDBs = {}
-    for pdb_name in ["bp", "rise", "twist", "tilt", "roll", "qual" ]:
+    for pdb_name in [*WC_PROPERTIES, "bp", "qual" ]:
         PDBs[pdb_name] = mda.Writer(output + name + "__wc_" + pdb_name + ".pdb", multiframe=True)
     for pdb_name in DH_ATOMS.keys():
         PDBs[pdb_name] = mda.Writer(output + name + "__dh_" + pdb_name + ".pdb", multiframe=True)
