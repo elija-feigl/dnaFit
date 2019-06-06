@@ -153,7 +153,7 @@ class BDna(object):
                 n0 = n0 / (np.linalg.norm(n0))
                 P1 = basepair[direct]
                 P2 = n_basepair[direct]
-                shift.append(np.abs(np.inner((P2 - P1), n0)))
+                shift.append(np.inner((P2 - P1), n0))
 
             return {"anker":shift[0], "center":shift[1]}
 
@@ -164,7 +164,7 @@ class BDna(object):
                 n0 = n0 / (np.linalg.norm(n0))
                 P1 = basepair[direct]
                 P2 = n_basepair[direct]
-                slide.append(np.abs(np.inner((P2 - P1), n0)))
+                slide.append(np.inner((P2 - P1), n0))
 
             return {"anker":slide[0], "center":slide[1]}
 
