@@ -148,22 +148,22 @@ class BDna(object):
 
         def _get_shift(basepair, n_basepair):
             shift = []
-            for direct in ["center-anker", "center"]:
-                n0 = np.cross(basepair["n0"], basepair[direct]) 
+            for direct in [("center-anker","dir_anker") , ("center","dir_center") ]:
+                n0 = np.cross(basepair["n0"], basepair[direct[1]]) 
                 n0 = n0 / (np.linalg.norm(n0))
-                P1 = basepair[direct]
-                P2 = n_basepair[direct]
+                P1 = basepair[direct[0]]
+                P2 = n_basepair[direct[0]]
                 shift.append(np.inner((P2 - P1), n0))
 
             return {"anker":shift[0], "center":shift[1]}
 
         def _get_slide(basepair, n_basepair):
             slide = []
-            for direct in ["center-anker", "center"]:
-                n0 = basepair[direct] 
+            for direct in [("center-anker","dir_anker") , ("center","dir_center") ]:
+                n0 = basepair[direct[1]] 
                 n0 = n0 / (np.linalg.norm(n0))
-                P1 = basepair[direct]
-                P2 = n_basepair[direct]
+                P1 = basepair[direct[0]]
+                P2 = n_basepair[direct[0]]
                 slide.append(np.inner((P2 - P1), n0))
 
             return {"anker":slide[0], "center":slide[1]}
