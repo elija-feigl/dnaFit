@@ -10,6 +10,7 @@ import ipdb
 from nanodesign.converters import Converter
 from operator import attrgetter
 
+
 class Linker(object):
     def __init__(self, path):
         self.path = path
@@ -35,7 +36,6 @@ class Linker(object):
         d_idid = dict(zip(design_idx, res_ids))
         d_hp = dict(zip(design_hp, res_ids))
         return d_idid, d_hp
-  
 
     def _link_staples(self):
         """ loop over all staples, then perform the same procesdure as for scaffold
@@ -46,33 +46,17 @@ class Linker(object):
 
         for i, staple in enumerate(self.design.staples):
             idx_segment = self.design.s_dict[i]
-            #print("seg", idx_segment, "staple runs", (staple[0].h,staple[0].p), ":", (staple[-1].h,staple[-1].p) )
-
-            idx_bases = []
+           
             # get all possible positions for a  base in this specific staple
             design_idx = [base.id for base in staple]
             design_hp = [(base.h, base.p, 1)for base in staple]
-            for base in staple:
-                idx = design_idx.index(base.id)
-                idx_bases.append(idx)
+            idx_bases = [design_idx.index(base.id) for base in staple]
+            res_ids = [self.fit.staples[idx_segment].residues[j].resindex for j in idx_bases]
 
-            # TODO: cleanup after final testing
-            res_ids = []
-            for j in idx_bases:
-                try:
-                    res_ids.append(
-                        self.fit.staples[idx_segment].residues[j].resindex)
-
-                except:
-                    print("something went wrong - excluded base ",
-                          j, "on helix ", staple[j].h, )
-                    res_ids.append(-1)
-                    pass
             # get color
             color = self.design.design.strands[staple[0].strand].icolor
             segidxforcolor = self.fit.staples[idx_segment].segindex
             d_color[segidxforcolor] = color
-            
 
             idid_add = dict(zip(design_idx, res_ids))
             hp_add = dict(zip(design_hp, res_ids))
@@ -85,7 +69,6 @@ class Linker(object):
         """ returns id id in fit?
         """
         bp_u = {}
-
         for base in self.design.scaffold:
             if base.across is not None:
                 bp_u[d_scaffold[base.id]] = d_staple[base.across.id]
@@ -104,68 +87,51 @@ class Linker(object):
         return self.d_bp, self.d_idid, self.d_hpid, self.d_color
 
     def identify_crossover(self):
-        """ both staple and scaffold crossover
+        """ for every base id that is involved in a crossover,
+            list: co-partner id "co", "is_scaf", "type" (single/double, id) 
         """
-        #TODO: -high- ceck co_set, add pairings, add type (single/double ,staple/scaffold)
-
-
         design_allbases = self.design.scaffold.copy()
         design_allbases.extend(
             [base for staple in self.design.staples for base in staple])
 
-        set_co_designid = {}
+        dict_co_designid = {}
+        dict_co_positionid = {}
         for design_base in design_allbases:
             for direct in ["up", "down"]:
-                try: 
-                    neighbor = design_base.up if direct == "up" else design_base.down
+                neighbor = design_base.up if direct == "up" else design_base.down
+
+                if neighbor is not None:
                     if neighbor.h != design_base.h:
-                        set_co_designid[design_base.id] = {{"co": neighbor.id}, {"is_scaf": design_base.is_scaf}}
-                except AttributeError:
-                    pass
-            
-        #TODO: -mid- append single/double; loop over all and check if .p +-1  (is_scaff) -> id in list --> double else single
-        self.d_co_id = set_co_designid
-        return self.d_co_id, 
+                        dict_co_designid[design_base.id] = {"co": neighbor.id, "is_scaf": design_base.is_scaf, "position": (
+                            design_base.h, design_base.p, design_base.is_scaf)}
+                        dict_co_positionid[(
+                            design_base.h, design_base.p, design_base.is_scaf)] = design_base.id
+
+        for value in dict_co_designid.values():
+            is_single = True
+            h, p, is_scaf = value["position"]
+            is_single = True
+            for i in [-1, 1]:
+                if (h, p+i, is_scaf) in dict_co_positionid.keys():
+                    is_single = False
+                    double = dict_co_positionid[(h, p+i, is_scaf)]
+
+            value["type"] = ("single", None) if is_single else (
+                "double", double)
+            value.pop("position")
+
+        ipdb.set_trace()
+        self.d_co_id = dict_co_designid
+        return self.d_co_id
 
     def identify_nicks(self):
-        """ staple nicks
-       
-
-        design_allbases = self.design.scaffold.copy()
-        design_allbases.extend(
-            [base for staple in self.design.staples for base in staple])
-
-        set_co_designid = set()
-        for design_base in design_allbases:
-            if design_base.id in set_co_designid:
-                continue
-
-            try:  # TODO: -low- DRY
-                up = design_base.up
-                if up.h != design_base.h:
-                    set_co_designid.update([design_base.id, up.id])
-            except AttributeError:
-                pass
-            try:
-                down = design_base.down
-                if down.h != design_base.h:
-                    set_co_designid.update([design_base.id, down.id])
-            except AttributeError:
-                pass
-
-        self.s_co_id = set_co_designid
-         """
-        return self.s_co_id
+        # TODO: -low-
+        raise NotImplementedError
 
     def _idx_incl(self, idx):
         """ include scaffold from idcount
         """
-        if idx >= self.design.excl:
-            st_idx = idx + 1
-        else:
-            st_idx = idx
-
-        return st_idx
+        return idx + 1 if idx >= self.design.excl else idx
 
 
 class Fit(object):
@@ -178,14 +144,14 @@ class Fit(object):
     def _get_universe(self):
         top = self.path + ".psf"
         trj = self.path + ".dcd"
-
         u = mda.Universe(top, trj)
         return u
 
     def _split_strands(self):
         strands = self.u.segments
         scaffold = max(strands, key=attrgetter('residues.n_residues'))
-        staples = [strand for strand in strands if len(strand.atoms) != len(scaffold.atoms)]
+        staples = [strand for strand in strands if len(
+            strand.atoms) != len(scaffold.atoms)]
         return scaffold, staples
 
 
@@ -245,7 +211,6 @@ class Design(object):
         list_hp_s = sorted(list_hp, key=lambda x: (x[0], x[1]))
 
         idx_list = [list_hp.index(list_hp_s[i]) for i in range(len(list_hp))]
-
         s_dict = dict(zip(idx_list, range(len(idx_list))))
 
         return s_dict
@@ -284,13 +249,11 @@ def main():
     print("output to ", path)
     linker = Linker(path)
 
-    d_bp, d_idid, d_hpid, d_color = linker.link()
-    d_coid = linker.identify_crossover()
-    pickle.dump(d_bp, open(path + "__bp-dict.p", "wb"))
-    pickle.dump(d_idid, open(path + "__idid-dict.p", "wb"))
-    pickle.dump(d_hpid, open(path + "__hpid-dict.p", "wb"))
-    pickle.dump(d_color, open(path + "__color-dict.p", "wb"))
-    pickle.dump(d_coid, open(path + "__coid-dict.p", "wb"))
+    dict_bp, dict_idid, dict_hpid, dict_color = linker.link()
+    dict_coid = linker.identify_crossover()
+    for dict_name in [ "dict_bp", "dict_idid", "dict__hpid", "dict_color", "dict_coid"]:
+        pickle.dump(eval(dict_name), open(path + "__"+ dict_name +".p", "wb"))
+  
 
 
 if __name__ == "__main__":
