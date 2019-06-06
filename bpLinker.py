@@ -66,7 +66,7 @@ class Linker(object):
         return d_idid, d_hp, d_color
 
     def _link_bp(self, d_scaffold, d_staple):
-        """ returns id id in fit?
+        """ returns dict: key = id design  value = id fit
         """
         bp_u = {}
         for base in self.design.scaffold:
