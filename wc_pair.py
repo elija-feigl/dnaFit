@@ -295,7 +295,7 @@ class BDna(object):
 
     def _get_dh_for_res(self, atoms, pyr, dh_valid):
         dh = {}
-        for dh_name in ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "xi"]:
+        for dh_name in DH_ATOMS.keys():
             if dh_name in dh_valid:
                 angle = self._get_angle(atoms, pyr, dh_name)
             else:
@@ -409,14 +409,11 @@ def print_usage():
 
 def proc_input():
     
-    
     if len(sys.argv) < 3:
         print_usage()
         exit(0)
 
-    # if isinstance(sys.argv[1], str):
     project = sys.argv[1]
-    # if isinstance(sys.argv[2], str):
     name = sys.argv[2]
     cwd = os.getcwd()
     base = cwd + "/" + project + "/"
@@ -459,6 +456,15 @@ def write_pdb(u, bDNA, PDBs):
             except KeyError:
                 pass
         PDBs[cond].write(u.atoms)
+
+    for dh in DH_ATOMS.keys():
+        u.atoms.tempfactors = -1.
+        for res in u.residues:
+            try:
+                res.atoms.tempfactors = bDNA.dh_quality[res.resindex][dh]
+            except KeyError:
+                pass
+        PDBs[dh].write(u.atoms)
             
     u.atoms.tempfactors = -1.
     ing = 0.00
@@ -496,8 +502,10 @@ def main():
 
     # open PDB files
     PDBs = {}
-    for pdb_name in ["bp", "rise", "twist", "tilt", "roll", "qual"]:
+    for pdb_name in ["bp", "rise", "twist", "tilt", "roll", "qual" ]:
         PDBs[pdb_name] = mda.Writer(output + name + "__wc_" + pdb_name + ".pdb", multiframe=True)
+    for pdb_name in DH_ATOMS.keys():
+        PDBs[pdb_name] = mda.Writer(output + name + "__dh_" + pdb_name + ".pdb", multiframe=True)
   
     # loop over selected frames
     for i, ts in enumerate([u.trajectory[i] for i in frames]):
@@ -522,8 +530,6 @@ def main():
     for _,PDB in PDBs.items():
         PDB.close()
     
-    # dosomething with properties
-    #TODO: -low- ... temporarily moved to  analysis notebook
     return
 
 
