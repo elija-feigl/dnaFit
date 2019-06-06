@@ -16,7 +16,7 @@ class Linker(object):
         self.fit = Fit(self.path,)
         self.design = Design(self.path)
         self.d_bp, self.d_idid, self.d_hpid = None, None, None
-        self.s_co_id = None
+        self.d_co_id = None
 
     def _link_scaffold(self):
         """idea: collect position in scaffold (0-x) by comparing to index in list of scaffold_design positions"""
@@ -104,6 +104,32 @@ class Linker(object):
         return self.d_bp, self.d_idid, self.d_hpid, self.d_color
 
     def identify_crossover(self):
+        """ both staple and scaffold crossover
+        """
+        #TODO: -high- ceck co_set, add pairings, add type (single/double ,staple/scaffold)
+
+
+        design_allbases = self.design.scaffold.copy()
+        design_allbases.extend(
+            [base for staple in self.design.staples for base in staple])
+
+        set_co_designid = {}
+        for design_base in design_allbases:
+            for direct in ["up", "down"]:
+                try: 
+                    neighbor = design_base.up if direct == "up" else design_base.down
+                    if neighbor.h != design_base.h:
+                        set_co_designid[design_base.id] = {{"co": neighbor.id}, {"is_scaf": design_base.is_scaf}}
+                except AttributeError:
+                    pass
+            
+        #TODO: -mid- append single/double; loop over all and check if .p +-1  (is_scaff) -> id in list --> double else single
+        self.d_co_id = set_co_designid
+        return self.d_co_id, 
+
+    def identify_nicks(self):
+        """ staple nicks
+       
 
         design_allbases = self.design.scaffold.copy()
         design_allbases.extend(
@@ -128,6 +154,7 @@ class Linker(object):
                 pass
 
         self.s_co_id = set_co_designid
+         """
         return self.s_co_id
 
     def _idx_incl(self, idx):
@@ -258,12 +285,12 @@ def main():
     linker = Linker(path)
 
     d_bp, d_idid, d_hpid, d_color = linker.link()
-    s_coid = linker.identify_crossover()
+    d_coid = linker.identify_crossover()
     pickle.dump(d_bp, open(path + "__bp-dict.p", "wb"))
     pickle.dump(d_idid, open(path + "__idid-dict.p", "wb"))
     pickle.dump(d_hpid, open(path + "__hpid-dict.p", "wb"))
     pickle.dump(d_color, open(path + "__color-dict.p", "wb"))
-    pickle.dump(s_coid, open(path + "__coid-set.p", "wb"))
+    pickle.dump(d_coid, open(path + "__coid-dict.p", "wb"))
 
 
 if __name__ == "__main__":
