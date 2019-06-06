@@ -34,7 +34,8 @@ BB_ATOMS = ["C1'","O3'","C3'","C4'", "O5'","C5'","P"]
 PYR_ATOMS = ["N1","C2"]
 PUR_ATOMS = ["N9","C4"]
 
-
+#TODO: -mid- nicks
+#TODO: -mid- crosover angles
 
 class BDna(object):
 
@@ -44,7 +45,7 @@ class BDna(object):
         self.d_bp = d_bp
         self.d_hpid =d_hpid
 
-        self.d_crossoverid = None #derive from dicts? #TODO: -mid-
+        self.d_crossoverid = None 
 
         self.wc_quality = None   #dict: references residue index -> bond quality 
         self.wc_geometry = None   
@@ -121,7 +122,7 @@ class BDna(object):
         return quality, quality
 
     def _get_wc_geometry(self, res, res_wc, n_res, n_res_wc):
-        """  dict of twist for each wc-pair (key= resid-scaffold)
+        """  dict of geometry of basepairs for each wc-pair (key= resid-scaffold)
         """
         
         def _get_twist(basepair, n_basepair):
@@ -129,7 +130,7 @@ class BDna(object):
             for direct in ["dir-anker", "dir-center"]:
                 v1 = basepair[direct]
                 v2 = n_basepair[direct]
-                twist.append(np.rad2deg(np.arccos(np.inner(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))))
+                twist.append(np.rad2deg(np.arccos(_proj(v1,v2))))
              
             return {"anker":twist[0], "center":twist[1]}
 
@@ -143,6 +144,50 @@ class BDna(object):
 
             return {"anker":rise[0], "center":rise[1]}
 
+        def _get_tilt(basepair, n_basepair):
+            tilt = []
+            n0 = basepair["n0"]
+            n_n0 = n_basepair["n0"]
+
+            for direct in ["dir-anker", "dir-center"]:
+                rot_axis = np.cross(basepair[direct], n0)   
+                projn0 = n0 - _v_proj(n0, rot_axis)
+                projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
+
+                dist = _proj(projn0,projn_n0)
+                if dist > 0: 
+                    tilt.append(np.rad2deg(np.arccos( dist )))
+                else:
+                    tilt.append(np.rad2deg(- np.arccos( abs(dist) )))
+
+            for value in tilt:
+                if value > 90.: value - 180.
+             
+            return {"anker":tilt[0], "center":tilt[1]}
+        
+        def _get_roll(basepair, n_basepair):
+            roll = []
+            n0 = basepair["n0"]
+            n_n0 = n_basepair["n0"]
+
+            for direct in ["dir-anker", "dir-center"]:
+                rot_axis = basepair[direct]
+                projn0 = n0 - _v_proj(n0, rot_axis)
+                projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
+
+                dist = _proj(projn0,projn_n0)
+                if dist > 0: 
+                    roll.append(np.rad2deg(np.arccos( dist )))
+                else:
+                    roll.append(np.rad2deg(- np.arccos( abs(dist) )))
+             
+            return {"anker":roll[0], "center":roll[1]}
+
+        def _proj(u, v):
+            return np.inner(u, v) / (np.linalg.norm(u) * np.linalg.norm(v))
+        def _v_proj(u, v):
+            return np.inner(u, v) / (np.linalg.norm(v) * np.linalg.norm(v)) * v
+
         bases = []
         for r in [res, res_wc, n_res, n_res_wc]:
             bases.append(self._get_base_plane(r))
@@ -155,7 +200,7 @@ class BDna(object):
                     "dir-center": (bases[i]["anker"] - bases[i+1]["anker"]) ,
                     "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5) })
 
-        geometry = {"twist": _get_twist(*basepairs), "rise": _get_rise(*basepairs)}
+        geometry = {"twist": _get_twist(*basepairs), "rise": _get_rise(*basepairs),  "tilt": _get_tilt(*basepairs), "roll": _get_roll(*basepairs)}
         return geometry, geometry
 
     def _get_base_plane(self, res):
@@ -406,7 +451,7 @@ def write_pdb(u, bDNA, PDBs):
             pass
     PDBs["qual"].write(u.atoms)
     
-    for cond in ["rise", "twist"]:
+    for cond in ["rise", "twist", "tilt", "roll"]:
         u.atoms.tempfactors = -1.
         for res in u.residues:
             try:
@@ -438,9 +483,9 @@ def main():
 
     linker = bpLinker.Linker( base + name)
     dict_bp, dict_idid, dict_hpid, _ =  linker.link()
-    s_coid = linker.identify_crossover()
+    d_coid = linker.identify_crossover()
     
-    dicts_tuple = [(dict_bp,"bp-dict"), (dict_idid,"idid-dict"), (dict_hpid,"hpid-dict"), (s_coid,"coid-set"), ((top, trj),"universe")]
+    dicts_tuple = [(dict_bp,"bp-dict"), (dict_idid,"idid-dict"), (dict_hpid,"hpid-dict"), (d_coid,"coid-dict"), ((top, trj),"universe")]
     for dict_, dict_name in dicts_tuple:
         pickle.dump(dict_, open( output + name + "__" + dict_name + ".p", "wb"))
     
@@ -453,7 +498,7 @@ def main():
 
     # open PDB files
     PDBs = {}
-    for pdb_name in ["bp", "rise", "twist", "qual"]:
+    for pdb_name in ["bp", "rise", "twist", "tilt", "roll", "qual"]:
         PDBs[pdb_name] = mda.Writer(output + name + "__wc_" + pdb_name + ".pdb", multiframe=True)
   
     # loop over selected frames
@@ -462,8 +507,11 @@ def main():
         bDNA = BDna(u, dict_bp, dict_idid, dict_hpid)
         
         #perform analyis
+        print("eval_wc", name)
         bDNA.eval_wc()
+        print("eval_distances", name)
         bDNA.eval_distances()
+        print("eval_dh", name)
         bDNA.eval_dh()
         properties.append(bDNA)
         props_tuple = [(bDNA.wc_geometry,"wc_geometry"), (bDNA.wc_quality,"wc_quality"), 
