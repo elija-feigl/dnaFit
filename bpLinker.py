@@ -120,7 +120,6 @@ class Linker(object):
                 "double", double)
             value.pop("position")
 
-        ipdb.set_trace()
         self.d_co_id = dict_co_designid
         return self.d_co_id
 
