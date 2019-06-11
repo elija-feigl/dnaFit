@@ -41,18 +41,18 @@ WC_PROPERTIES = ["rise", "slide", "shift", "twist", "tilt", "roll"]
 
 class BDna(object):
 
-    def __init__(self, universe, d_bp, d_idid, d_hpid):
+    def __init__(self, universe, d_bp, d_idid, d_hpid, d_crossoverid):
         self.u = universe
         self.d_idid = d_idid
         self.d_bp = d_bp
         self.d_hpid =d_hpid
-
-        self.d_crossoverid = None 
+        self.d_crossoverid = d_crossoverid  
 
         self.wc_quality = None   #dict: references residue index -> bond quality 
         self.wc_geometry = None   
         self.dh_quality = None  
         self.distances = None    #only scaffold bases have complement
+        self.co_angles = None
 
     def _get_next_wc(self, resindex, resindex_wc):
         """ get next residue and its complemt wc pair
@@ -424,6 +424,60 @@ class BDna(object):
             d_c[resindex] = {"strand": dist_A, "compl": dist_A_wc}
         return d_c
 
+    def eval_co_angles(self):
+        """ Definition of the angles enclosed by the four helical legs of a cross-over. 
+            Vectors are computed using the coordinates of base pair midpoints at the 
+            cross-over position and 2 bp away from the cross-over in each leg. The
+            cross-over vector x is computed from the coordinates of the midpoints
+            between the two base pairs in each of the two helices at the cross-over
+            position and is normal to what we call the cross-over plane. The subscript
+            “jj” indicates vectorial projections into the cross-over plane. The angle β
+            is also computed as indicated for vectors C and D.(Bai 2012)
+        """
+        def get_co_baseplanes(res_index, leg_index, co_index, coleg_index):
+            bases = []
+            for r in [res_index, leg_index, co_index, coleg_index]:
+                try:
+                    wc_r = self.d_bp[r]
+                    bases.append(self._get_base_plane(self.u.residues[r]))
+                    bases.append(self._get_base_plane(self.u.residues[wc_r]))
+                except KeyError:
+                    bases.append(self._get_base_plane(self.u.residues[r]))
+                    bases.append(self._get_base_plane(self.u.residues[r])) #TODO: -low- dirty
+
+            bpplanes = []
+            for i in [0, 2, 4, 6]:
+                bpplanes.append({"center-anker": ((bases[i]["anker"] + bases[i+1]["anker"]) * 0.5),
+                        "dir-anker": (bases[i]["anker"] - bases[i+1]["anker"]) ,
+                        "center": ((bases[i]["center"] + bases[i+1]["center"]) * 0.5), 
+                        "dir-center": (bases[i]["anker"] - bases[i+1]["anker"]) ,
+                        "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5) })
+            return bpplanes
+
+
+        for res_index, co in self.d_crossoverid.items(): 
+            leg_index = co["leg"]
+            co_index = co["co"]
+            coleg_index = self.d_crossoverid[co_index]["leg"]
+
+            bpplanes = get_co_baseplanes(res_index, leg_index, co_index, coleg_index)
+
+
+            if co["type"][0] == "double":
+                double_res_index = co["type"][1]
+                double_leg_index = self.d_crossoverid[double_res_index]["leg"]
+                double_co_index = self.d_crossoverid[double_res_index]["co"]
+                double_co_leg_index = self.d_crossoverid[double_res_index]["leg"]
+
+                double_bpplanes = get_co_baseplanes(double_res_index, double_leg_index, double_co_index, double_co_leg_index)
+
+        ipdb.set_trace()
+
+            
+         
+ 
+        return 
+
 def print_usage():
     print("""
     initializes MDAnalysis universe and compoutes watson scric base pairs. they are returned as to dictionaries. this process is repeated for each Hbond-deviation criterion
@@ -539,7 +593,7 @@ def main():
     # loop over selected frames
     for i, ts in enumerate([u.trajectory[i] for i in frames]):
         print(ts)
-        bDNA = BDna(u, dict_bp, dict_idid, dict_hpid)
+        bDNA = BDna(u, dict_bp, dict_idid, dict_hpid, dict_coid)
         
         #perform analyis
         print("eval_wc", name)
@@ -548,7 +602,10 @@ def main():
         bDNA.eval_distances()
         print("eval_dh", name)
         bDNA.eval_dh()
+        print("eval_co_angles", name)
+        bDNA.eval_co_angles()
         properties.append(bDNA)
+        print("write pdbs", name)
         props_tuple = [(bDNA.wc_geometry,"wc_geometry"), (bDNA.wc_quality,"wc_quality"), 
             (bDNA.dh_quality,"dh_quality"), (bDNA.distances,"distances")]
         for prop, prop_name in props_tuple:
