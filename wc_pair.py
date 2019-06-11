@@ -36,6 +36,13 @@ PUR_ATOMS = ["N9","C4"]
 
 WC_PROPERTIES = ["rise", "slide", "shift", "twist", "tilt", "roll"]
 
+def _norm(vector):
+    return vector/ np.linalg.norm(vector)
+def _proj(u, v):
+    return np.inner(u, v) / (np.linalg.norm(u) * np.linalg.norm(v))
+def _v_proj(u, v):
+    return np.inner(u, v) / (np.linalg.norm(v) * np.linalg.norm(v)) * v
+
 #TODO: -mid- nicks
 #TODO: -mid- crosover angles
 
@@ -75,7 +82,7 @@ class BDna(object):
         return n_resindex, n_resindex_wc 
     
     def eval_wc(self):
-        """  dict of wc-quality for each residue (key= resindex)
+        """  dict of wc-quality for each residue (key = resindex)
         """
         self.wc_quality = {}
         self.wc_geometry = {}
@@ -149,8 +156,7 @@ class BDna(object):
         def _get_shift(basepair, n_basepair):
             shift = []
             for direct in [("center-anker","dir-anker") , ("center","dir-center") ]:
-                n0 = np.cross(basepair["n0"], basepair[direct[1]]) 
-                n0 = n0 / (np.linalg.norm(n0))
+                n0 = _norm(np.cross(basepair["n0"], basepair[direct[1]]))
                 P1 = basepair[direct[0]]
                 P2 = n_basepair[direct[0]]
                 shift.append(np.inner((P2 - P1), n0))
@@ -160,8 +166,7 @@ class BDna(object):
         def _get_slide(basepair, n_basepair):
             slide = []
             for direct in [("center-anker","dir-anker") , ("center","dir-center") ]:
-                n0 = basepair[direct[1]] 
-                n0 = n0 / (np.linalg.norm(n0))
+                n0 = _norm(basepair[direct[1]])
                 P1 = basepair[direct[0]]
                 P2 = n_basepair[direct[0]]
                 slide.append(np.inner((P2 - P1), n0))
@@ -207,10 +212,7 @@ class BDna(object):
              
             return {"anker":roll[0], "center":roll[1]}
 
-        def _proj(u, v):
-            return np.inner(u, v) / (np.linalg.norm(u) * np.linalg.norm(v))
-        def _v_proj(u, v):
-            return np.inner(u, v) / (np.linalg.norm(v) * np.linalg.norm(v)) * v
+
 
         bases = []
         for r in [res, res_wc, n_res, n_res_wc]:
@@ -239,9 +241,7 @@ class BDna(object):
             A = res.atoms.select_atoms("name " + atom_name)[0]
             atom.append(A.position)
 
-        nhat = np.cross((atom[1]-atom[0]), (atom[2]-atom[1]))
-        n0 = nhat/np.linalg.norm(nhat)
-    
+        n0 = _norm(np.cross((atom[1]-atom[0]), (atom[2]-atom[1])))
         diazine_center = sum(atom[:-1]) / 3.
 
         plane = {"n0": n0, "anker": atom[-1], "center": diazine_center}
@@ -340,11 +340,9 @@ class BDna(object):
             v2 = p3 - p2
             v3 = p4 - p3
             
-            n1 = np.cross(v1,v2)
-            n1 /= np.linalg.norm(n1)
-            n2 = np.cross(v2,v3)
-            n2 /= np.linalg.norm(n2)
-            m1 = np.cross(n1, v2 / np.linalg.norm(v2))
+            n1 = _norm(np.cross(v1,v2))
+            n2 = _norm(np.cross(v2,v3))
+            m1 = np.cross(n1, _norm(v2))
         
             x = np.dot(n1, n2)
             y = np.dot(m1, n2)
@@ -454,28 +452,88 @@ class BDna(object):
                         "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5) })
             return bpplanes
 
+        def get_co_angles_half(bpplanes): #TODO: -mid- check order
+            a1 = bpplanes[0]["center"]
+            a2 = bpplanes[1]["center"]
+            b1 = bpplanes[2]["center"]
+            b2 = bpplanes[3]["center"]
 
-        for res_index, co in self.d_crossoverid.items(): 
-            leg_index = co["leg"]
-            co_index = co["co"]
-            coleg_index = self.d_crossoverid[co_index]["leg"]
-
-            bpplanes = get_co_baseplanes(res_index, leg_index, co_index, coleg_index)
-
-
-            if co["type"][0] == "double":
-                double_res_index = co["type"][1]
-                double_leg_index = self.d_crossoverid[double_res_index]["leg"]
-                double_co_index = self.d_crossoverid[double_res_index]["co"]
-                double_co_leg_index = self.d_crossoverid[double_res_index]["leg"]
-
-                double_bpplanes = get_co_baseplanes(double_res_index, double_leg_index, double_co_index, double_co_leg_index)
-
-        ipdb.set_trace()
-
+            center = (a1 + b2) * 0.5
+            a = a2 - a1
+            b = b2 - b1
             
-         
- 
+            plane = _norm(np.cross(a, b))
+            angles = np.rad2deg( _proj(a,b) )
+
+            return { "angles": angles, "center": center, "plane": plane}
+
+
+        def get_co_angles_full(bpplanes, double_bpplanes):  #TODO: -mid- check order
+
+            def project_to_plane(acbd, n0): 
+                acbd_proj = []
+                for x in acbd: 
+                    d = np.inner(x, n0)
+                    p = [d * n0[i] for i in range(len(n0))]
+                    acbd_proj.append([x[i] - p[i] for i in range(len(x))])
+                return acbd_proj
+
+            acbd_points = []
+            for i in [0, 2]:
+                for x in [bpplanes, double_bpplanes]: 
+                    ins = x[i]["center"]
+                    out = x[i+1]["center"]
+                    acbd_points.append((ins, out))
+
+            center = sum( p[0] for p in acbd_points) * 0.25
+
+            acbd = []
+            for p_in, p_out in acbd_points:
+                acbd.append(p_out - p_in)
+            
+            n0 = _norm(( np.cross(acbd[0], acbd[1]) + np.cross(acbd[3], acbd[2]) ) *0.5)
+            acbd_proj = project_to_plane(acbd, n0)
+
+            gamma1 = np.rad2deg(np.arccos(_proj(acbd_proj[0], acbd_proj[1])))
+            gamma2 = np.rad2deg(np.arccos(_proj(acbd_proj[2], acbd_proj[3])))
+
+            ang_temp1 = np.rad2deg(np.arccos(_proj(acbd_proj[0], n0)))
+            ang_temp2 = np.rad2deg(np.arccos(_proj(acbd_proj[2], n0)))
+            alpha1 = np.rad2deg(np.arccos(_proj(acbd_proj[1], [ -x for x in acbd_proj[3]] )))
+            alpha2 = np.rad2deg(np.arccos(_proj(acbd_proj[2], [ -x for x in acbd_proj[0]])))
+            beta = 180 - ang_temp1 - ang_temp2
+
+            return { "angles": {"beta": beta, "gamma1":gamma1, "gamma2":gamma2, "alpha1":alpha1, "alpha2":alpha2}, "center": center, "plane": n0}
+            
+
+        self.co_angles = {}
+        co_running_index = 0
+        co_done = set()
+        for res_index, co in self.d_crossoverid.items():     
+            if res_index not in co_done:
+                leg_index = co["leg"]
+                co_index = co["co"]
+                coleg_index = self.d_crossoverid[co_index]["leg"]
+
+                co_done.update([res_index, co_index])
+                bpplanes = get_co_baseplanes(res_index, leg_index, co_index, coleg_index)
+
+                co_type = co["type"][0]
+                if co_type == "double":
+                    double_res_index = co["type"][1]
+                    double_leg_index = self.d_crossoverid[double_res_index]["leg"]
+                    double_co_index = self.d_crossoverid[double_res_index]["co"]
+                    double_co_leg_index = self.d_crossoverid[double_res_index]["leg"]
+
+                    co_done.update([double_res_index, double_co_index])
+                    double_bpplanes = get_co_baseplanes(double_res_index, double_leg_index, double_co_index, double_co_leg_index)
+
+                    co_data = get_co_angles_full(bpplanes, double_bpplanes)
+                else:
+                    co_data = get_co_angles_half(bpplanes)
+                #TODO: -high- add ids
+                self.co_angles[co_running_index] = {"type": co_type, "angles": co_data["angles"], "center": co_data["center"]} 
+                co_running_index += 1       
         return 
 
 def print_usage():
@@ -597,13 +655,14 @@ def main():
         
         #perform analyis
         print("eval_wc", name)
-        bDNA.eval_wc()
+        #bDNA.eval_wc()
         print("eval_distances", name)
-        bDNA.eval_distances()
+        #bDNA.eval_distances()
         print("eval_dh", name)
-        bDNA.eval_dh()
+        #bDNA.eval_dh()
         print("eval_co_angles", name)
         bDNA.eval_co_angles()
+        ipdb.set_trace()
         properties.append(bDNA)
         print("write pdbs", name)
         props_tuple = [(bDNA.wc_geometry,"wc_geometry"), (bDNA.wc_quality,"wc_quality"), 
