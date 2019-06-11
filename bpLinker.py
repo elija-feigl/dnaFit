@@ -99,13 +99,15 @@ class Linker(object):
         for design_base in design_allbases:
             for direct in ["up", "down"]:
                 neighbor = design_base.up if direct == "up" else design_base.down
-
+                
                 if neighbor is not None:
                     if neighbor.h != design_base.h:
-                        dict_co_designid[design_base.id] = {"co": neighbor.id, "is_scaf": design_base.is_scaf, "position": (
+                        leg = design_base.down.down  if direct == "up" else design_base.up.up
+                        dict_co_designid[design_base.id] = {"co": neighbor.id, "leg": leg.id, "is_scaf": design_base.is_scaf, "position": (
                             design_base.h, design_base.p, design_base.is_scaf)}
                         dict_co_positionid[(
                             design_base.h, design_base.p, design_base.is_scaf)] = design_base.id
+                        
 
         for value in dict_co_designid.values():
             is_single = True
