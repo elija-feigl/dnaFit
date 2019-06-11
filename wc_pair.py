@@ -491,7 +491,7 @@ class BDna(object):
             for p_in, p_out in acbd_points:
                 acbd.append(p_out - p_in)
             
-            n0 = _norm(( np.cross(acbd[0], acbd[1]) + np.cross(acbd[3], acbd[2]) ) *0.5)
+            n0 = _norm(( np.cross(acbd[0], acbd[1]) + np.cross(acbd[3], acbd[2]) ) *0.5) #TODO: -high- ckeck definiition
             acbd_proj = project_to_plane(acbd, n0)
 
             gamma1 = np.rad2deg(np.arccos(_proj(acbd_proj[0], acbd_proj[1])))
