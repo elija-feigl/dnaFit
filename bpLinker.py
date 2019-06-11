@@ -88,7 +88,7 @@ class Linker(object):
 
     def identify_crossover(self):
         """ for every base id that is involved in a crossover,
-            list: co-partner id "co", "is_scaf", "type" (single/double, id) 
+            list: co-partner id "co", "is_scaffold", "type" (single/double, id) 
         """
         design_allbases = self.design.scaffold.copy()
         design_allbases.extend(
@@ -103,7 +103,7 @@ class Linker(object):
                 if neighbor is not None:
                     if neighbor.h != design_base.h:
                         leg = design_base.down.down  if direct == "up" else design_base.up.up
-                        dict_co_designid[design_base.id] = {"co": neighbor.id, "leg": leg.id, "is_scaf": design_base.is_scaf, "position": (
+                        dict_co_designid[design_base.id] = {"co": neighbor.id, "leg": leg.id, "is_scaffold": design_base.is_scaf, "position": (
                             design_base.h, design_base.p, design_base.is_scaf)}
                         dict_co_positionid[(
                             design_base.h, design_base.p, design_base.is_scaf)] = design_base.id
