@@ -468,7 +468,7 @@ class BDna(object):
             return { "angles": angles, "center": center, "plane": plane}
 
 
-        def get_co_angles_full(bpplanes, double_bpplanes):  #TODO: -mid- check order
+        def get_co_angles_full(bpplanes, double_bpplanes):  #TODO: -high- check order
 
             def project_to_plane(acbd, n0): 
                 acbd_proj = []
@@ -516,7 +516,7 @@ class BDna(object):
                 coleg_index = self.d_crossoverid[co_index]["leg"]
 
                 co_done.update([res_index, co_index])
-                bpplanes = get_co_baseplanes(res_index, leg_index, co_index, coleg_index)
+                bpplanes = get_co_baseplanes(self.d_idid[res_index], self.d_idid[leg_index], self.d_idid[co_index], self.d_idid[coleg_index])
 
                 co_type = co["type"][0]
                 if co_type == "double":
@@ -526,13 +526,15 @@ class BDna(object):
                     double_co_leg_index = self.d_crossoverid[double_res_index]["leg"]
 
                     co_done.update([double_res_index, double_co_index])
-                    double_bpplanes = get_co_baseplanes(double_res_index, double_leg_index, double_co_index, double_co_leg_index)
+                    double_bpplanes = get_co_baseplanes(self.d_idid[double_co_index], self.d_idid[double_co_leg_index], self.d_idid[double_res_index], self.d_idid[double_leg_index])
 
                     co_data = get_co_angles_full(bpplanes, double_bpplanes)
+                    crossover_ids = (res_index, co_index,  double_co_index, double_res_index)
                 else:
                     co_data = get_co_angles_half(bpplanes)
-                #TODO: -high- add ids
-                self.co_angles[co_running_index] = {"type": co_type, "angles": co_data["angles"], "center": co_data["center"]} 
+                    crossover_ids = (res_index, co_index)
+
+                self.co_angles[co_running_index] = {"ids(acbd)": crossover_ids, "type": co_type, "is_scaffold": co["is_scaffold"], "angles": co_data["angles"], "center": co_data["center"]} 
                 co_running_index += 1       
         return 
 
