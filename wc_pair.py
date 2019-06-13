@@ -657,18 +657,17 @@ def main():
         
         #perform analyis
         print("eval_wc", name)
-        #bDNA.eval_wc()
+        bDNA.eval_wc()
         print("eval_distances", name)
-        #bDNA.eval_distances()
+        bDNA.eval_distances()
         print("eval_dh", name)
-        #bDNA.eval_dh()
+        bDNA.eval_dh()
         print("eval_co_angles", name)
         bDNA.eval_co_angles()
-        ipdb.set_trace()
         properties.append(bDNA)
         print("write pdbs", name)
         props_tuple = [(bDNA.wc_geometry,"wc_geometry"), (bDNA.wc_quality,"wc_quality"), 
-            (bDNA.dh_quality,"dh_quality"), (bDNA.distances,"distances")]
+            (bDNA.dh_quality,"dh_quality"), (bDNA.distances,"distances"), (bDNA.co_angles,"co_angles")]
         for prop, prop_name in props_tuple:
             pickle.dump((ts, prop), open( traj_out + name + "__bDNA-" + prop_name + "-" + str(i)+ ".p", "wb"))
         write_pdb(u, bDNA, PDBs)
