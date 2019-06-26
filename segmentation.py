@@ -9,6 +9,7 @@ import ipdb
 
 
 def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
+    # TODO: -high- bigger box (also in 3rd direction)
 
     if not len(atoms_selection):
         print("EXIT - no atoms in this selection")
@@ -46,10 +47,18 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
     y_min, y_max = np.min(idx_data[1]),  np.max(idx_data[1])
     z_min, z_max = np.min(idx_data[2]),  np.max(idx_data[2])
 
-    data_small = np.zeros(
-        (x_max-x_min,  y_max-y_min, z_max-z_min), dtype=np.float32)
-    data_small = data[x_min: x_max, y_min: y_max, z_min: z_max]
+    xyz_diff = max(x_max - x_min, y_max - y_min, z_max - z_min)
+    x_pad = 0.5 * (xyz_diff + x_min - x_max)
+    y_pad = 0.5 * (xyz_diff + y_min - y_max)
+    z_pad = 0.5 * (xyz_diff + z_min - z_max)
+    x_low = int(x_pad) if (x_pad % 1.) == 0. else int(x_pad) + 1
+    y_low = int(y_pad) if (y_pad % 1.) == 0. else int(y_pad) + 1
+    z_low = int(z_pad) if (z_pad % 1.) == 0. else int(z_pad) + 1
 
+    data_small = np.zeros((xyz_diff,  xyz_diff, xyz_diff), dtype=np.float32)
+    data_small[x_low: -int(x_pad)  or None, y_low: -int(y_pad)  or None, z_low: -
+                   int(z_pad)  or None] = data[x_min: x_max, y_min: y_max, z_min: z_max]
+ 
     grid = np.shape(data_small)
     origin = m_origin + (z_min, y_min, x_min) * m_spacing
     cell = grid * m_spacing
@@ -80,7 +89,6 @@ def _categorise_lists(topo, plus=3):
     id_co = set()
     id_co_init = {
         id_design for id_design in topo["dict_co"].keys() if id_design not in id_ss}
-    # TODO: -high- every co only once
     allready_done = set()
     for base in id_co_init:
         if base not in allready_done:
@@ -151,7 +159,7 @@ def proc_input():
     if len(sys.argv) > 2:
         rang = int(sys.argv[2])
     else:
-        rang = 3
+        rang = 5
 
     if len(sys.argv) > 3:
         context = int(sys.argv[3])
@@ -166,7 +174,7 @@ def print_usage():
     initializes MDAnalysis universe and compoutes watson scric base pairs. they are returned as to dictionaries. this process is repeated for each Hbond-deviation criterion
     subsequently universe and dicts are stored into a pickle. each devia, tion criterion is stored in one pickle
 
-    usage: designname [range = 3] [context = 2]  ... 
+    usage: designname [range = 5] [context = 2]  ... 
 
     return: creates a pickle for each deviation: the pickle contains: (top, trj), wc_pairs, wc_index_pairs
             the tuple contains the absolute path of the files md-files (universe cannot be pickled), second and third are the two dictionaries
@@ -187,9 +195,9 @@ def main():
     u = mda.Universe(*topo["universe"])
     u.trajectory[-1]
 
-    # full mapp
+    # full map masked
     mrc_segment(u.atoms, path_in + name, path_analysis +
-                name + "-all", context=context)
+                name + "-masked", context=context)
 
     # crossovers
     path_out = path_analysis + "/seg-co/"
@@ -198,6 +206,10 @@ def main():
     except FileExistsError:
         pass
 
+    h1_exists = os.path.isfile(path_in + name + "_unfil_half_1.mrc")
+    h2_exists = os.path.isfile(path_in + name + "_unfil_half_2.mrc")
+    calculate_halfmaps = True if h1_exists and h2_exists else False
+
     intig = 0
     for co_select in id_coplus_lists:
         atoms_select = mda.AtomGroup([], u)
@@ -205,6 +217,11 @@ def main():
             atoms_select += u.residues[base_id].atoms
         mrc_segment(atoms_select, path_in + name, path_out +
                     name + "-co" + str(intig), context=context)
+        if calculate_halfmaps:
+            mrc_segment(atoms_select, path_in + name + "_unfil_half_1",
+                        path_out + name + "-h1-co" + str(intig), context=context)
+            mrc_segment(atoms_select, path_in + name + "_unfil_half_2",
+                        path_out + name + "-h2-co" + str(intig), context=context)
         intig += 1
 
 
