@@ -8,11 +8,13 @@ import ipdb
 from MDAnalysis.lib import mdamath
 
 import pickle
-
 import bpLinker
 
-C1P_BASEDIST = 10.7
+#TODO: -mid- DOC
+#TODO: -mid- move CONSTANTS
 
+C1P_BASEDIST = 10.7
+TOL = 1e-6
 WC_DICT = {"DC": "DG", "DG": "DC", "DT": "DA", "DA": "DT",
            "C": "G", "G": "C", "T": "A", "A": "T",
            "CYT": "GUA", "GUA": "CYT", "THY": "ADE", "ADE": "THY"}
@@ -44,18 +46,17 @@ def _v_proj(u, v):
     return np.inner(u, v) / (np.linalg.norm(v) * np.linalg.norm(v)) * v
 
 #TODO: -mid- nicks
-#TODO: -mid- crosover angles
 
 class BDna(object):
 
-    def __init__(self, universe, d_bp, d_idid, d_hpid, d_crossoverid):
+    def __init__(self, universe, d_Fbp, d_DidFid, d_DhpsDid, d_Fco):
         self.u = universe
-        self.d_idid = d_idid
-        self.d_bp = d_bp
-        self.d_hpid =d_hpid
-        self.d_crossoverid = d_crossoverid  
+        self.d_DidFid = d_DidFid
+        self.d_Fbp = d_Fbp
+        self.d_DhpsDid =d_DhpsDid
+        self.d_Fco = d_Fco  
 
-        self.wc_quality = None   #dict: references residue index -> bond quality 
+        self.wc_quality = None  
         self.wc_geometry = None   
         self.dh_quality = None  
         self.distances = None    #only scaffold bases have complement
@@ -72,7 +73,7 @@ class BDna(object):
         try:
             self.u.residues[n_resindex]
             try:
-                n_resindex_wc = self.d_bp[n_resindex]
+                n_resindex_wc = self.d_Fbp[n_resindex]
             except KeyError:
                 n_resindex_wc = None
         except KeyError:
@@ -86,7 +87,7 @@ class BDna(object):
         """
         self.wc_quality = {}
         self.wc_geometry = {}
-        for resindex, resindex_wc in self.d_bp.items():      
+        for resindex, resindex_wc in self.d_Fbp.items():      
 
             res = self.u.residues[resindex]
             res_wc = self.u.residues[resindex_wc]
@@ -133,7 +134,6 @@ class BDna(object):
     def _get_wc_geometry(self, res, res_wc, n_res, n_res_wc):
         """  dict of geometry of basepairs for each wc-pair (key= resid-scaffold)
         """
-        #TODO:-low- check for  RuntimeWarning: invalid value encountered in arcco
         def _get_twist(basepair, n_basepair):
             twist = []
             for direct in ["dir-anker", "dir-center"]:
@@ -184,6 +184,7 @@ class BDna(object):
                 projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
 
                 dist = _proj(projn0,projn_n0)
+                if abs(dist)-1. < TOL: dist = np.sign(dist)
                 if dist > 0: 
                     tilt.append(np.rad2deg(np.arccos( dist )))
                 else:
@@ -205,6 +206,7 @@ class BDna(object):
                 projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
 
                 dist = _proj(projn0,projn_n0)
+                if abs(dist)-1. < TOL: dist = np.sign(dist)
                 if dist > 0: 
                     roll.append(np.rad2deg(np.arccos( dist )))
                 else:
@@ -404,7 +406,7 @@ class BDna(object):
                 dist_A.append(dist)
            
             try:
-                resindex_wc = self.d_bp[resindex]
+                resindex_wc = self.d_Fbp[resindex]
                 for i in range(-n,n+1):
                     try:
                         res_x = self.u.residues[resindex_wc + i]
@@ -436,7 +438,7 @@ class BDna(object):
             bases = []
             for r in [res_index, leg_index, co_index, coleg_index]:
                 try:
-                    wc_r = self.d_bp[r]
+                    wc_r = self.d_Fbp[r]
                     bases.append(self._get_base_plane(self.u.residues[r]))
                     bases.append(self._get_base_plane(self.u.residues[wc_r]))
                 except KeyError:
@@ -462,7 +464,7 @@ class BDna(object):
             a = a2 - a1
             b = b2 - b1
             
-            plane = _norm(np.cross(a, b))
+            plane = _norm((a1 - b1))
             angles = np.rad2deg( _proj(a,b) )
 
             return { "angles": angles, "center": center, "plane": plane}
@@ -470,37 +472,44 @@ class BDna(object):
 
         def get_co_angles_full(bpplanes, double_bpplanes):  #TODO: -high- check order
 
-            def project_to_plane(acbd, n0): 
-                acbd_proj = []
-                for x in acbd: 
+            def project_to_plane(vect, n0): 
+                pro = []
+                for x in vect: 
                     d = np.inner(x, n0)
                     p = [d * n0[i] for i in range(len(n0))]
-                    acbd_proj.append([x[i] - p[i] for i in range(len(x))])
-                return acbd_proj
+                    pro.append([x[i] - p[i] for i in range(len(x))])
+                return pro
 
-            acbd_points = []
+            points = []
             for i in [0, 2]:
                 for x in [bpplanes, double_bpplanes]: 
                     ins = x[i]["center"]
                     out = x[i+1]["center"]
-                    acbd_points.append((ins, out))
-
-            center = sum( p[0] for p in acbd_points) * 0.25
-
-            acbd = []
-            for p_in, p_out in acbd_points:
-                acbd.append(p_out - p_in)
+                    points.append((ins, out))
+            #acdb to abcd TODO cleanup
+            points[1], points[3]  = points[3], points[1]
+            points[2], points[3]  = points[3], points[2]
             
-            n0 = _norm(( np.cross(acbd[0], acbd[1]) + np.cross(acbd[3], acbd[2]) ) *0.5) #TODO: -high- ckeck definiition
-            acbd_proj = project_to_plane(acbd, n0)
 
-            gamma1 = np.rad2deg(np.arccos(_proj(acbd_proj[0], acbd_proj[1])))
-            gamma2 = np.rad2deg(np.arccos(_proj(acbd_proj[2], acbd_proj[3])))
+            center = sum( p[0] for p in points) * 0.25
+            n0 = _norm((points[0][0] + points[1][0] ) - (points[2][0] + points[3][0] ) *0.5 ) 
 
-            ang_temp1 = np.rad2deg(np.arccos(_proj(acbd_proj[0], n0)))
-            ang_temp2 = np.rad2deg(np.arccos(_proj(acbd_proj[2], n0)))
-            alpha1 = np.rad2deg(np.arccos(_proj(acbd_proj[1], [ -x for x in acbd_proj[3]] )))
-            alpha2 = np.rad2deg(np.arccos(_proj(acbd_proj[2], [ -x for x in acbd_proj[0]])))
+
+            legs = []
+            for p_in, p_out in points:
+                legs.append(p_out - p_in)            
+            
+            proj_legs = project_to_plane(legs, n0)
+
+            gamma1 = np.rad2deg(np.arccos(_proj(proj_legs[0], proj_legs[2])))
+            gamma2 = np.rad2deg(np.arccos(_proj(proj_legs[1], proj_legs[3])))
+    
+
+
+            ang_temp1 = np.rad2deg(np.arccos(_proj(proj_legs[0], n0)))
+            ang_temp2 = np.rad2deg(np.arccos(_proj(proj_legs[1], n0)))
+            alpha1 = np.rad2deg(np.arccos(_proj(proj_legs[2], [ -x for x in proj_legs[3]] )))
+            alpha2 = np.rad2deg(np.arccos(_proj(proj_legs[1], [ -x for x in proj_legs[0]])))
             beta = 180 - ang_temp1 - ang_temp2
 
             return { "angles": {"beta": beta, "gamma1":gamma1, "gamma2":gamma2, "alpha1":alpha1, "alpha2":alpha2}, "center": center, "plane": n0}
@@ -509,24 +518,26 @@ class BDna(object):
         self.co_angles = {}
         co_running_index = 0
         co_done = set()
-        for res_index, co in self.d_crossoverid.items():     
+        for res_index, co in self.d_Fco.items():     
             if res_index not in co_done:
                 leg_index = co["leg"]
                 co_index = co["co"]
-                coleg_index = self.d_crossoverid[co_index]["leg"]
+                coleg_index = self.d_Fco[co_index]["leg"]
 
                 co_done.update([res_index, co_index])
-                bpplanes = get_co_baseplanes(self.d_idid[res_index], self.d_idid[leg_index], self.d_idid[co_index], self.d_idid[coleg_index])
+                bpplanes = get_co_baseplanes(res_index, leg_index, co_index, coleg_index)
 
                 co_type = co["type"][0]
                 if co_type == "double":
                     double_res_index = co["type"][1]
-                    double_leg_index = self.d_crossoverid[double_res_index]["leg"]
-                    double_co_index = self.d_crossoverid[double_res_index]["co"]
-                    double_co_leg_index = self.d_crossoverid[double_res_index]["leg"]
-
+                    try:
+                        double_leg_index = self.d_Fco[double_res_index]["leg"]
+                        double_co_index = self.d_Fco[double_res_index]["co"]
+                        double_co_leg_index = self.d_Fco[double_res_index]["leg"]
+                    except KeyError:
+                        ipdb.set_trace()
                     co_done.update([double_res_index, double_co_index])
-                    double_bpplanes = get_co_baseplanes(self.d_idid[double_co_index], self.d_idid[double_co_leg_index], self.d_idid[double_res_index], self.d_idid[double_leg_index])
+                    double_bpplanes = get_co_baseplanes(double_co_index, double_co_leg_index, double_res_index, double_leg_index)
 
                     co_data = get_co_angles_full(bpplanes, double_bpplanes)
                     crossover_ids = (res_index, co_index,  double_co_index, double_res_index)
@@ -534,7 +545,7 @@ class BDna(object):
                     co_data = get_co_angles_half(bpplanes)
                     crossover_ids = (res_index, co_index)
 
-                self.co_angles[co_running_index] = {"ids(acbd)": crossover_ids, "type": co_type, "is_scaffold": co["is_scaffold"], "angles": co_data["angles"], "center": co_data["center"]} 
+                self.co_angles[co_running_index] = {"ids(abcd)": crossover_ids, "type": co_type, "is_scaffold": co["is_scaffold"], "angles": co_data["angles"], "center": co_data["center"]} 
                 co_running_index += 1       
         return 
 
@@ -611,7 +622,7 @@ def write_pdb(u, bDNA, PDBs):
             
     u.atoms.tempfactors = -1.
     ing = 0.00
-    for resindex, resindex_wc in bDNA.d_bp.items():
+    for resindex, resindex_wc in bDNA.d_Fbp.items():
         u.residues[resindex].atoms.tempfactors = ing
         u.residues[resindex_wc].atoms.tempfactors = ing
         ing += 0.01
@@ -625,6 +636,7 @@ def main():
     print("output to ", output)
 
     # initialize universe and select final frame
+    universe = (top, trj)
     u = mda.Universe(top, trj)
 
     frames_step = int( len(u.trajectory) /  n_frames)
@@ -632,8 +644,8 @@ def main():
 
     linker = bpLinker.Linker( base + name)
     dict_bp, dict_idid, dict_hpid, _ = linker.link()
-    dict_coid = linker.identify_crossover()
-    for dict_name in [ "dict_bp", "dict_idid", "dict_hpid", "dict_coid"]:
+    dict_co = linker.identify_crossover()
+    for dict_name in [ "dict_bp", "dict_idid", "dict_hpid", "dict_co", "universe"]:
         pickle.dump(eval(dict_name), open( output + name + "__" + dict_name + ".p", "wb"))
     
     properties = []
@@ -653,7 +665,7 @@ def main():
     # loop over selected frames
     for i, ts in enumerate([u.trajectory[i] for i in frames]):
         print(ts)
-        bDNA = BDna(u, dict_bp, dict_idid, dict_hpid, dict_coid)
+        bDNA = BDna(u, dict_bp, dict_idid, dict_hpid, dict_co)
         
         #perform analyis
         print("eval_wc", name)
