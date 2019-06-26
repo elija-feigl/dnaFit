@@ -7,6 +7,7 @@ import pickle
 import os
 import ipdb
 
+
 def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
 
     if not len(atoms_selection):
@@ -63,88 +64,137 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
 
     return
 
+def proc_input():
+    if len(sys.argv) < 2:
+        print_usage()
+    name = sys.argv[1]
+    cwd = os.getcwd()
+    path = cwd + "/"
+    print(len(sys.argv) )
+
+    if len(sys.argv) > 2:
+        rang = int(sys.argv[2])
+    else:
+        rang = 3
+
+    if len(sys.argv) > 3:
+        context = int(sys.argv[3])
+    else:
+        context = 2
+
+    return path, name, rang, context
+
+
+def _categorise_lists(topo, plus=3):
+    # TODO. names set list etc
+    inv_dict_bp = {v: k for k, v in topo["dict_bp"].items()}
+    id_ds = set()
+    id_coplus = set()
+
+    for wc_id1, wc_id2 in topo["dict_bp"].items():
+        id_ds.add(wc_id1)
+        id_ds.add(wc_id2)
+    id_ss = set(topo["dict_idid"].values()) - id_ds
+
+    id_co = set()
+    id_co_init = {
+        id_design for id_design in topo["dict_co"].keys() if id_design not in id_ss}
+    for base in id_co_init:
+        co = topo["dict_co"][base]["co"]
+        try:
+            co_bp = topo["dict_bp"][co]
+        except KeyError:
+            co_bp = inv_dict_bp[co]
+        try:
+            bp = topo["dict_bp"][base]
+        except KeyError:
+            bp = inv_dict_bp[base]
+
+        if topo["dict_co"][base]["type"][0] == "double":
+            dou = topo["dict_co"][base]["type"][1]
+            dou_co = topo["dict_co"][dou]["co"]
+            try:
+                dou_co_bp = topo["dict_bp"][dou_co]
+            except KeyError:
+                dou_co_bp = inv_dict_bp[dou_co]
+            try:
+                dou_bp = topo["dict_bp"][dou]
+            except KeyError:
+                dou_bp = inv_dict_bp[dou]
+            tup = (base, bp, co, co_bp, dou, dou_bp, dou_co, dou_co_bp)
+        else:
+            tup = (base, bp, co, co_bp)
+
+        tup_plus = []
+        for x in tup:
+            # TODO: fix quick and dirty: wrong if staple ends or another co
+            for i in range(-plus, plus):
+                tup_plus.append(x+i)
+
+        id_co.add(tup)
+        id_coplus.add(tuple(tup_plus))
+
+    #ipdb.set_trace()
+    return id_co, id_coplus
+
+
+def _topology(name, path):
+    DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_co", "universe"]
+    # read general info
+    topo = {}
+    for pickle_name in DICTS:
+        topo[pickle_name] = pickle.load(
+            open(path + name + "__" + pickle_name + ".p", "rb"))
+
+    return topo
+
 
 def print_usage():
     print("""
     initializes MDAnalysis universe and compoutes watson scric base pairs. they are returned as to dictionaries. this process is repeated for each Hbond-deviation criterion
     subsequently universe and dicts are stored into a pickle. each devia, tion criterion is stored in one pickle
 
-    usage: designname [context = 2]  ... 
+    usage: designname [range = 3] [context = 2]  ... 
 
     return: creates a pickle for each deviation: the pickle contains: (top, trj), wc_pairs, wc_index_pairs
             the tuple contains the absolute path of the files md-files (universe cannot be pickled), second and third are the two dictionaries
         """)
 
-
-def proc_input():
-    if len(sys.argv) < 1:
-        print_usage()
-    # if isinstance(sys.argv[2], str):
-    name = sys.argv[1]
-    cwd = os.getcwd()
-    path = cwd + "/"
-
-    if len(sys.argv) == 2:
-        context = 2
-    else:
-        context = int(sys.argv[2])
-
-    return path, name, context
-
-
 def main():
 
-    path_in, name, context = proc_input()
+    path_in, name, rang, context = proc_input()
     print("output to ", path_in)
 
     path_analysis = path_in + "/analysis/"
 
-    input_pickle = ["dict_bp", "dict_idid",
-                    "dict_hpid", "dict_coid", "universe"]
-    input_linkage = {}
-    for pickle_name in input_pickle:
-        input_linkage[pickle_name] = pickle.load(
-            open(path_analysis + name + "__" + pickle_name + ".p", "rb"))
+    topo = _topology(name, path_analysis)
+    _, id_coplus_lists = _categorise_lists(topo, plus=rang)
 
     # initialize universe and select final frame
-    u = mda.Universe(*input_linkage["universe"])
+    u = mda.Universe(*topo["universe"])
     u.trajectory[-1]
 
-    #full mapp
-    mrc_segment(u.atoms, path_in + name, path_analysis + name + "-all", context=context)
+    # full mapp
+    mrc_segment(u.atoms, path_in + name, path_analysis +
+                name + "-all", context=context)
 
-    #crossovers
+    # crossovers
     path_out = path_analysis + "/seg-co/"
-    try:     
+    try:
         os.mkdir(path_out)
-    except  FileExistsError:
+    except FileExistsError:
         pass
+
     intig = 0
-    for id_design, co in input_linkage["dict_coid"].items():
-        co_set = set()
-        co_context = 6
-        id_co_design = co["co"]
-
-        co_set.add(input_linkage["dict_idid"][id_design])
-        co_set.add(input_linkage["dict_idid"][id_co_design])
-        co_set.add(input_linkage["dict_bp"][   input_linkage["dict_idid"][id_design]])
-        co_set.add(input_linkage["dict_bp"][   input_linkage["dict_idid"][id_co_design]])
-
-        co_set_fit_add = set()
-        for co in co_set: #TODO: -high- better neighbor search
-            for i in range(-co_context,co_context):
-                co_set_fit_add.add(co+i)
-
-        co_set_fit = co_set | co_set_fit_add
-
-
-        #ipdb.set_trace()
+    for co_select in id_coplus_lists:
+ 
         atoms_select = mda.AtomGroup([], u)
-        for base_id in co_set_fit:
+        for base_id in co_select:
             atoms_select += u.residues[base_id].atoms
-        mrc_segment(atoms_select, path_in + name, path_out + name + "-co" +str(intig), context=context)
+        mrc_segment(atoms_select, path_in + name, path_out +
+                    name + "-co" + str(intig), context=context)
         intig += 1
-    
+
 
 if __name__ == "__main__":
     main()
