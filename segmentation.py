@@ -18,7 +18,7 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
     u.trajectory[-1]
 
     print(mrcfile)
-    with mrcfile.open(path_in + ".mrc", mode='r+') as mrc:
+    with mrcfile.open(path_in + ".mrc", mode='r') as mrc:
         m_o = np.array(mrc.header["origin"])
         m_origin = np.array([m_o["x"], m_o["y"], m_o["z"]])
         m_c = np.array(mrc.header["cella"])
@@ -64,29 +64,10 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
 
     return
 
-def proc_input():
-    if len(sys.argv) < 2:
-        print_usage()
-    name = sys.argv[1]
-    cwd = os.getcwd()
-    path = cwd + "/"
-    print(len(sys.argv) )
-
-    if len(sys.argv) > 2:
-        rang = int(sys.argv[2])
-    else:
-        rang = 3
-
-    if len(sys.argv) > 3:
-        context = int(sys.argv[3])
-    else:
-        context = 2
-
-    return path, name, rang, context
-
 
 def _categorise_lists(topo, plus=3):
-    # TODO. names set list etc
+    # TODO. check: names set list etc
+
     inv_dict_bp = {v: k for k, v in topo["dict_bp"].items()}
     id_ds = set()
     id_coplus = set()
@@ -99,42 +80,53 @@ def _categorise_lists(topo, plus=3):
     id_co = set()
     id_co_init = {
         id_design for id_design in topo["dict_co"].keys() if id_design not in id_ss}
+    # TODO: -high- every co only once
+    allready_done = set()
     for base in id_co_init:
-        co = topo["dict_co"][base]["co"]
-        try:
-            co_bp = topo["dict_bp"][co]
-        except KeyError:
-            co_bp = inv_dict_bp[co]
-        try:
-            bp = topo["dict_bp"][base]
-        except KeyError:
-            bp = inv_dict_bp[base]
-
-        if topo["dict_co"][base]["type"][0] == "double":
-            dou = topo["dict_co"][base]["type"][1]
-            dou_co = topo["dict_co"][dou]["co"]
+        if base not in allready_done:
+            allready_done.add(base)
+            co = topo["dict_co"][base]["co"]
+            allready_done.add(co)
             try:
-                dou_co_bp = topo["dict_bp"][dou_co]
+                co_bp = topo["dict_bp"][co]
             except KeyError:
-                dou_co_bp = inv_dict_bp[dou_co]
+                co_bp = inv_dict_bp[co]
             try:
-                dou_bp = topo["dict_bp"][dou]
+                bp = topo["dict_bp"][base]
             except KeyError:
-                dou_bp = inv_dict_bp[dou]
-            tup = (base, bp, co, co_bp, dou, dou_bp, dou_co, dou_co_bp)
-        else:
-            tup = (base, bp, co, co_bp)
+                bp = inv_dict_bp[base]
 
-        tup_plus = []
-        for x in tup:
-            # TODO: fix quick and dirty: wrong if staple ends or another co
-            for i in range(-plus, plus):
-                tup_plus.append(x+i)
+            if topo["dict_co"][base]["type"][0] == "double":
+                dou = topo["dict_co"][base]["type"][1]
+                allready_done.add(dou)
+                dou_co = topo["dict_co"][dou]["co"]
+                allready_done.add(dou_co)
+                try:
+                    dou_co_bp = topo["dict_bp"][dou_co]
+                except KeyError:
+                    dou_co_bp = inv_dict_bp[dou_co]
+                try:
+                    dou_bp = topo["dict_bp"][dou]
+                except KeyError:
+                    dou_bp = inv_dict_bp[dou]
+                tup = (base, bp, co, co_bp, dou, dou_bp, dou_co, dou_co_bp)
+            else:
+                tup = (base, bp, co, co_bp)
 
-        id_co.add(tup)
-        id_coplus.add(tuple(tup_plus))
+            dict_FidDid = {v: k for k, v in topo["dict_idid"].items()}
+            dict_DidDhps = {v: k for k, v in topo["dict_hpid"].items()}
+            tup_plus = []
+            for x in tup:
+                h, p, is_scaf = dict_DidDhps[dict_FidDid[x]]
+                for i in range(-plus, plus):
+                    try:
+                        tup_plus.append(
+                            topo["dict_idid"][topo["dict_hpid"][(h, p+i, is_scaf)]])
+                    except KeyError:
+                        pass  # helix end
+            id_co.add(tup)
+            id_coplus.add(tuple(tup_plus))
 
-    #ipdb.set_trace()
     return id_co, id_coplus
 
 
@@ -149,6 +141,26 @@ def _topology(name, path):
     return topo
 
 
+def proc_input():
+    if len(sys.argv) < 2:
+        print_usage()
+    name = sys.argv[1]
+    cwd = os.getcwd()
+    path = cwd + "/"
+
+    if len(sys.argv) > 2:
+        rang = int(sys.argv[2])
+    else:
+        rang = 3
+
+    if len(sys.argv) > 3:
+        context = int(sys.argv[3])
+    else:
+        context = 2
+
+    return path, name, rang, context
+
+
 def print_usage():
     print("""
     initializes MDAnalysis universe and compoutes watson scric base pairs. they are returned as to dictionaries. this process is repeated for each Hbond-deviation criterion
@@ -159,6 +171,7 @@ def print_usage():
     return: creates a pickle for each deviation: the pickle contains: (top, trj), wc_pairs, wc_index_pairs
             the tuple contains the absolute path of the files md-files (universe cannot be pickled), second and third are the two dictionaries
         """)
+
 
 def main():
 
@@ -187,7 +200,6 @@ def main():
 
     intig = 0
     for co_select in id_coplus_lists:
- 
         atoms_select = mda.AtomGroup([], u)
         for base_id in co_select:
             atoms_select += u.residues[base_id].atoms
