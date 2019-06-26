@@ -120,8 +120,7 @@ class BDna(object):
             "name " + ' or name '.join(map(str, WC_HBONDS[res1.resname])))
         atoms2 = res2.atoms.select_atoms(
             "name " + ' or name '.join(map(str, WC_HBONDS[res2.resname])))
-        
-        
+          
         for idx, a1 in enumerate(atoms1):
             hbond_dist = mdamath.norm(atoms2[idx].position - a1.position)
             hbond_should = WC_HBONDS_DIST[res1.resname][idx]
@@ -687,7 +686,6 @@ def main():
         PDB.close()
     
     return
-
 
 
 if __name__ == "__main__":
