@@ -10,6 +10,7 @@ import ipdb
 from nanodesign.converters import Converter
 from operator import attrgetter
 
+#TODO: -mid- DOC
 
 class Linker(object):
     def __init__(self, path):
@@ -88,7 +89,7 @@ class Linker(object):
             d_color[segidxforcolor] = color
 
             idid_add = dict(zip(design_idx, res_ids))
-            hp_add = dict(zip(design_hp, res_ids))
+            hp_add = dict(zip(design_hp, design_idx))
             d_DidFid = {**d_DidFid, **idid_add}
             d_hp = {**d_hp, **hp_add}
 
@@ -121,16 +122,19 @@ class Linker(object):
             list: co-partner id "co", "is_scaffold", "type" (single/double, id) 
         """
         def add_co_type(dict_co):
-            for value in dict_co.values():
+            for id, value in dict_co.items():
                 h, p, is_scaf = value["position"]
                 is_single = True
                 for i in [-1, 1]:
                     try:
-                        if self.d_DhpsDid[(h, p+i, is_scaf)] in dict_co.keys():
-                            is_single = False
-                            double = self.d_DhpsDid[(h, p+i, is_scaf)]
+                        n_Fid = self.d_DidFid[self.d_DhpsDid[(h, p+i, is_scaf)]]
                     except KeyError:
                         pass #helix end
+
+                    if n_Fid in dict_co.keys():
+                        
+                        is_single = False
+                        double = n_Fid
 
                 value["type"] = ("single", None) if is_single else (
                     "double", double)
@@ -140,7 +144,7 @@ class Linker(object):
             # determine leg base (def: 2 bases away)
             l = base.down.p if direct == "up" else base.up.p
             i = (l - base.p) * 2.
-            return self.d_DhpsDid[(base.h, base.p+i, base.is_scaf)]
+            return self.d_DidFid[self.d_DhpsDid[(base.h, base.p+i, base.is_scaf)]]
 
         design_allbases = self.design.scaffold.copy()
         design_allbases.extend(
@@ -157,6 +161,7 @@ class Linker(object):
                         co_id = self.d_DidFid[neighbor.id]
                         position = (design_base.h, design_base.p,
                                     design_base.is_scaf)
+                        
                         dict_co[self.d_DidFid[design_base.id]] = {
                             "co": co_id, "leg": leg_id, "is_scaffold": design_base.is_scaf, "position": position}
 
