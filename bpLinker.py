@@ -12,6 +12,7 @@ from operator import attrgetter
 
 #TODO: -mid- DOC
 
+
 class Linker(object):
     def __init__(self, path):
         self.path = path
@@ -122,17 +123,18 @@ class Linker(object):
             list: co-partner id "co", "is_scaffold", "type" (single/double, id) 
         """
         def add_co_type(dict_co):
-            for id, value in dict_co.items():
+            for value in dict_co.values():
                 h, p, is_scaf = value["position"]
                 is_single = True
+                n_Fid = None
                 for i in [-1, 1]:
                     try:
-                        n_Fid = self.d_DidFid[self.d_DhpsDid[(h, p+i, is_scaf)]]
+                        n_Fid = self.d_DidFid[self.d_DhpsDid[(
+                            h, p+i, is_scaf)]]
                     except KeyError:
-                        pass #helix end
+                        pass  # helix end
 
                     if n_Fid in dict_co.keys():
-                        
                         is_single = False
                         double = n_Fid
 
@@ -143,7 +145,8 @@ class Linker(object):
         def get_co_leg_id(base, direct):
             # determine leg base (def: 2 bases away)
             l = base.down.p if direct == "up" else base.up.p
-            i = (l - base.p) * 2.
+            i = (l - base.p) * 2.  # TODO: what happens at skips?
+
             return self.d_DidFid[self.d_DhpsDid[(base.h, base.p+i, base.is_scaf)]]
 
         design_allbases = self.design.scaffold.copy()
@@ -152,16 +155,21 @@ class Linker(object):
 
         dict_co = {}
         for design_base in design_allbases:
+
             for direct in ["up", "down"]:
                 neighbor = design_base.up if direct == "up" else design_base.down
-
                 if neighbor is not None:
+                    if neighbor.num_deletions != 0 or neighbor.num_insertions != 0:
+                        n_skip = neighbor.up if direct == "up" else neighbor.down
+                        if n_skip is not None:
+                            neighbor = n_skip
                     if neighbor.h != design_base.h:  # crossover condition
                         leg_id = get_co_leg_id(design_base, direct)
                         co_id = self.d_DidFid[neighbor.id]
+
                         position = (design_base.h, design_base.p,
                                     design_base.is_scaf)
-                        
+
                         dict_co[self.d_DidFid[design_base.id]] = {
                             "co": co_id, "leg": leg_id, "is_scaffold": design_base.is_scaf, "position": position}
 
