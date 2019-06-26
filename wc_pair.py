@@ -504,8 +504,6 @@ class BDna(object):
             gamma1 = np.rad2deg(np.arccos(_proj(proj_legs[0], proj_legs[2])))
             gamma2 = np.rad2deg(np.arccos(_proj(proj_legs[1], proj_legs[3])))
     
-
-
             ang_temp1 = np.rad2deg(np.arccos(_proj(proj_legs[0], n0)))
             ang_temp2 = np.rad2deg(np.arccos(_proj(proj_legs[1], n0)))
             alpha1 = np.rad2deg(np.arccos(_proj(proj_legs[2], [ -x for x in proj_legs[3]] )))
