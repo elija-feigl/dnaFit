@@ -9,7 +9,6 @@ import ipdb
 
 
 def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
-    # TODO: -high- bigger box (also in 3rd direction)
 
     if not len(atoms_selection):
         print("EXIT - no atoms in this selection")
@@ -18,23 +17,24 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
     u = atoms_selection.universe
     u.trajectory[-1]
 
-    print(mrcfile)
+
     with mrcfile.open(path_in + ".mrc", mode='r') as mrc:
         m_o = np.array(mrc.header["origin"])
         m_origin = np.array([m_o["x"], m_o["y"], m_o["z"]])
         m_c = np.array(mrc.header["cella"])
         m_cell = np.array([m_c["x"], m_c["y"], m_c["z"]])
         m_grid = np.array(
-            [mrc.header["nz"], mrc.header["ny"], mrc.header["nx"]])
+            [mrc.header["nx"], mrc.header["ny"], mrc.header["nz"]])
         m_spacing = m_cell/m_grid
-        m_data = mrc.data
+        m_data = np.swapaxes( mrc.data, 0 , 2)
+        #TODO: -low- faster withoutswap
 
     data_mask = np.zeros(m_grid, dtype=np.float32)
 
     grid_positions = np.rint(
         ((atoms_selection.positions-m_origin) / m_spacing)).astype(int)
     for pos in grid_positions:
-        x, y, z = pos[2], pos[1], pos[0]  # fast to slow axis
+        x, y, z = pos[0], pos[1], pos[2] 
         data_mask[x-context:x+context, y-context:y+context, z-context:z +
                   context] = 1.
 
@@ -60,14 +60,14 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
                    int(z_pad)  or None] = data[x_min: x_max, y_min: y_max, z_min: z_max]
  
     grid = np.shape(data_small)
-    origin = m_origin + (z_min, y_min, x_min) * m_spacing
+    origin = m_origin + ((x_min -x_low) * m_spacing[0], (y_min -y_low) * m_spacing[1], (z_min -z_low )  * m_spacing[2])
     cell = grid * m_spacing
 
     # clipp below threshold
-    data_small[data_small < clipping] = 0.
+    #data_small[data_small < clipping] = 0.
 
     with mrcfile.new(path_out + ".mrc", overwrite=True) as mrc_out:
-        mrc_out.set_data(data_small)
+        mrc_out.set_data(np.swapaxes(data_small, 0 , 2))
         mrc_out._set_voxel_size(*(cell/grid))
         mrc_out.header["origin"] = tuple(origin)
 
@@ -209,6 +209,8 @@ def main():
     h1_exists = os.path.isfile(path_in + name + "_unfil_half_1.mrc")
     h2_exists = os.path.isfile(path_in + name + "_unfil_half_2.mrc")
     calculate_halfmaps = True if h1_exists and h2_exists else False
+    if calculate_halfmaps:
+        print("segmenting halfmaps")
 
     intig = 0
     for co_select in id_coplus_lists:
