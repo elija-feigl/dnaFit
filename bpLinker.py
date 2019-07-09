@@ -20,6 +20,18 @@ class Linker(object):
         self.design = Design(self.path)
         self.d_Fbp, self.d_DidFid, self.d_DhpsDid = None, None, None
         self.d_Fco = None
+        self.l_Dskips = self._get_skips()
+        self.d_Fnicks = None
+
+    def _get_skips(self):
+        design_allbases = [
+            base for strand in self.design.strands for base in strand.tour]
+        l_skips = []
+        for base in design_allbases:
+            if base.num_deletions != 0:
+                l_skips.append((base.h, base.p, base.is_scaf))
+
+        return l_skips
 
     def _link_scaffold(self):
         """ My numpydoc description of a kind
@@ -129,6 +141,8 @@ class Linker(object):
                 n_Fid = None
                 for i in [-1, 1]:
                     try:
+                        if (h, p+i, is_scaf) in self.l_Dskips:
+                            i *= 2.
                         n_Fid = self.d_DidFid[self.d_DhpsDid[(
                             h, p+i, is_scaf)]]
                     except KeyError:
@@ -145,8 +159,9 @@ class Linker(object):
         def get_co_leg_id(base, direct):
             # determine leg base (def: 2 bases away)
             l = base.down.p if direct == "up" else base.up.p
-            i = (l - base.p) * 2.  # TODO: what happens at skips?
-
+            i = (l - base.p) * 2.  # TODO: -low- what happens at skips?
+            if (base.h, base.p+i, base.is_scaf) in self.l_Dskips:
+                i = i + np.sign(i)
             return self.d_DidFid[self.d_DhpsDid[(base.h, base.p+i, base.is_scaf)]]
 
         design_allbases = self.design.scaffold.copy()
@@ -179,8 +194,22 @@ class Linker(object):
         return self.d_Fco
 
     def identify_nicks(self):
-        # TODO: -low-
-        raise NotImplementedError
+
+        d_Fnicks = {}
+        # uses skip-cleaned staples
+        staple_end_bases = []
+        for staple in self.design.staples:
+            staple_end_bases.extend((staple[0], staple[-1]))
+
+        for base in staple_end_bases:
+            for candidate in staple_end_bases:
+                # if skip => 2 else => 1, 0 impossible, abs > 0
+                if base.h == candidate.h and abs(base.p - candidate.p) <= 2 and base is not candidate:
+                    d_Fnicks[self.d_DidFid[base.id]
+                             ] = self.d_DidFid[candidate.id]
+
+        self.d_Fnicks = d_Fnicks
+        return self.d_Fnicks
 
     def _idx_incl(self, idx):
         """ include scaffold from idcount
@@ -304,7 +333,9 @@ def main():
 
     dict_bp, dict_idid, dict_hpid, dict_color = linker.link()
     dict_coid = linker.identify_crossover()
-    for dict_name in ["dict_bp", "dict_idid", "dict__hpid", "dict_color", "dict_coid"]:
+    dict_nicks = linker.identify_nicks()
+    ipdb.set_trace()
+    for dict_name in ["dict_bp", "dict_idid", "dict_hpid", "dict_color", "dict_coid", "dict_nicks"]:
         pickle.dump(eval(dict_name), open(
             path + "__" + dict_name + ".p", "wb"))
 
