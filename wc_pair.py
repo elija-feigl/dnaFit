@@ -509,7 +509,8 @@ class BDna(object):
             alpha2 = np.rad2deg(np.arccos(_proj(proj_legs[1], [ -x for x in proj_legs[0]])))
             beta = 180 - ang_temp1 - ang_temp2
 
-            return { "angles": {"beta": beta, "gamma1":gamma1, "gamma2":gamma2, "alpha1":alpha1, "alpha2":alpha2}, "center": center, "plane": n0}
+            return { "angles": {"beta": beta, "gamma1":gamma1, "gamma2":gamma2,
+                    "alpha1":alpha1, "alpha2":alpha2}, "center": center, "plane": n0}
             
 
         self.co_angles = {}
