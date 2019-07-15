@@ -12,7 +12,6 @@ from operator import attrgetter
 
 #TODO: -mid- DOC
 
-
 class Linker(object):
     def __init__(self, path):
         self.path = path
@@ -160,9 +159,9 @@ class Linker(object):
             return dict_co
 
         def get_co_leg_id(base, direct):
-            # determine leg base (def: 2 bases away)
+            """determine leg base (def: 2 bases away)"""
             l = base.down.p if direct == "up" else base.up.p
-            i = (l - base.p) * 2.  # TODO: -low- what happens at skips?
+            i = (l - base.p) * 2.
             if (base.h, base.p+i, base.is_scaf) in self.l_Dskips:
                 i = i + np.sign(i)
             return self.d_DidFid[self.d_DhpsDid[(base.h, base.p+i, base.is_scaf)]]
