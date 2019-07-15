@@ -45,7 +45,7 @@ def _proj(u, v):
 def _v_proj(u, v):
     return np.inner(u, v) / (np.linalg.norm(v) * np.linalg.norm(v)) * v
 
-#TODO: -mid- nicks
+#TODO: -mid- eval nicks
 
 class BDna(object):
 
@@ -66,7 +66,6 @@ class BDna(object):
         """ get next residue and its complemt wc pair
             check if next exists.
             check has bp (ony scaffold residues apply here)
-            TODO: -low- use resindex_wc to check 
         """
         n_resindex = resindex + 1
         
@@ -433,6 +432,7 @@ class BDna(object):
             “jj” indicates vectorial projections into the cross-over plane. The angle β
             is also computed as indicated for vectors C and D.(Bai 2012)
         """
+     
         def get_co_baseplanes(res_index, leg_index, co_index, coleg_index):
             bases = []
             for r in [res_index, leg_index, co_index, coleg_index]:
@@ -444,14 +444,14 @@ class BDna(object):
                     bases.append(self._get_base_plane(self.u.residues[r]))
                     bases.append(self._get_base_plane(self.u.residues[r])) #TODO: -low- dirty
 
-            bpplanes = []
+            bp_planes = []
             for i in [0, 2, 4, 6]:
-                bpplanes.append({"center-anker": ((bases[i]["anker"] + bases[i+1]["anker"]) * 0.5),
+                bp_planes.append({"center-anker": ((bases[i]["anker"] + bases[i+1]["anker"]) * 0.5),
                         "dir-anker": (bases[i]["anker"] - bases[i+1]["anker"]) ,
                         "center": ((bases[i]["center"] + bases[i+1]["center"]) * 0.5), 
                         "dir-center": (bases[i]["anker"] - bases[i+1]["anker"]) ,
                         "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5) })
-            return bpplanes
+            return bp_planes
 
         def get_co_angles_half(bpplanes): #TODO: -mid- check order
             a1 = bpplanes[0]["center"]
@@ -517,6 +517,7 @@ class BDna(object):
         co_running_index = 0
         co_done = set()
         for res_index, co in self.d_Fco.items():     
+            #TODO: -high- only cont once
             if res_index not in co_done:
                 leg_index = co["leg"]
                 co_index = co["co"]
@@ -531,11 +532,13 @@ class BDna(object):
                     try:
                         double_leg_index = self.d_Fco[double_res_index]["leg"]
                         double_co_index = self.d_Fco[double_res_index]["co"]
-                        double_co_leg_index = self.d_Fco[double_res_index]["leg"]
+                        double_coleg_index = self.d_Fco[double_co_index]["leg"]
                     except KeyError:
                         ipdb.set_trace()
                     co_done.update([double_res_index, double_co_index])
-                    double_bpplanes = get_co_baseplanes(double_co_index, double_co_leg_index, double_res_index, double_leg_index)
+                    double_bpplanes = get_co_baseplanes( double_res_index, double_leg_index, double_co_index, double_coleg_index)
+
+
 
                     co_data = get_co_angles_full(bpplanes, double_bpplanes)
                     crossover_ids = (res_index, co_index,  double_co_index, double_res_index)
@@ -667,11 +670,11 @@ def main():
         
         #perform analyis
         print("eval_wc", name)
-        bDNA.eval_wc()
+        #bDNA.eval_wc()
         print("eval_distances", name)
-        bDNA.eval_distances()
+        #bDNA.eval_distances()
         print("eval_dh", name)
-        bDNA.eval_dh()
+        #bDNA.eval_dh()
         print("eval_co_angles", name)
         bDNA.eval_co_angles()
         ipdb.set_trace()
