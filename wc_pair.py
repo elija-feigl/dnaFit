@@ -667,13 +667,14 @@ def main():
         
         #perform analyis
         print("eval_wc", name)
-        bDNA.eval_wc()
+        #bDNA.eval_wc() #TODO: -high uncomment
         print("eval_distances", name)
-        bDNA.eval_distances()
+        #bDNA.eval_distances()
         print("eval_dh", name)
-        bDNA.eval_dh()
+        #bDNA.eval_dh()
         print("eval_co_angles", name)
         bDNA.eval_co_angles()
+        ipdb.set_trace()
         properties.append(bDNA)
         print("write pdbs", name)
         props_tuple = [(bDNA.wc_geometry,"wc_geometry"), (bDNA.wc_quality,"wc_quality"), 
