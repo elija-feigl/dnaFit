@@ -26,12 +26,12 @@ class Linker(object):
     def _get_skips(self):
         design_allbases = [
             base for strand in self.design.strands for base in strand.tour]
-        l_skips = []
+        l_Dskips = []
         for base in design_allbases:
             if base.num_deletions != 0:
-                l_skips.append((base.h, base.p, base.is_scaf))
+                l_Dskips.append((base.h, base.p, base.is_scaf))
 
-        return l_skips
+        return l_Dskips
 
     def _link_scaffold(self):
         """ My numpydoc description of a kind
@@ -63,70 +63,73 @@ class Linker(object):
             id-id is design to fit
         """
 
-        idx_bases = []
-        # get all possible positions for a scaffold base
-        design_idx = [base.id for base in self.design.scaffold]
-        design_hp = [(base.h, base.p, True) for base in self.design.scaffold]
+       
+        # get all possible idx and positions for a scaffold base
+        D_ids = [base.id for base in self.design.scaffold]
+        D_hp = [(base.h, base.p, True) for base in self.design.scaffold]
 
+        F_idscaffold = [] #get F_id within scaffold
         for base in self.design.scaffold:
-            idx = design_idx.index(base.id)
-            idx_bases.append(idx)
+            indx = D_ids.index(base.id)
+            F_idscaffold.append(indx)
 
-        res_ids = self.fit.scaffold.residues[idx_bases].resindices
+        #get F_id global
+        F_ids = self.fit.scaffold.residues[F_idscaffold].resindices
 
-        d_DidFid = dict(zip(design_idx, res_ids))
-        d_hp = dict(zip(design_hp, design_idx))
-        return d_DidFid, d_hp
+        d_DidFid = dict(zip(D_ids, F_ids))
+        d_DhpsDid = dict(zip(D_hp, D_ids))
+        return d_DidFid, d_DhpsDid
 
     def _link_staples(self):
         """ loop over all staples, then perform the same procesdure as for scaffold
         """
         d_DidFid = {}
-        d_hp = {}
+        d_DhpsDid = {}
         d_color = {}
 
         for i, staple in enumerate(self.design.staples):
-            idx_segment = self.design.s_dict[i]
+            indx_segment = self.design.s_dict[i]
 
-            # get all possible positions for a  base in this specific staple
-            design_idx = [base.id for base in staple]
-            design_hp = [(base.h, base.p, False) for base in staple]
+            # get all possible ids and positions for a  base in this specific staple
+            D_ids = [base.id for base in staple]
+            D_hp = [(base.h, base.p, False) for base in staple]
 
-            idx_bases = [design_idx.index(base.id) for base in staple]
-            res_ids = [
-                self.fit.staples[idx_segment].residues[j].resindex for j in idx_bases]
+            indx_list = [D_ids.index(base.id) for base in staple] #get F_id within staple
+            F_ids = [
+                self.fit.staples[indx_segment].residues[j].resindex for j in indx_list] #get F_id global
 
             # get color
             color = self.design.design.strands[staple[0].strand].icolor
-            segidxforcolor = self.fit.staples[idx_segment].segindex
+            segidxforcolor = self.fit.staples[indx_segment].segindex
             d_color[segidxforcolor] = color
 
-            idid_add = dict(zip(design_idx, res_ids))
-            hp_add = dict(zip(design_hp, design_idx))
-            d_DidFid = {**d_DidFid, **idid_add}
-            d_hp = {**d_hp, **hp_add}
+            d_DidFid_add = dict(zip(D_ids, F_ids))
+            d_DhpsDid_add = dict(zip(D_hp, D_ids)) #!!!!!!!!!!!
+            d_DidFid = {**d_DidFid, **d_DidFid_add}
+            d_DhpsDid = {**d_DhpsDid, **d_DhpsDid_add}
 
-        return d_DidFid, d_hp, d_color
+        return d_DidFid, d_DhpsDid, d_color
 
-    def _link_bp(self, d_scaffold, d_staple):
+    def _link_bp(self):
         """ returns dict: key = id fit scaffold  value = id fit
             bp fit only
         """
-        bp_u = {}
+        d_Fbp = {}
         for base in self.design.scaffold:
             if base.across is not None:
-                bp_u[d_scaffold[base.id]] = d_staple[base.across.id]
+                d_Fbp[self.d_DidFid[base.id]] = self.d_DidFid[base.across.id]
 
-        return bp_u
+        return d_Fbp
 
     def link(self):
 
         d_DidFid_sc, d_DhpsDid_sc = self._link_scaffold()
         d_DidFid_st, d_DhpsDid_st, self.d_color = self._link_staples()
 
-        self.d_Fbp = self._link_bp(d_DidFid_sc, d_DidFid_st)
+        
         self.d_DidFid = {**d_DidFid_sc, **d_DidFid_st}
         self.d_DhpsDid = {**d_DhpsDid_sc, **d_DhpsDid_st}
+        self.d_Fbp = self._link_bp()
 
         return self.d_Fbp, self.d_DidFid, self.d_DhpsDid, self.d_color
 
@@ -275,7 +278,7 @@ class Design(object):
         return converter.dna_structure
 
     def _create_helix_order(self):
-        """ helices are not prcessed in the same order as they are listed by idx
+        """ helices are not processed in the same order as they are listed by idx
         """
         helices_dict = self.design.structure_helices_map
         h_dict = {i: h.load_order for (i, h) in helices_dict.items()}
@@ -332,8 +335,8 @@ def main():
     linker = Linker(path)
 
     dict_bp, dict_idid, dict_hpid, dict_color = linker.link()
-    dict_coid = linker.identify_crossover()
-    dict_nicks = linker.identify_nicks()
+    #dict_coid = linker.identify_crossover()
+    #dict_nicks = linker.identify_nicks()
     ipdb.set_trace()
     for dict_name in ["dict_bp", "dict_idid", "dict_hpid", "dict_color", "dict_coid", "dict_nicks"]:
         pickle.dump(eval(dict_name), open(
