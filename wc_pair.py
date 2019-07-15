@@ -53,6 +53,7 @@ class BDna(object):
         self.u = universe
         self.d_DidFid = d_DidFid
         self.d_Fbp = d_Fbp
+        self.d_Fbp_full =  {**d_Fbp, **{v: k for k, v in d_Fbp.items()}}
         self.d_DhpsDid =d_DhpsDid
         self.d_Fco = d_Fco  
 
@@ -72,7 +73,7 @@ class BDna(object):
         try:
             self.u.residues[n_resindex]
             try:
-                n_resindex_wc = self.d_Fbp[n_resindex]
+                n_resindex_wc = self.d_Fbp_full[n_resindex]
             except KeyError:
                 n_resindex_wc = None
         except KeyError:
@@ -86,7 +87,7 @@ class BDna(object):
         """
         self.wc_quality = {}
         self.wc_geometry = {}
-        for resindex, resindex_wc in self.d_Fbp.items():      
+        for resindex, resindex_wc in self.d_Fbp.items():      #scaffold only -> just once
 
             res = self.u.residues[resindex]
             res_wc = self.u.residues[resindex_wc]
@@ -437,13 +438,12 @@ class BDna(object):
             bases = []
             for r in [res_index, leg_index, co_index, coleg_index]:
                 try:
-                    wc_r = self.d_Fbp[r]
+                    wc_r = self.d_Fbp_full[r]
                     bases.append(self._get_base_plane(self.u.residues[r]))
                     bases.append(self._get_base_plane(self.u.residues[wc_r]))
                 except KeyError:
                     bases.append(self._get_base_plane(self.u.residues[r]))
-                    bases.append(self._get_base_plane(self.u.residues[r])) #TODO: -low- dirty
-
+                    bases.append(self._get_base_plane(self.u.residues[r])) 
             bp_planes = []
             for i in [0, 2, 4, 6]:
                 bp_planes.append({"center-anker": ((bases[i]["anker"] + bases[i+1]["anker"]) * 0.5),
@@ -453,23 +453,38 @@ class BDna(object):
                         "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5) })
             return bp_planes
 
-        def get_co_angles_half(bpplanes): #TODO: -mid- check order
+        def get_co_angles_half(bpplanes):  #TODO: -low- cleanup
+            
+            def project_to_plane(vect, n0): 
+                pro = []
+                for x in vect: 
+                    d = np.inner(x, n0)
+                    p = [d * n0[i] for i in range(len(n0))]
+                    pro.append([x[i] - p[i] for i in range(len(x))])
+                return pro
+
+
             a1 = bpplanes[0]["center"]
             a2 = bpplanes[1]["center"]
-            b1 = bpplanes[2]["center"]
-            b2 = bpplanes[3]["center"]
+            c1 = bpplanes[2]["center"]
+            c2 = bpplanes[3]["center"]
 
-            center = (a1 + b2) * 0.5
+            center = (a1 + c1) * 0.5
             a = a2 - a1
-            b = b2 - b1
+            c = c2 - c1
             
-            plane = _norm((a1 - b1))
-            angles = np.rad2deg( _proj(a,b) )
+            n0 = _norm((a1 - c1))
+            proj_ac = project_to_plane([a,c], n0)
+    
+            gamma = np.rad2deg(np.arccos(_proj(proj_ac[0], proj_ac[0])))
+           
+            ang_temp = np.rad2deg(np.arccos(_proj(a, n0))) #unprojected
+            beta = 90. - ang_temp
 
-            return { "angles": angles, "center": center, "plane": plane}
+            return { "angles": {"beta": beta, "gamma":gamma}, "center": center, "plane": n0}
 
 
-        def get_co_angles_full(bpplanes, double_bpplanes):  #TODO: -high- check order
+        def get_co_angles_full(bpplanes, double_bpplanes): #TODO: -low- cleanup
 
             def project_to_plane(vect, n0): 
                 pro = []
@@ -480,34 +495,31 @@ class BDna(object):
                 return pro
 
             points = []
-            for i in [0, 2]:
-                for x in [bpplanes, double_bpplanes]: 
-                    ins = x[i]["center"]
-                    out = x[i+1]["center"]
+            
+            for x in [bpplanes[0:2], double_bpplanes[0:2],bpplanes[2:], double_bpplanes[2:]]: #abcd
+                    ins = x[0]["center"]
+                    out = x[1]["center"]
                     points.append((ins, out))
-            #acdb to abcd TODO cleanup
-            points[1], points[3]  = points[3], points[1]
-            points[2], points[3]  = points[3], points[2]
-            
+        
 
-            center = sum( p[0] for p in points) * 0.25
-            n0 = _norm((points[0][0] + points[1][0] ) - (points[2][0] + points[3][0] ) *0.5 ) 
+            center = sum( p[0] for p in points) * 0.25 #((a0 +b0)/2 +  (c0 +d0)/2)/2
+            n0 = _norm(points[0][0] + points[1][0] - points[2][0] - points[3][0]  ) # n0((a0 +b0)/2 -  (c0 +d0)/2)
 
-
-            legs = []
+            abcd = []
             for p_in, p_out in points:
-                legs.append(p_out - p_in)            
+                abcd.append(p_out - p_in)            
             
-            proj_legs = project_to_plane(legs, n0)
+            proj_abcd = project_to_plane(abcd, n0)
 
-            gamma1 = np.rad2deg(np.arccos(_proj(proj_legs[0], proj_legs[2])))
-            gamma2 = np.rad2deg(np.arccos(_proj(proj_legs[1], proj_legs[3])))
+            gamma1 = np.rad2deg(np.arccos(_proj(proj_abcd[0], proj_abcd[2])))
+            gamma2 = np.rad2deg(np.arccos(_proj(proj_abcd[1], proj_abcd[3])))
     
-            ang_temp1 = np.rad2deg(np.arccos(_proj(proj_legs[0], n0)))
-            ang_temp2 = np.rad2deg(np.arccos(_proj(proj_legs[1], n0)))
-            alpha1 = np.rad2deg(np.arccos(_proj(proj_legs[2], [ -x for x in proj_legs[3]] )))
-            alpha2 = np.rad2deg(np.arccos(_proj(proj_legs[1], [ -x for x in proj_legs[0]])))
-            beta = 180 - ang_temp1 - ang_temp2
+            alpha1 = np.rad2deg(np.arccos(_proj(proj_abcd[0], [ -x for x in proj_abcd[1]] )))
+            alpha2 = np.rad2deg(np.arccos(_proj(proj_abcd[2], [ -x for x in proj_abcd[3]] )))
+           
+            ang_temp1 = np.rad2deg(np.arccos(_proj(abcd[0], n0))) #unprojected
+            ang_temp2 = np.rad2deg(np.arccos(_proj(abcd[1], n0)))
+            beta = 180. - ang_temp1 - ang_temp2
 
             return { "angles": {"beta": beta, "gamma1":gamma1, "gamma2":gamma2,
                     "alpha1":alpha1, "alpha2":alpha2}, "center": center, "plane": n0}
@@ -517,13 +529,13 @@ class BDna(object):
         co_running_index = 0
         co_done = set()
         for res_index, co in self.d_Fco.items():     
-            #TODO: -high- only cont once
             if res_index not in co_done:
                 leg_index = co["leg"]
                 co_index = co["co"]
                 coleg_index = self.d_Fco[co_index]["leg"]
 
                 co_done.update([res_index, co_index])
+                # res -> a, co -> c
                 bpplanes = get_co_baseplanes(res_index, leg_index, co_index, coleg_index)
 
                 co_type = co["type"][0]
@@ -536,16 +548,17 @@ class BDna(object):
                     except KeyError:
                         ipdb.set_trace()
                     co_done.update([double_res_index, double_co_index])
+                    # double -> b, d_co -> d
                     double_bpplanes = get_co_baseplanes( double_res_index, double_leg_index, double_co_index, double_coleg_index)
-
-
-
-                    co_data = get_co_angles_full(bpplanes, double_bpplanes)
-                    crossover_ids = (res_index, co_index,  double_co_index, double_res_index)
+                    #if co_running_index== 523:
+                    #    ipdb.set_trace()
+                    co_data = get_co_angles_full(bpplanes, double_bpplanes) # acbd
+                    crossover_ids = (res_index,  double_res_index, co_index, double_co_index)
                 else:
                     co_data = get_co_angles_half(bpplanes)
                     crossover_ids = (res_index, co_index)
-
+                
+                
                 self.co_angles[co_running_index] = {"ids(abcd)": crossover_ids, "type": co_type, "is_scaffold": co["is_scaffold"], "angles": co_data["angles"], "center": co_data["center"]} 
                 co_running_index += 1       
         return 
