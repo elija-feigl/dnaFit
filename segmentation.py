@@ -17,7 +17,6 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
     u = atoms_selection.universe
     u.trajectory[-1]
 
-
     with mrcfile.open(path_in + ".mrc", mode='r') as mrc:
         m_o = np.array(mrc.header["origin"])
         m_origin = np.array([m_o["x"], m_o["y"], m_o["z"]])
@@ -26,15 +25,15 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
         m_grid = np.array(
             [mrc.header["nx"], mrc.header["ny"], mrc.header["nz"]])
         m_spacing = m_cell/m_grid
-        m_data = np.swapaxes( mrc.data, 0 , 2)
-        #TODO: -low- faster withoutswap
+        m_data = np.swapaxes(mrc.data, 0, 2)
+        # TODO: -low- faster withoutswap
 
     data_mask = np.zeros(m_grid, dtype=np.float32)
 
     grid_positions = np.rint(
         ((atoms_selection.positions-m_origin) / m_spacing)).astype(int)
     for pos in grid_positions:
-        x, y, z = pos[0], pos[1], pos[2] 
+        x, y, z = pos[0], pos[1], pos[2]
         data_mask[x-context:x+context, y-context:y+context, z-context:z +
                   context] = 1.
 
@@ -56,21 +55,29 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
     z_low = int(z_pad) if (z_pad % 1.) == 0. else int(z_pad) + 1
 
     data_small = np.zeros((xyz_diff,  xyz_diff, xyz_diff), dtype=np.float32)
-    data_small[x_low: -int(x_pad)  or None, y_low: -int(y_pad)  or None, z_low: -
-                   int(z_pad)  or None] = data[x_min: x_max, y_min: y_max, z_min: z_max]
- 
-    grid = np.shape(data_small)
-    origin = m_origin + ((x_min -x_low) * m_spacing[0], (y_min -y_low) * m_spacing[1], (z_min -z_low )  * m_spacing[2])
-    cell = grid * m_spacing
+    data_small[x_low: -int(x_pad) or None, y_low: -int(y_pad) or None, z_low: -
+               int(z_pad) or None] = data[x_min: x_max, y_min: y_max, z_min: z_max]
 
-    # clipp below threshold
-    #data_small[data_small < clipping] = 0.
+    grid = np.shape(data_small)
+    origin = m_origin + \
+        ((x_min - x_low) * m_spacing[0], (y_min - y_low)
+         * m_spacing[1], (z_min - z_low) * m_spacing[2])
+    cell = grid * m_spacing
+    center = origin + cell*0.5
 
     with mrcfile.new(path_out + ".mrc", overwrite=True) as mrc_out:
-        mrc_out.set_data(np.swapaxes(data_small, 0 , 2))
+        mrc_out.set_data(np.swapaxes(data_small, 0, 2))
         mrc_out._set_voxel_size(*(cell/grid))
         mrc_out.header["origin"] = tuple(origin)
 
+    path_out_split = path_out.split("/")  
+    #ipdb.set_trace()
+    path_star = "Tomograms/seg-co/" + path_out_split[-1]
+    with open(path_out + ".star", mode="w") as star_out:
+        star_out.write(
+            "data_\n\nloop_\n_rlnMicrographName #1\n_rlnCoordinateX #2\n_rlnCoordinateY #3\n _rlnCoordinateZ #4\n")
+        star_out.write(path_star + ".star " +
+                       str(center[0]) + " " + str(center[1]) + " " + str(center[2]))
     return
 
 
@@ -91,6 +98,7 @@ def _categorise_lists(topo, plus=3):
         id_design for id_design in topo["dict_co"].keys() if id_design not in id_ss}
     allready_done = set()
     for base in id_co_init:
+        typ = topo["dict_co"][base]["type"][0]
         if base not in allready_done:
             allready_done.add(base)
             co = topo["dict_co"][base]["co"]
@@ -117,14 +125,15 @@ def _categorise_lists(topo, plus=3):
                     dou_bp = topo["dict_bp"][dou]
                 except KeyError:
                     dou_bp = inv_dict_bp[dou]
-                tup = (base, bp, co, co_bp, dou, dou_bp, dou_co, dou_co_bp)
+                tup = (base, bp, co, co_bp, dou,
+                       dou_bp, dou_co, dou_co_bp, typ)
             else:
-                tup = (base, bp, co, co_bp)
+                tup = (base, bp, co, co_bp, typ)
 
             dict_FidDid = {v: k for k, v in topo["dict_idid"].items()}
             dict_DidDhps = {v: k for k, v in topo["dict_hpid"].items()}
             tup_plus = []
-            for x in tup:
+            for x in tup[:-1]:
                 h, p, is_scaf = dict_DidDhps[dict_FidDid[x]]
                 for i in range(-plus, plus):
                     try:
@@ -132,6 +141,8 @@ def _categorise_lists(topo, plus=3):
                             topo["dict_idid"][topo["dict_hpid"][(h, p+i, is_scaf)]])
                     except KeyError:
                         pass  # helix end
+
+            tup_plus.append(typ)
             id_co.add(tup)
             id_coplus.add(tuple(tup_plus))
 
@@ -212,18 +223,22 @@ def main():
     if calculate_halfmaps:
         print("segmenting halfmaps")
 
-    intig = 0
-    for co_select in id_coplus_lists:
+    intig = 0 #TODO: usin running index in co["co_index"] instead
+
+    for co_select_typ in id_coplus_lists:
+        co_select = co_select_typ[:-1]
+        typ = co_select_typ[-1]
+        #ipdb.set_trace()
         atoms_select = mda.AtomGroup([], u)
         for base_id in co_select:
             atoms_select += u.residues[base_id].atoms
         mrc_segment(atoms_select, path_in + name, path_out +
-                    name + "-co" + str(intig), context=context)
+                    name + "__" + typ + "-co" + str(intig), context=context)
         if calculate_halfmaps:
             mrc_segment(atoms_select, path_in + name + "_unfil_half_1",
-                        path_out + name + "-h1-co" + str(intig), context=context)
+                        path_out + name + "__h1-" + typ + "-co" + str(intig), context=context)
             mrc_segment(atoms_select, path_in + name + "_unfil_half_2",
-                        path_out + name + "-h2-co" + str(intig), context=context)
+                        path_out + name + "__h2-" + typ + "-co" + str(intig), context=context)
         intig += 1
 
 
