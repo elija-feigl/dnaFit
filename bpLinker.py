@@ -12,6 +12,7 @@ from operator import attrgetter
 
 #TODO: -mid- DOC
 
+
 class Linker(object):
     def __init__(self, path):
         self.path = path
@@ -62,17 +63,16 @@ class Linker(object):
             id-id is design to fit
         """
 
-       
         # get all possible idx and positions for a scaffold base
         D_ids = [base.id for base in self.design.scaffold]
         D_hp = [(base.h, base.p, True) for base in self.design.scaffold]
 
-        F_idscaffold = [] #get F_id within scaffold
+        F_idscaffold = []  # get F_id within scaffold
         for base in self.design.scaffold:
             indx = D_ids.index(base.id)
             F_idscaffold.append(indx)
 
-        #get F_id global
+        # get F_id global
         F_ids = self.fit.scaffold.residues[F_idscaffold].resindices
 
         d_DidFid = dict(zip(D_ids, F_ids))
@@ -93,9 +93,10 @@ class Linker(object):
             D_ids = [base.id for base in staple]
             D_hp = [(base.h, base.p, False) for base in staple]
 
-            indx_list = [D_ids.index(base.id) for base in staple] #get F_id within staple
+            indx_list = [D_ids.index(base.id)
+                         for base in staple]  # get F_id within staple
             F_ids = [
-                self.fit.staples[indx_segment].residues[j].resindex for j in indx_list] #get F_id global
+                self.fit.staples[indx_segment].residues[j].resindex for j in indx_list]  # get F_id global
 
             # get color
             color = self.design.design.strands[staple[0].strand].icolor
@@ -103,7 +104,7 @@ class Linker(object):
             d_color[segidxforcolor] = color
 
             d_DidFid_add = dict(zip(D_ids, F_ids))
-            d_DhpsDid_add = dict(zip(D_hp, D_ids)) #!!!!!!!!!!!
+            d_DhpsDid_add = dict(zip(D_hp, D_ids))
             d_DidFid = {**d_DidFid, **d_DidFid_add}
             d_DhpsDid = {**d_DhpsDid, **d_DhpsDid_add}
 
@@ -125,7 +126,6 @@ class Linker(object):
         d_DidFid_sc, d_DhpsDid_sc = self._link_scaffold()
         d_DidFid_st, d_DhpsDid_st, self.d_color = self._link_staples()
 
-        
         self.d_DidFid = {**d_DidFid_sc, **d_DidFid_st}
         self.d_DhpsDid = {**d_DhpsDid_sc, **d_DhpsDid_st}
         self.d_Fbp = self._link_bp()
@@ -136,7 +136,7 @@ class Linker(object):
         """ for every base id that is involved in a crossover, #ALL DESIGN
             list: co-partner id "co", "is_scaffold", "type" (single/double, id) 
         """
-        def add_co_type(dict_co):
+        def add_co_type(dict_co):  # TODO: deferentiate single and end
             for value in dict_co.values():
                 h, p, is_scaf = value["position"]
                 is_single = True
@@ -171,6 +171,7 @@ class Linker(object):
             [base for staple in self.design.staples for base in staple])
 
         dict_co = {}
+        co_running_index = 0
         for design_base in design_allbases:
 
             for direct in ["up", "down"]:
@@ -186,9 +187,9 @@ class Linker(object):
 
                         position = (design_base.h, design_base.p,
                                     design_base.is_scaf)
-
                         dict_co[self.d_DidFid[design_base.id]] = {
-                            "co": co_id, "leg": leg_id, "is_scaffold": design_base.is_scaf, "position": position}
+                            "co_index": co_running_index, "co": co_id, "leg": leg_id, "is_scaffold": design_base.is_scaf, "position": position}
+                        co_running_index += 1
 
         dict_co = add_co_type(dict_co)
 
