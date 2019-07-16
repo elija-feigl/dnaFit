@@ -136,10 +136,10 @@ class Linker(object):
         """ for every base id that is involved in a crossover, #ALL DESIGN
             list: co-partner id "co", "is_scaffold", "type" (single/double, id) 
         """
-        def add_co_type(dict_co):  # TODO: deferentiate single and end
+        def add_co_type(dict_co):  
             for value in dict_co.values():
                 h, p, is_scaf = value["position"]
-                is_single = True
+                is_double, is_single, is_end = False, False, False
                 n_Fid = None
                 for i in [-1, 1]:
                     try:
@@ -148,14 +148,35 @@ class Linker(object):
                         n_Fid = self.d_DidFid[self.d_DhpsDid[(
                             h, p+i, is_scaf)]]
                     except KeyError:
-                        pass  # helix end
+                        is_end = True
 
                     if n_Fid in dict_co.keys():
-                        is_single = False
                         double = n_Fid
+                        is_double = True
+                    elif not is_end:
+                        neighbors = []
+                        for direct in ["up", "down"]:
+                            neigh = value["base"].up if direct == "up" else value["base"].down
+                            if neigh is not None:
+                                if neigh.num_deletions != 0 or neigh.num_insertions != 0:
+                                    n_skip = neigh.up if direct == "up" else neigh.down
+                                    if n_skip is not None:
+                                        neigh = n_skip
+                            neighbors.append(self.d_DidFid[neigh.id])
+                        if n_Fid not in neighbors:
+                            single = n_Fid 
+                            is_single = True               
 
-                value["type"] = ("single", None) if is_single else (
-                    "double", double)
+                if is_end:
+                    value["type"] = ("end", None)
+                elif is_single:
+                    value["type"] = ("single", single) 
+                elif is_double: 
+                    value["type"] = ("double", double)
+                else: 
+                    ipdb.set_trace()
+
+                value.pop("base")
             return dict_co
 
         def get_co_leg_id(base, direct):
@@ -188,7 +209,7 @@ class Linker(object):
                         position = (design_base.h, design_base.p,
                                     design_base.is_scaf)
                         dict_co[self.d_DidFid[design_base.id]] = {
-                            "co_index": co_running_index, "co": co_id, "leg": leg_id, "is_scaffold": design_base.is_scaf, "position": position}
+                            "co_index": co_running_index, "co": co_id, "leg": leg_id, "is_scaffold": design_base.is_scaf, "position": position, "base": design_base}
                         co_running_index += 1
 
         dict_co = add_co_type(dict_co)
@@ -247,8 +268,8 @@ class Design(object):
         self.path = path
         self.design = self._get_design()
         self.strands = self.design.strands
-        self.scaffold = self._clean_scaffold(
-            self.strands)  # TODO: -low- multiscaffold
+        self.scaffold = self._clean_scaffold(self.strands) 
+             # TODO: -low- multiscaffold
         self.excl = self.scaffold[0].strand
         self.staples = self._clean_staple(self.strands)
         self.h_dict = self._create_helix_order()
