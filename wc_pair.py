@@ -526,7 +526,7 @@ class BDna(object):
             
 
         self.co_angles = {}
-        co_running_index = 0
+        
         co_done = set()
         for res_index, co in self.d_Fco.items():     
             if res_index not in co_done:
@@ -550,17 +550,13 @@ class BDna(object):
                     co_done.update([double_res_index, double_co_index])
                     # double -> b, d_co -> d
                     double_bpplanes = get_co_baseplanes( double_res_index, double_leg_index, double_co_index, double_coleg_index)
-                    #if co_running_index== 523:
-                    #    ipdb.set_trace()
                     co_data = get_co_angles_full(bpplanes, double_bpplanes) # acbd
                     crossover_ids = (res_index,  double_res_index, co_index, double_co_index)
                 else:
                     co_data = get_co_angles_half(bpplanes)
                     crossover_ids = (res_index, co_index)
                 
-                
-                self.co_angles[co_running_index] = {"ids(abcd)": crossover_ids, "type": co_type, "is_scaffold": co["is_scaffold"], "angles": co_data["angles"], "center": co_data["center"]} 
-                co_running_index += 1       
+                self.co_angles[co["co_index"]] = {"ids(abcd)": crossover_ids, "type": co_type, "is_scaffold": co["is_scaffold"], "angles": co_data["angles"], "center": co_data["center"]} 
         return 
 
 def print_usage():
