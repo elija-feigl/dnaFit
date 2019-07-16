@@ -63,7 +63,7 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
         ((x_min - x_low) * m_spacing[0], (y_min - y_low)
          * m_spacing[1], (z_min - z_low) * m_spacing[2])
     cell = grid * m_spacing
-    center = origin + cell*0.5
+    center = np.divide(grid,2).astype(int)    
 
     with mrcfile.new(path_out + ".mrc", overwrite=True) as mrc_out:
         mrc_out.set_data(np.swapaxes(data_small, 0, 2))
@@ -99,6 +99,8 @@ def _categorise_lists(topo, plus=3):
     allready_done = set()
     for base in id_co_init:
         typ = topo["dict_co"][base]["type"][0]
+        co_index = topo["dict_co"][base]["co_index"]
+
         if base not in allready_done:
             allready_done.add(base)
             co = topo["dict_co"][base]["co"]
@@ -126,14 +128,14 @@ def _categorise_lists(topo, plus=3):
                 except KeyError:
                     dou_bp = inv_dict_bp[dou]
                 tup = (base, bp, co, co_bp, dou,
-                       dou_bp, dou_co, dou_co_bp, typ)
+                       dou_bp, dou_co, dou_co_bp, co_index, typ)
             else:
-                tup = (base, bp, co, co_bp, typ)
+                tup = (base, bp, co, co_bp, co_index, typ)
 
             dict_FidDid = {v: k for k, v in topo["dict_idid"].items()}
             dict_DidDhps = {v: k for k, v in topo["dict_hpid"].items()}
             tup_plus = []
-            for x in tup[:-1]:
+            for x in tup[:-2]:
                 h, p, is_scaf = dict_DidDhps[dict_FidDid[x]]
                 for i in range(-plus, plus):
                     try:
@@ -223,23 +225,21 @@ def main():
     if calculate_halfmaps:
         print("segmenting halfmaps")
 
-    intig = 0 #TODO: usin running index in co["co_index"] instead
-
     for co_select_typ in id_coplus_lists:
-        co_select = co_select_typ[:-1]
+        co_select = co_select_typ[:-2]
         typ = co_select_typ[-1]
+        co_index = co_select_typ[-2]
         #ipdb.set_trace()
         atoms_select = mda.AtomGroup([], u)
         for base_id in co_select:
             atoms_select += u.residues[base_id].atoms
         mrc_segment(atoms_select, path_in + name, path_out +
-                    name + "__" + typ + "-co" + str(intig), context=context)
+                    name + "__" + typ + "-co" + str(co_index), context=context)
         if calculate_halfmaps:
             mrc_segment(atoms_select, path_in + name + "_unfil_half_1",
-                        path_out + name + "__h1-" + typ + "-co" + str(intig), context=context)
+                        path_out + name + "__h1-" + typ + "-co" + str(co_index), context=context)
             mrc_segment(atoms_select, path_in + name + "_unfil_half_2",
-                        path_out + name + "__h2-" + typ + "-co" + str(intig), context=context)
-        intig += 1
+                        path_out + name + "__h2-" + typ + "-co" + str(co_index), context=context)
 
 
 if __name__ == "__main__":
