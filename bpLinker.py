@@ -147,6 +147,12 @@ class Linker(object):
                             i *= 2.
                         n_Fid = self.d_DidFid[self.d_DhpsDid[(
                             h, p+i, is_scaf)]]
+                        try: 
+                            leg = self.d_DidFid[self.d_DhpsDid[(
+                            h, p+2*i, is_scaf)]]
+                        except KeyError:
+                            leg = self.d_DidFid[self.d_DhpsDid[(
+                            h, p+3*i, is_scaf)]]
                     except KeyError:
                         is_end = True
 
@@ -165,12 +171,13 @@ class Linker(object):
                             neighbors.append(self.d_DidFid[neigh.id])
                         if n_Fid not in neighbors:
                             single = n_Fid 
+                            single_leg = leg 
                             is_single = True               
 
                 if is_end:
                     value["type"] = ("end", None)
                 elif is_single:
-                    value["type"] = ("single", single) 
+                    value["type"] = ("single", single, single_leg) 
                 elif is_double: 
                     value["type"] = ("double", double)
                 else: 
@@ -194,7 +201,8 @@ class Linker(object):
         dict_co = {}
         co_running_index = 0
         for design_base in design_allbases:
-
+            base_Fid = self.d_DidFid[design_base.id]
+            
             for direct in ["up", "down"]:
                 neighbor = design_base.up if direct == "up" else design_base.down
                 if neighbor is not None:
@@ -205,12 +213,19 @@ class Linker(object):
                     if neighbor.h != design_base.h:  # crossover condition
                         leg_id = get_co_leg_id(design_base, direct)
                         co_id = self.d_DidFid[neighbor.id]
-
+                        
                         position = (design_base.h, design_base.p,
                                     design_base.is_scaf)
-                        dict_co[self.d_DidFid[design_base.id]] = {
-                            "co_index": co_running_index, "co": co_id, "leg": leg_id, "is_scaffold": design_base.is_scaf, "position": position, "base": design_base}
-                        co_running_index += 1
+                        
+                        try: 
+                            co_index = dict_co[co_id]["co_index"]
+                        except KeyError:
+                            co_running_index += 1 
+                            co_index = co_running_index
+                                
+                        dict_co[base_Fid] = {
+                            "co_index": co_index, "co": co_id, "leg": leg_id, "is_scaffold": design_base.is_scaf, "position": position, "base": design_base}
+
 
         dict_co = add_co_type(dict_co)
 
@@ -356,8 +371,8 @@ def main():
     linker = Linker(path)
 
     dict_bp, dict_idid, dict_hpid, dict_color = linker.link()
-    #dict_coid = linker.identify_crossover()
-    #dict_nicks = linker.identify_nicks()
+    dict_coid = linker.identify_crossover()
+    dict_nicks = linker.identify_nicks()
     ipdb.set_trace()
     for dict_name in ["dict_bp", "dict_idid", "dict_hpid", "dict_color", "dict_coid", "dict_nicks"]:
         pickle.dump(eval(dict_name), open(
