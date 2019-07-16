@@ -478,13 +478,7 @@ class BDna(object):
 
             dist = _proj(proj_ac[0], proj_ac[0])
             if 1.0 < abs(dist) < 1.0 + TOL : dist = np.sign(dist)
-            import warnings
-            warnings.filterwarnings("error")
-            try:
-                
-                gamma = np.rad2deg(np.arccos(dist))
-            except RuntimeWarning:
-                ipdb.set_trace()
+            gamma = np.rad2deg(np.arccos(dist))
             ang_temp = np.rad2deg(np.arccos(_proj(a, n0))) #unprojected
             beta = 90. - ang_temp
 
