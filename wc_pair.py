@@ -14,7 +14,7 @@ import bpLinker
 #TODO: -mid- move CONSTANTS
 
 C1P_BASEDIST = 10.7
-TOL = 1e-6
+TOL = 10e6
 WC_DICT = {"DC": "DG", "DG": "DC", "DT": "DA", "DA": "DT",
            "C": "G", "G": "C", "T": "A", "A": "T",
            "CYT": "GUA", "GUA": "CYT", "THY": "ADE", "ADE": "THY"}
@@ -183,7 +183,7 @@ class BDna(object):
                 projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
 
                 dist = _proj(projn0,projn_n0)
-                if abs(dist)-1. < TOL: dist = np.sign(dist)
+                if 1.0 < abs(dist) < 1.0 + TOL : dist = np.sign(dist)
                 if dist > 0: 
                     tilt.append(np.rad2deg(np.arccos( dist )))
                 else:
@@ -205,7 +205,7 @@ class BDna(object):
                 projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
 
                 dist = _proj(projn0,projn_n0)
-                if abs(dist)-1. < TOL: dist = np.sign(dist)
+                if  1.0 < abs(dist) < 1.0 + TOL: dist = np.sign(dist)
                 if dist > 0: 
                     roll.append(np.rad2deg(np.arccos( dist )))
                 else:
@@ -453,7 +453,7 @@ class BDna(object):
                         "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5) })
             return bp_planes
 
-        def get_co_angles_half(bpplanes):  #TODO: -low- cleanup
+        def get_co_angles_end(bpplanes):  #TODO: -low- cleanup
             
             def project_to_plane(vect, n0): 
                 pro = []
@@ -475,9 +475,16 @@ class BDna(object):
             
             n0 = _norm((a1 - c1))
             proj_ac = project_to_plane([a,c], n0)
-    
-            gamma = np.rad2deg(np.arccos(_proj(proj_ac[0], proj_ac[0])))
-           
+
+            dist = _proj(proj_ac[0], proj_ac[0])
+            if 1.0 < abs(dist) < 1.0 + TOL : dist = np.sign(dist)
+            import warnings
+            warnings.filterwarnings("error")
+            try:
+                
+                gamma = np.rad2deg(np.arccos(dist))
+            except RuntimeWarning:
+                ipdb.set_trace()
             ang_temp = np.rad2deg(np.arccos(_proj(a, n0))) #unprojected
             beta = 90. - ang_temp
 
@@ -508,17 +515,27 @@ class BDna(object):
             abcd = []
             for p_in, p_out in points:
                 abcd.append(p_out - p_in)            
-            
+        
             proj_abcd = project_to_plane(abcd, n0)
-
-            gamma1 = np.rad2deg(np.arccos(_proj(proj_abcd[0], proj_abcd[2])))
-            gamma2 = np.rad2deg(np.arccos(_proj(proj_abcd[1], proj_abcd[3])))
+            
+            d1 = _proj(proj_abcd[0], proj_abcd[2])
+            if 1.0 < abs(d1) < 1.0 + TOL : d1 = np.sign(d1)
+            gamma1 = np.rad2deg(np.arccos(d1))
+            d2 = _proj(proj_abcd[1], proj_abcd[3])
+            if 1.0 < abs(d2) < 1.0 + TOL : d2 = np.sign(d2)
+            gamma2 = np.rad2deg(np.arccos(d2))
     
-            alpha1 = np.rad2deg(np.arccos(_proj(proj_abcd[0], [ -x for x in proj_abcd[1]] )))
-            alpha2 = np.rad2deg(np.arccos(_proj(proj_abcd[2], [ -x for x in proj_abcd[3]] )))
+            a1 = _proj(proj_abcd[0], [ -x for x in proj_abcd[1]] )
+            if 1.0 < abs(a1) < 1.0 + TOL : a1 = np.sign(a1)
+            alpha1 = np.rad2deg(np.arccos(a1))
+            a2 = _proj(proj_abcd[2], [ -x for x in proj_abcd[3]] )
+            if 1.0 < abs(a2) < 1.0 + TOL : a2 = np.sign(a2)
+            alpha2 = np.rad2deg(np.arccos(a2))
            
             ang_temp1 = np.rad2deg(np.arccos(_proj(abcd[0], n0))) #unprojected
             ang_temp2 = np.rad2deg(np.arccos(_proj(abcd[1], n0)))
+            
+        
             beta = 180. - ang_temp1 - ang_temp2
 
             return { "angles": {"beta": beta, "gamma1":gamma1, "gamma2":gamma2,
@@ -541,19 +558,26 @@ class BDna(object):
                 co_type = co["type"][0]
                 if co_type == "double":
                     double_res_index = co["type"][1]
-                    try:
-                        double_leg_index = self.d_Fco[double_res_index]["leg"]
-                        double_co_index = self.d_Fco[double_res_index]["co"]
-                        double_coleg_index = self.d_Fco[double_co_index]["leg"]
-                    except KeyError:
-                        ipdb.set_trace()
+                    double_leg_index = self.d_Fco[double_res_index]["leg"]
+                    double_co_index = self.d_Fco[double_res_index]["co"]
+                    double_coleg_index = self.d_Fco[double_co_index]["leg"]
                     co_done.update([double_res_index, double_co_index])
                     # double -> b, d_co -> d
                     double_bpplanes = get_co_baseplanes( double_res_index, double_leg_index, double_co_index, double_coleg_index)
                     co_data = get_co_angles_full(bpplanes, double_bpplanes) # acbd
                     crossover_ids = (res_index,  double_res_index, co_index, double_co_index)
+                elif co_type == "single":
+                    single_res_index = co["type"][1]
+                    single_leg_index = co["type"][2]
+                    single_co_index = self.d_Fco[co_index]["type"][1]
+                    single_coleg_index = self.d_Fco[co_index]["type"][2]
+                    co_done.update([single_res_index, single_co_index])
+                    # single -> b, s_co -> d
+                    single_bpplanes = get_co_baseplanes( single_res_index, single_leg_index, single_co_index, single_coleg_index)
+                    co_data = get_co_angles_full(bpplanes, single_bpplanes) # acbd
+                    crossover_ids = (res_index,  single_res_index, co_index, single_co_index)
                 else:
-                    co_data = get_co_angles_half(bpplanes)
+                    co_data = get_co_angles_end(bpplanes)
                     crossover_ids = (res_index, co_index)
                 
                 self.co_angles[co["co_index"]] = {"ids(abcd)": crossover_ids, "type": co_type, "is_scaffold": co["is_scaffold"], "angles": co_data["angles"], "center": co_data["center"]} 
@@ -679,11 +703,11 @@ def main():
         
         #perform analyis
         print("eval_wc", name)
-        #bDNA.eval_wc()
+        bDNA.eval_wc()
         print("eval_distances", name)
-        #bDNA.eval_distances()
+        bDNA.eval_distances()
         print("eval_dh", name)
-        #bDNA.eval_dh()
+        bDNA.eval_dh()
         print("eval_co_angles", name)
         bDNA.eval_co_angles()
         ipdb.set_trace()
