@@ -100,6 +100,7 @@ def _categorise_lists(topo, plus=3):
     for base in id_co_init:
         typ = topo["dict_co"][base]["type"][0]
         co_index = topo["dict_co"][base]["co_index"]
+        
 
         if base not in allready_done:
             allready_done.add(base)
@@ -144,6 +145,7 @@ def _categorise_lists(topo, plus=3):
                     except KeyError:
                         pass  # helix end
 
+            tup_plus.append(co_index)
             tup_plus.append(typ)
             id_co.add(tup)
             id_coplus.add(tuple(tup_plus))
@@ -204,6 +206,7 @@ def main():
     topo = _topology(name, path_analysis)
     _, id_coplus_lists = _categorise_lists(topo, plus=rang)
 
+    
     # initialize universe and select final frame
     u = mda.Universe(*topo["universe"])
     u.trajectory[-1]
