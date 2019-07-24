@@ -11,9 +11,35 @@ from nanodesign.converters import Converter
 from operator import attrgetter
 
 #TODO: -mid- DOC
+"""My numpydoc description of a kind
+         of very exhautive numpydoc format docstring.
+
+         Parameters
+         ----------
+         first : array_like
+             the 1st param name `first`
+         second :
+             the 2nd param
+         third : {'value', 'other'}, optional
+             the 3rd param, by default 'value'
+
+         Returns
+         -------
+         string
+             a value in a string
+
+         Raises
+         ------
+         KeyError
+             when a key error
+         OtherError
+             when an other error"""
 
 
 class Linker(object):
+    """ Linker class 
+    """
+
     def __init__(self, path):
         self.path = path
         self.fit = Fit(self.path,)
@@ -34,33 +60,14 @@ class Linker(object):
         return l_Dskips
 
     def _link_scaffold(self):
-        """ My numpydoc description of a kind
-            of very exhautive numpydoc format docstring.
-
-            Parameters
-            ----------
-            first : array_like
-                the 1st param name `first`
-            second :
-                the 2nd param
-            third : {'value', 'other'}, optional
-                the 3rd param, by default 'value'
-
+        """ collect position in scaffold (0-x) by comparing to index in list of scaffold_design positions
+        -------
             Returns
             -------
-            string
-                a value in a string
-
-            Raises
-            ------
-            KeyError
-                when a key error
-            OtherError
-                when an other error
-            """
-        """ idea: collect position in scaffold (0-x) by comparing to index in list of scaffold_design positions
-            hp-id is design to design
-            id-id is design to fit
+            dict d_DidFid
+                design-id (int) -> fit-id (int)
+            dict d_DhpsDid
+                helix-number (int), base-position (int), is_scaffold (bool) -> design-id (int)
         """
 
         # get all possible idx and positions for a scaffold base
@@ -81,6 +88,15 @@ class Linker(object):
 
     def _link_staples(self):
         """ loop over all staples, then perform the same procesdure as for scaffold
+        -------
+         Returns
+            -------
+            dict d_DidFid
+                design-id (int) -> fit-id (int)
+            dict d_DhpsDid
+                helix-number (int), base-position (int), is_scaffold (bool) -> design-id (int)
+            dict d_color
+                fit-segment-id (int) -> color (hex?)
         """
         d_DidFid = {}
         d_DhpsDid = {}
@@ -111,8 +127,13 @@ class Linker(object):
         return d_DidFid, d_DhpsDid, d_color
 
     def _link_bp(self):
-        """ returns dict: key = id fit scaffold  value = id fit
-            bp fit only
+        """ link basepairs by mapping indices according to json (cadnano).
+            basepairs are only mapped from scaffold to staple, but is unique (invertable).
+        -------
+         Returns
+            -------
+            dict d_Fbp
+                fit-id (int) -> fit-id (int)
         """
         d_Fbp = {}
         for base in self.design.scaffold:
@@ -122,7 +143,21 @@ class Linker(object):
         return d_Fbp
 
     def link(self):
-
+        """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping of every base design-id to fit-id as well as the basepair mapping.
+            basepairs are only mapped from scaffold to staple, but is unique (invertable).
+            updates linker attributes corresponding to the respective mapping and returns them.
+        -------
+         Returns
+            -------
+            dict self.d_Fbp
+                fit-id (int) -> fit-id (int)
+            dict self.d_DidFid
+                design-id (int) -> fit-id (int)
+            dict self.d_DhpsDid
+                helix-number (int), base-position (int), is_scaffold (bool) -> design-id (int)
+            dict self.d_color
+                fit-segment-id (int) -> color (hex?)
+        """
         d_DidFid_sc, d_DhpsDid_sc = self._link_scaffold()
         d_DidFid_st, d_DhpsDid_st, self.d_color = self._link_staples()
 
@@ -133,10 +168,15 @@ class Linker(object):
         return self.d_Fbp, self.d_DidFid, self.d_DhpsDid, self.d_color
 
     def identify_crossover(self):
-        """ for every base id that is involved in a crossover, #ALL DESIGN
-            list: co-partner id "co", "is_scaffold", "type" (single/double, id) 
+        """ for every base id that is involved in a crossover
+            updates linker attribute of crossovers and returns it
+        -------
+         Returns
+            -------
+            dict self.d_Fco
+                fit-id (int) -> TODO
         """
-        def add_co_type(dict_co):  
+        def add_co_type(dict_co):
             for value in dict_co.values():
                 h, p, is_scaf = value["position"]
                 is_double, is_single, is_end = False, False, False
@@ -147,12 +187,12 @@ class Linker(object):
                             i *= 2.
                         n_Fid = self.d_DidFid[self.d_DhpsDid[(
                             h, p+i, is_scaf)]]
-                        try: 
+                        try:
                             leg = self.d_DidFid[self.d_DhpsDid[(
-                            h, p+2*i, is_scaf)]]
+                                h, p+2*i, is_scaf)]]
                         except KeyError:
                             leg = self.d_DidFid[self.d_DhpsDid[(
-                            h, p+3*i, is_scaf)]]
+                                h, p+3*i, is_scaf)]]
                     except KeyError:
                         is_end = True
 
@@ -170,17 +210,17 @@ class Linker(object):
                                         neigh = n_skip
                             neighbors.append(self.d_DidFid[neigh.id])
                         if n_Fid not in neighbors:
-                            single = n_Fid 
-                            single_leg = leg 
-                            is_single = True               
+                            single = n_Fid
+                            single_leg = leg
+                            is_single = True
 
                 if is_end:
                     value["type"] = ("end", None)
                 elif is_single:
-                    value["type"] = ("single", single, single_leg) 
-                elif is_double: 
+                    value["type"] = ("single", single, single_leg)
+                elif is_double:
                     value["type"] = ("double", double)
-                else: 
+                else:
                     ipdb.set_trace()
 
                 value.pop("base")
@@ -202,7 +242,7 @@ class Linker(object):
         co_running_index = 0
         for design_base in design_allbases:
             base_Fid = self.d_DidFid[design_base.id]
-            
+
             for direct in ["up", "down"]:
                 neighbor = design_base.up if direct == "up" else design_base.down
                 if neighbor is not None:
@@ -213,19 +253,18 @@ class Linker(object):
                     if neighbor.h != design_base.h:  # crossover condition
                         leg_id = get_co_leg_id(design_base, direct)
                         co_id = self.d_DidFid[neighbor.id]
-                        
+
                         position = (design_base.h, design_base.p,
                                     design_base.is_scaf)
-                        
-                        try: 
+
+                        try:
                             co_index = dict_co[co_id]["co_index"]
                         except KeyError:
-                            co_running_index += 1 
+                            co_running_index += 1
                             co_index = co_running_index
-                                
+
                         dict_co[base_Fid] = {
                             "co_index": co_index, "co": co_id, "leg": leg_id, "is_scaffold": design_base.is_scaf, "position": position, "base": design_base}
-
 
         dict_co = add_co_type(dict_co)
 
@@ -283,8 +322,8 @@ class Design(object):
         self.path = path
         self.design = self._get_design()
         self.strands = self.design.strands
-        self.scaffold = self._clean_scaffold(self.strands) 
-             # TODO: -low- multiscaffold
+        self.scaffold = self._clean_scaffold(self.strands)
+        # TODO: -low- multiscaffold
         self.excl = self.scaffold[0].strand
         self.staples = self._clean_staple(self.strands)
         self.h_dict = self._create_helix_order()
