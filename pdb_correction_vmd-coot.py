@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: utf-8
 
 import argparse
 
 version = "0.1.0"
-header = "HEADER\n AUTHORS		: Martin,Casanal\n"
+header = "HEADER\n AUTHORS		: Martin,Casanal,Feigl\n"
 
 
 def correct_pdb (pdb_file, keep_header, keep_footer, nomenclature, remove_h, molecule_chain, atom_number, occupancy):
@@ -33,7 +33,7 @@ def correct_pdb (pdb_file, keep_header, keep_footer, nomenclature, remove_h, mol
 				if (atom_number):
 					line = correct_atom_number(line)
 				if (occupancy):
-					correct_occupancy
+					line = correct_occupancy(line)
 
 				if (append):
 					newFileArray.append(line)
@@ -158,7 +158,7 @@ def increase_chain_id (current_chain_id):
 #	return '{:{width}d}'.format(number, width=width)
 
 
-replacement_dict = {' OP1':' O1P', ' OP2':' O2P'}
+replacement_dict = {' O1P':' OP1', ' O2P':' OP2', ' C5M':' C7 '}
 replacement_dict_bases = {'CYT':' DC', 'GUA':' DG', 'THY':' DT', 'ADE':' DA', 'DA5':' DA', 'DA3':' DA', 'DT5':' DT', 'DT3':' DT', 'DG5':' DG', 'DG3':' DG', 'DC5':' DC', 'DC3':' DC'}
 def correct_nomenclature (line):
 	atom = line[12:16]
@@ -179,7 +179,7 @@ def correct_remove_H_if_False (line):
 
 
 def correct_occupancy (line):
-	newline = line[:54] + '  1.00  0.00' + line[67:]
+	newline = line[:54] + '  1.00  9.99' + line[67:]
 	return newline
 				
 
