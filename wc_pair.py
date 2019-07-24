@@ -476,13 +476,14 @@ class BDna(object):
             n0 = _norm((a1 - c1))
             proj_ac = project_to_plane([a,c], n0)
 
-            dist = _proj(proj_ac[0], proj_ac[0])
-            if 1.0 < abs(dist) < 1.0 + TOL : dist = np.sign(dist)
-            gamma = np.rad2deg(np.arccos(dist))
+            #dist = _proj(proj_ac[0], proj_ac[0])
+            #if 1.0 < abs(dist) < 1.0 + TOL : dist = np.sign(dist)
+            #gamma1 = np.rad2deg(np.arccos(dist))
             ang_temp = np.rad2deg(np.arccos(_proj(a, n0))) #unprojected
             beta = 90. - ang_temp
 
-            return { "angles": {"beta": beta, "gamma":gamma}, "center": center, "plane": n0}
+            return {"angles": {"beta": beta, "gamma1":0.0, "gamma2":0.0,
+                    "alpha1":0.0, "alpha2":0.0}, "center": center, "plane": n0}
 
 
         def get_co_angles_full(bpplanes, double_bpplanes): #TODO: -low- cleanup
@@ -704,7 +705,7 @@ def main():
         bDNA.eval_dh()
         print("eval_co_angles", name)
         bDNA.eval_co_angles()
-        ipdb.set_trace()
+        #ipdb.set_trace()
         properties.append(bDNA)
         print("write pdbs", name)
         props_tuple = [(bDNA.wc_geometry,"wc_geometry"), (bDNA.wc_quality,"wc_quality"), 
