@@ -44,6 +44,7 @@ REPLACEMENT_DICT_BASES = {'CYT': ' DC', 'GUA': ' DG', 'THY': ' DT',
                           'DG3': ' DG', 'DC5': ' DC', 'DC3': ' DC'}
 OCC = "9.99"
 BFAC = "1.00"
+HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.2.0\n"
 
 
 class PDB_Corr(object):
@@ -63,15 +64,17 @@ class PDB_Corr(object):
             else:
                 rem.append(line)
         unshuff_file.sort(key=lambda x: (x[72:76], int(x[22:27].strip())))
-        newFile = ''.join(rem + unshuff_file)
-        return newFile
+        newFile_list = (rem + unshuff_file)
+        return newFile_list
 
-    def correct_pdb(self, pdb_file, nomenclature, molecule_chain,
-                    atom_number, occupancy, atomtype):
+    def correct_pdb(self, pdb_file, add_header, nomenclature, molecule_chain,
+                    atom_number, occupancy, atomtype, remove_H):
         reset_numbers = True
-        header = "AUTHORS:     Martin,Casanal,Feigl\n"
-        # TODO: -low MODEL ?
-        body = [header]
+        # TODO: -low MODEL
+        body = []
+        if add_header:
+            body.append(HEADER)
+
         for line in pdb_file:
             lineType = line[0:6]
             if lineType in ["TITLE ", "CRYST1"]:
@@ -79,8 +82,6 @@ class PDB_Corr(object):
             elif lineType == "ATOM  ":
                 no_atom_check = line[13:15]
                 if not(no_atom_check == "  "):
-                    # TODO: -mid remove H
-                    # TODO: -mid reset numbers
                     if nomenclature:
                         line = self.correct_nomenclature(line)
                     if molecule_chain:
@@ -92,6 +93,8 @@ class PDB_Corr(object):
                         line = self.correct_occupancy(line)
                     if atomtype:
                         line = self.correct_atomtype(line)
+                    if remove_H:
+                        line = self.remove_H(line)
                     if is_ter:
                         body.append("TER\n")
                     body.append(line)
@@ -132,56 +135,47 @@ class PDB_Corr(object):
                 # Don't allow for A again (Scaffold) that's why 1 and not 0
                 return possible_chain_ids[1]
 
-        chain_id = line[21:22]
+        # chain_id = line[21:22]
         chain = line[72:76]
         is_ter = False
 
         molecule_number_str = line[22:26]
         molecule_number = int(molecule_number_str.replace(' ', ''))
 
-        chain_id_only = True if chain == "    " else False
-
-        if chain_id_only:  # TODO - all
-            if chain_id != self.current["chain_id"]:
-                new_chain_id = increase_chain_id(chain_id)
-                new_molecule_number = 1
-
-            elif molecule_number != self.current["old_molecule_number"]:
-                new_molecule_number += 1
-
+        if self.current["chain"] is None:
+            self.current["chain"] = chain
+            new_chain_id = self.current["chain_id"]
+            new_molecule_number = 1
+        elif chain == self.current["chain"]:
+            new_chain_id = self.current["chain_id"]
+            if molecule_number == self.current["old_molecule_number"]:
+                new_molecule_number = self.current["last_molecule_number"]
             else:
-                new_chain_id = self.current["chain_id"]
-                new_molecule_number += 1
-
-        else:
-            if self.current["chain"] is None:
-                self.current["chain"] = chain
-                new_chain_id = self.current["chain_id"]
-                new_molecule_number = 1
-            elif chain == self.current["chain"]:
-                new_chain_id = self.current["chain_id"]
-                if molecule_number == self.current["old_molecule_number"]:
-                    new_molecule_number = self.current["last_molecule_number"]
+                if (molecule_number ==
+                        self.current["old_molecule_number"] + 1):
+                    new_molecule_number = (
+                        self.current["last_molecule_number"] + 1)
                 else:
-                    if molecule_number == self.current["old_molecule_number"] + 1:
-                        new_molecule_number = self.current["last_molecule_number"] + 1
-                    else:
-                        new_molecule_number = self.current["last_molecule_number"] + 10
-                        is_ter = True
-            else:
-                new_chain_id = increase_chain_id(self.current["chain_id"])
-                is_ter = True
-                new_molecule_number = 1
-                if self.current["chain_id"] == "Z":
-                    self.current["chain_id_repeats"] += 1
+                    new_molecule_number = (
+                        self.current["last_molecule_number"] + 10)
+                    is_ter = True
+        else:
+            new_chain_id = increase_chain_id(self.current["chain_id"])
+            is_ter = True
+            new_molecule_number = 1
+            if self.current["chain_id"] == "Z":
+                self.current["chain_id_repeats"] += 1
 
-        new_chain_str = str(new_chain_id) + \
-            str(self.current["chain_id_repeats"]).rjust(3, "0")
-        new_molecule_number_str = number_to_hybrid36_number(
-            new_molecule_number, 4)
-
-        newline = line[0:21] + new_chain_id + new_molecule_number_str + \
-            line[26:67] + "     " + new_chain_str + line[76:]
+        new_chain_str = (str(new_chain_id) +
+                         str(self.current["chain_id_repeats"]).rjust(3, "0"))
+        if reset_numbers is True:
+            new_molecule_number_str = number_to_hybrid36_number(
+                new_molecule_number, 4)
+        else:
+            new_molecule_number_str = number_to_hybrid36_number(
+                molecule_number, 4)
+        newline = (line[0:21] + new_chain_id + new_molecule_number_str +
+                   line[26:67] + "     " + new_chain_str + line[76:])
 
         self.current["chain_id"] = new_chain_id
         self.current["chain"] = chain
@@ -190,6 +184,13 @@ class PDB_Corr(object):
 
         return newline, is_ter
 
+    def remove_H(self, line):
+        atom = line[12:16]
+        if "H" in atom:
+            return ""
+        else:
+            return line
+
     def correct_atomtype(self, line):
         atom = line[12:14]
         if atom[1] in "0123456789":
@@ -197,34 +198,23 @@ class PDB_Corr(object):
 
         atom = atom.strip().rjust(2, " ")
         newline = line[:76] + atom + line[78:]
-        # print(atom)
         return newline
 
-
-# TODO: -low restore remove H funktionality
 
 def main():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--i', nargs='?', help='input filename', type=str)
     parser.add_argument('--o', nargs='?', help='output filename', type=str)
     parser.add_argument('--h', help='keep header', action="store_true")
-    parser.add_argument('--f', help='keep footer', action="store_true")
-    # TODO: -mid restore flexibility
-
     args = parser.parse_args()
 
-    # print(args.i)
     print("start")
     pdb_Corr = PDB_Corr()
     with open(args.i, 'r') as file_init:
-        reshuffFile = pdb_Corr.reshuffle_pdb(file_init)
-
-    with open(args.o, "w") as file_unshuff:
-        file_unshuff.write(reshuffFile)
-
-    with open(args.o, "r") as file_shuff:
+        reshuffFile_list = pdb_Corr.reshuffle_pdb(file_init)
         newFile = pdb_Corr.correct_pdb(
-            file_shuff, True, True, True, True, True)
+            reshuffFile_list, args.h, True, True, True, True, True,
+            remove_H=False)
 
     with open(args.o, "w") as file_corr:
         file_corr.write(newFile)
