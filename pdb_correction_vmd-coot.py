@@ -41,7 +41,6 @@ REPLACEMENT_DICT_BASES = {'CYT':' DC', 'GUA':' DG', 'THY':' DT', 'ADE':' DA', 'D
 OCC = "9.99"
 BFAC= "1.00"
 
-#TODO: -high cleanup
 class PDB_Corr(object):
 	
 	def __init__(self):
@@ -51,10 +50,12 @@ class PDB_Corr(object):
 		unshuff_file = []
 		for line in pdb_file:
 			unshuff_file.append(line)
+		# 1 rearange chain block according to segment number
+		unshuff_file.sort(key = lambda x: (x[72:76], x[22:27].strip()))
+		#ipdb.set_trace()
+		#shuff_file = unshuff_file
 		####
-		shuff_file = unshuff_file
-		####
-		newFile = ''.join(shuff_file)
+		newFile = ''.join(unshuff_file)
 		return newFile
 
 	def correct_pdb(self, pdb_file):
@@ -155,7 +156,9 @@ class PDB_Corr(object):
 					self.current["chain_id_repeats"] += 1
 
 		new_chain_str = str(new_chain_id) + str(self.current["chain_id_repeats"]).rjust(3,"0")
-		new_molecule_number_str = number_to_hybrid36_number(1000*(self.current["chain_id_repeats"]-1) + new_molecule_number, 4)
+		#new_molecule_number_str = number_to_hybrid36_number(1000*(self.current["chain_id_repeats"]-1) + new_molecule_number, 4)
+		new_molecule_number_str = number_to_hybrid36_number(new_molecule_number, 4)
+
 		newline = line[0:21] + new_chain_id + new_molecule_number_str + line[26:67]+ "     " + new_chain_str + line[76:]
 
 		self.current["chain_id"] = new_chain_id
@@ -188,21 +191,22 @@ def main():
 
 	args = parser.parse_args()
 
-	print(args.i)
+	#print(args.i)
 	print ("start")
 	pdb_Corr = PDB_Corr()
-	with open(args.i,'r') as file_init:
-		reshuffFile = pdb_Corr.reshuffle_pdb(file_init)
+	#with open(args.i,'r') as file_init:
+	#	reshuffFile = pdb_Corr.reshuffle_pdb(file_init)
 
-	with open(args.o, "w") as file_reshuff:
-		file_reshuff.write(reshuffFile)
+	#with open(args.o, "w") as file_unshuff:
+	#	file_unshuff.write(reshuffFile)
 
-	with open(args.o, "r") as file_reshuff:
-		newFile = pdb_Corr.correct_pdb(file_reshuff)
+	with open(args.o, "r") as file_shuff:
+		content = file_shuff.readlines()
+		newFile = pdb_Corr.correct_pdb(content)
 
 	with open(args.o, "w") as file_corr:
 		file_corr.write(newFile)
-		
+
 	print ("done")
 	return
 
