@@ -10,7 +10,7 @@ import ipdb
 from nanodesign.converters import Converter
 from operator import attrgetter
 
-#TODO: -mid- DOC
+# TODO: -mid- DOC
 """My numpydoc description of a kind
          of very exhautive numpydoc format docstring.
 
@@ -37,7 +37,7 @@ from operator import attrgetter
 
 
 class Linker(object):
-    """ Linker class 
+    """ Linker class
     """
 
     def __init__(self, path):
@@ -60,14 +60,16 @@ class Linker(object):
         return l_Dskips
 
     def _link_scaffold(self):
-        """ collect position in scaffold (0-x) by comparing to index in list of scaffold_design positions
+        """ collect position in scaffold (0-x) by comparing to index in list
+            of scaffold_design positions
         -------
             Returns
             -------
             dict d_DidFid
                 design-id (int) -> fit-id (int)
             dict d_DhpsDid
-                helix-number (int), base-position (int), is_scaffold (bool) -> design-id (int)
+                helix-number (int), base-position (int), is_scaffold (bool)
+                -> design-id (int)
         """
 
         # get all possible idx and positions for a scaffold base
@@ -87,14 +89,15 @@ class Linker(object):
         return d_DidFid, d_DhpsDid
 
     def _link_staples(self):
-        """ loop over all staples, then perform the same procesdure as for scaffold
+        """ loop over all staples, then perform the same procedure as scaffold
         -------
          Returns
             -------
             dict d_DidFid
                 design-id (int) -> fit-id (int)
             dict d_DhpsDid
-                helix-number (int), base-position (int), is_scaffold (bool) -> design-id (int)
+                helix-number (int), base-position (int), is_scaffold (bool)
+                -> design-id (int)
             dict d_color
                 fit-segment-id (int) -> color (hex?)
         """
@@ -105,14 +108,15 @@ class Linker(object):
         for i, staple in enumerate(self.design.staples):
             indx_segment = self.design.s_dict[i]
 
-            # get all possible ids and positions for a  base in this specific staple
+            # get all possible ids and positions for a base in specific staple
             D_ids = [base.id for base in staple]
             D_hp = [(base.h, base.p, False) for base in staple]
 
             indx_list = [D_ids.index(base.id)
                          for base in staple]  # get F_id within staple
             F_ids = [
-                self.fit.staples[indx_segment].residues[j].resindex for j in indx_list]  # get F_id global
+                self.fit.staples[indx_segment].residues[j].resindex for j
+                in indx_list]  # get F_id global
 
             # get color
             color = self.design.design.strands[staple[0].strand].icolor
@@ -128,7 +132,7 @@ class Linker(object):
 
     def _link_bp(self):
         """ link basepairs by mapping indices according to json (cadnano).
-            basepairs are only mapped from scaffold to staple, but is unique (invertable).
+            basepairs are mapped from scaffold to staple, unique (invertable).
         -------
          Returns
             -------
@@ -143,9 +147,11 @@ class Linker(object):
         return d_Fbp
 
     def link(self):
-        """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping of every base design-id to fit-id as well as the basepair mapping.
-            basepairs are only mapped from scaffold to staple, but is unique (invertable).
-            updates linker attributes corresponding to the respective mapping and returns them.
+        """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping
+            of every base design-id to fit-id as well as the basepair mapping.
+            basepairs are mapped from scaffold to staple, unique (invertable).
+            updates linker attributes corresponding to the respective mapping
+            and returns them.
         -------
          Returns
             -------
@@ -154,7 +160,8 @@ class Linker(object):
             dict self.d_DidFid
                 design-id (int) -> fit-id (int)
             dict self.d_DhpsDid
-                helix-number (int), base-position (int), is_scaffold (bool) -> design-id (int)
+                helix-number (int), base-position (int), is_scaffold (bool)
+                -> design-id (int)
             dict self.d_color
                 fit-segment-id (int) -> color (hex?)
         """
@@ -202,10 +209,13 @@ class Linker(object):
                     elif not is_end:
                         neighbors = []
                         for direct in ["up", "down"]:
-                            neigh = value["base"].up if direct == "up" else value["base"].down
+                            neigh = (value["base"].up if direct == "up"
+                                     else value["base"].down)
                             if neigh is not None:
-                                if neigh.num_deletions != 0 or neigh.num_insertions != 0:
-                                    n_skip = neigh.up if direct == "up" else neigh.down
+                                if (neigh.num_deletions != 0 or
+                                        neigh.num_insertions != 0):
+                                    n_skip = neigh.up if (
+                                        direct == "up") else neigh.down
                                     if n_skip is not None:
                                         neigh = n_skip
                             neighbors.append(self.d_DidFid[neigh.id])
@@ -232,7 +242,8 @@ class Linker(object):
             i = (l - base.p) * 2.
             if (base.h, base.p+i, base.is_scaf) in self.l_Dskips:
                 i = i + np.sign(i)
-            return self.d_DidFid[self.d_DhpsDid[(base.h, base.p+i, base.is_scaf)]]
+            return self.d_DidFid[
+                self.d_DhpsDid[(base.h, base.p+i, base.is_scaf)]]
 
         design_allbases = self.design.scaffold.copy()
         design_allbases.extend(
@@ -244,10 +255,13 @@ class Linker(object):
             base_Fid = self.d_DidFid[design_base.id]
 
             for direct in ["up", "down"]:
-                neighbor = design_base.up if direct == "up" else design_base.down
+                neighbor = (design_base.up if direct == "up"
+                            else design_base.down)
                 if neighbor is not None:
-                    if neighbor.num_deletions != 0 or neighbor.num_insertions != 0:
-                        n_skip = neighbor.up if direct == "up" else neighbor.down
+                    if (neighbor.num_deletions != 0 or
+                            neighbor.num_insertions != 0):
+                        n_skip = (neighbor.up if direct == "up"
+                                  else neighbor.down)
                         if n_skip is not None:
                             neighbor = n_skip
                     if neighbor.h != design_base.h:  # crossover condition
@@ -264,7 +278,9 @@ class Linker(object):
                             co_index = co_running_index
 
                         dict_co[base_Fid] = {
-                            "co_index": co_index, "co": co_id, "leg": leg_id, "is_scaffold": design_base.is_scaf, "position": position, "base": design_base}
+                            "co_index": co_index, "co": co_id, "leg": leg_id,
+                            "is_scaffold": design_base.is_scaf,
+                            "position": position, "base": design_base}
 
         dict_co = add_co_type(dict_co)
 
@@ -282,7 +298,9 @@ class Linker(object):
         for base in staple_end_bases:
             for candidate in staple_end_bases:
                 # if skip => 2 else => 1, 0 impossible, abs > 0
-                if base.h == candidate.h and abs(base.p - candidate.p) <= 2 and base is not candidate:
+                if (base.h == candidate.h and
+                        abs(base.p - candidate.p) <= 2 and
+                        base is not candidate):
                     d_Fnicks[self.d_DidFid[base.id]
                              ] = self.d_DidFid[candidate.id]
 
@@ -332,7 +350,8 @@ class Design(object):
     def _clean_scaffold(self, strands):
         scaffold = [strand.tour for strand in strands if strand.is_scaffold][0]
         scaffold_clean = [
-            base for base in scaffold if base.num_deletions == 0 and base.num_insertions == 0]
+            base for base in scaffold if base.num_deletions == 0 and
+            base.num_insertions == 0]
         return scaffold_clean
 
     def _clean_staple(self, strands):
@@ -340,7 +359,8 @@ class Design(object):
         staples_clean = []
         for stra in staples:
             staples_clean.append(
-                [base for base in stra if base.num_deletions == 0 and base.num_insertions == 0])
+                [base for base in stra if base.num_deletions == 0 and
+                 base.num_insertions == 0])
         return staples_clean
 
     def _get_design(self):
@@ -353,7 +373,7 @@ class Design(object):
         return converter.dna_structure
 
     def _create_helix_order(self):
-        """ helices are not processed in the same order as they are listed by idx
+        """ helices are not processed in  same order as they are listed by idx
         """
         helices_dict = self.design.structure_helices_map
         h_dict = {i: h.load_order for (i, h) in helices_dict.items()}
@@ -361,11 +381,12 @@ class Design(object):
         return h_dict
 
     def _create_staple_order(self):
-        """ exchange staple id with load_id 
+        """ exchange staple id with load_id
             map design-staple-order to universe-staple-order
             staple order is not the same for ergy-server and nd
-            enrg/MDanalysis: sort left to right top to bottom; only counting 3' ends
-            nanodesigns/auto: sort left to right top to bottom; counting every staple piece
+            enrg/MDanalysis: sort left to right top to bottom; only counting
+            3' ends nanodesigns/auto: sort left to right top to bottom;
+            counting every staple piece
         """
         list_hp = [(self.h_dict[s[0].h], s[0].p) for s in self.staples]
         list_hp_s = sorted(list_hp, key=lambda x: (x[0], x[1]))
@@ -378,13 +399,17 @@ class Design(object):
 
 def print_usage():
     print("""
-    initializes MDAnalysis universe and compoutes watson scric base pairs. they are returned as to dictionaries. this process is repeated for each Hbond-deviation criterion
-    subsequently universe and dicts are stored into a pickle. each deviation criterion is stored in one pickle
+    initializes MDAnalysis universe and compoutes watson scric base pairs.
+    they are returned as to dictionaries. this process is repeated for each
+    Hbond-deviation criterion subsequently universe and dicts are stored into a
+    pickle. each deviation criterion is stored in one pickle
 
-    usage: projectname designname  
+    usage: projectname designname
 
-    return: creates a pickle for each deviation: the pickle contains: (top, trj), wc_pairs, wc_index_pairs
-            the tuple contains the absolute path of the files md-files (universe cannot be pickled), second and third are the two dictionaries
+    return: creates a pickle for each deviation: the pickle contains:
+            (top, trj), wc_pairs, wc_index_pairs
+            the tuple contains the absolute path of the files md-files
+            (universe cannot be pickled), 2nd and 3rd are the two dictionaries
         """)
 
 
@@ -413,7 +438,8 @@ def main():
     dict_coid = linker.identify_crossover()
     dict_nicks = linker.identify_nicks()
     ipdb.set_trace()
-    for dict_name in ["dict_bp", "dict_idid", "dict_hpid", "dict_color", "dict_coid", "dict_nicks"]:
+    for dict_name in ["dict_bp", "dict_idid", "dict_hpid", "dict_color",
+                      "dict_coid", "dict_nicks"]:
         pickle.dump(eval(dict_name), open(
             path + "__" + dict_name + ".p", "wb"))
 
