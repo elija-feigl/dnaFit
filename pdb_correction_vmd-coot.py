@@ -44,18 +44,25 @@ BFAC= "1.00"
 class PDB_Corr(object):
 	
 	def __init__(self):
-		self.current = {"atom_number": 1, "molecule_number": 1, "last_molecule_number": 1, "chain_id": "A", "chain_id_repeats": 1, "chain": None}
+		self.current = {"atom_number": 1, "old_molecule_number": 1, "last_molecule_number": 1, "chain_id": "A", "chain_id_repeats": 1, "chain": None}
 
 	def reshuffle_pdb(self, pdb_file):
 		unshuff_file = []
+		rem = []
 		for line in pdb_file:
-			unshuff_file.append(line)
+			lineType = line[0:6]
+			if lineType == "ATOM  ":
+				unshuff_file.append(line)
+			else:
+				rem.append(line)
+
+
 		# 1 rearange chain block according to segment number
-		unshuff_file.sort(key = lambda x: (x[72:76], x[22:27].strip()))
+		unshuff_file.sort(key = lambda x: (x[72:76], int(x[22:27].strip())))
 		#ipdb.set_trace()
 		#shuff_file = unshuff_file
 		####
-		newFile = ''.join(unshuff_file)
+		newFile = ''.join(rem + unshuff_file)
 		return newFile
 
 	def correct_pdb(self, pdb_file):
@@ -67,7 +74,7 @@ class PDB_Corr(object):
 			lineType = line[0:6]
 			if lineType in ["TITLE ", "CRYST1"]:
 				body.append(line)
-			if lineType == "ATOM  ":
+			elif lineType == "ATOM  ":
 				no_atom_check = line[13:15]
 				if not(no_atom_check == "  "):
 					#TODO: -mid restore options
@@ -79,7 +86,8 @@ class PDB_Corr(object):
 					if is_ter:
 						body.append("TER\n")
 					body.append(line)
-		body.append("END\n")
+			
+		body.append("TER\nEND\n")
 		newFile = ''.join(body)
 		return newFile
 
@@ -130,24 +138,28 @@ class PDB_Corr(object):
 				new_chain_id = increase_chain_id(chain_id)
 				new_molecule_number = 1
 							
-			elif molecule_number != self.current["molecule_number"]:
+			elif molecule_number != self.current["old_molecule_number"]:
 				new_molecule_number += 1
 			
 			else:
 				new_chain_id = self.current["chain_id"]
 				new_molecule_number += 1
 
-		else:
+		else: #TODO: check if same staple but with break. add ter and increment molnumber
 			if self.current["chain"] is None:
 				self.current["chain"] = chain
 				new_chain_id = self.current["chain_id"]
 				new_molecule_number = 1
 			elif chain == self.current["chain"]:
 				new_chain_id = self.current["chain_id"]  
-				if molecule_number == self.current["molecule_number"]:
+				if molecule_number == self.current["old_molecule_number"]:
 					new_molecule_number = self.current["last_molecule_number"]
 				else:
-					new_molecule_number = self.current["last_molecule_number"] +1
+					if molecule_number == self.current["old_molecule_number"] + 1:
+						new_molecule_number = self.current["last_molecule_number"] + 1
+					else:
+						new_molecule_number = self.current["last_molecule_number"] + 10
+						is_ter = True
 			else:
 				new_chain_id = increase_chain_id(self.current["chain_id"])
 				is_ter = True
@@ -163,7 +175,7 @@ class PDB_Corr(object):
 
 		self.current["chain_id"] = new_chain_id
 		self.current["chain"] = chain
-		self.current["molecule_number"] = molecule_number
+		self.current["old_molecule_number"] = molecule_number
 		self.current["last_molecule_number"] = new_molecule_number
 		
 		return newline, is_ter
@@ -194,15 +206,14 @@ def main():
 	#print(args.i)
 	print ("start")
 	pdb_Corr = PDB_Corr()
-	#with open(args.i,'r') as file_init:
-	#	reshuffFile = pdb_Corr.reshuffle_pdb(file_init)
+	with open(args.i,'r') as file_init:
+		reshuffFile = pdb_Corr.reshuffle_pdb(file_init)
 
-	#with open(args.o, "w") as file_unshuff:
-	#	file_unshuff.write(reshuffFile)
+	with open(args.o, "w") as file_unshuff:
+		file_unshuff.write(reshuffFile)
 
 	with open(args.o, "r") as file_shuff:
-		content = file_shuff.readlines()
-		newFile = pdb_Corr.correct_pdb(content)
+		newFile = pdb_Corr.correct_pdb(file_shuff)
 
 	with open(args.o, "w") as file_corr:
 		file_corr.write(newFile)
