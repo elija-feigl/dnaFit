@@ -482,11 +482,10 @@ class BDna(object):
             ang_temp = np.rad2deg(np.arccos(_proj(a, n0))) #unprojected
             beta = 90. - ang_temp
 
-            return {"angles": {"beta": beta, "gamma1":0.0, "gamma2":0.0,
-                    "alpha1":0.0, "alpha2":0.0}, "center": center, "plane": n0}
+            return {"angles": {"co_beta": beta}, "center": center, "plane": n0}
 
 
-        def get_co_angles_full(bpplanes, double_bpplanes): #TODO: -low- cleanup
+        def get_co_angles_full(bpplanes, double_bpplanes): #TODO: -low- cleanup -high- check!
 
             def project_to_plane(vect, n0): 
                 pro = []
@@ -503,38 +502,38 @@ class BDna(object):
                     out = x[1]["center"]
                     points.append((ins, out))
         
-
+            # acbd
             center = sum( p[0] for p in points) * 0.25 #((a0 +b0)/2 +  (c0 +d0)/2)/2
-            n0 = _norm(points[0][0] + points[1][0] - points[2][0] - points[3][0]  ) # n0((a0 +b0)/2 -  (c0 +d0)/2)
+            n0 = _norm(points[0][0] + points[2][0] - points[1][0] - points[3][0]  ) # n0((a0 +b0)/2 -  (c0 +d0)/2)
 
-            abcd = []
+            acbd = []
             for p_in, p_out in points:
-                abcd.append(p_out - p_in)            
+                acbd.append(p_out - p_in)            
         
-            proj_abcd = project_to_plane(abcd, n0)
+            proj_acbd = project_to_plane(acbd, n0)
             
-            d1 = _proj(proj_abcd[0], proj_abcd[2])
+            d1 = _proj(proj_acbd[0], proj_acbd[1])
             if 1.0 < abs(d1) < 1.0 + TOL : d1 = np.sign(d1)
             gamma1 = np.rad2deg(np.arccos(d1))
-            d2 = _proj(proj_abcd[1], proj_abcd[3])
+            d2 = _proj(proj_acbd[2], proj_acbd[3])
             if 1.0 < abs(d2) < 1.0 + TOL : d2 = np.sign(d2)
             gamma2 = np.rad2deg(np.arccos(d2))
     
-            a1 = _proj(proj_abcd[0], [ -x for x in proj_abcd[1]] )
+            a1 = _proj(proj_acbd[0], [ -x for x in proj_acbd[2]] )
             if 1.0 < abs(a1) < 1.0 + TOL : a1 = np.sign(a1)
             alpha1 = np.rad2deg(np.arccos(a1))
-            a2 = _proj(proj_abcd[2], [ -x for x in proj_abcd[3]] )
+            a2 = _proj(proj_acbd[1], [ -x for x in proj_acbd[3]] )
             if 1.0 < abs(a2) < 1.0 + TOL : a2 = np.sign(a2)
             alpha2 = np.rad2deg(np.arccos(a2))
            
-            ang_temp1 = np.rad2deg(np.arccos(_proj(abcd[0], n0))) #unprojected
-            ang_temp2 = np.rad2deg(np.arccos(_proj(abcd[1], n0)))
+            ang_temp1 = np.rad2deg(np.arccos(_proj(acbd[0], n0))) #unprojected
+            ang_temp2 = np.rad2deg(np.arccos(_proj(acbd[2], n0)))
             
         
             beta = 180. - ang_temp1 - ang_temp2
 
-            return { "angles": {"beta": beta, "gamma1":gamma1, "gamma2":gamma2,
-                    "alpha1":alpha1, "alpha2":alpha2}, "center": center, "plane": n0}
+            return { "angles": {"co_beta": beta, "co_gamma1":gamma1, "co_gamma2":gamma2,
+                    "co_alpha1":alpha1, "co_alpha2":alpha2}, "center": center, "plane": n0}
             
 
         self.co_angles = {}
@@ -706,12 +705,14 @@ def main():
         print("eval_co_angles", name)
         bDNA.eval_co_angles()
         #ipdb.set_trace()
+        
+        print("write pickle", name)
         properties.append(bDNA)
-        print("write pdbs", name)
         props_tuple = [(bDNA.wc_geometry,"wc_geometry"), (bDNA.wc_quality,"wc_quality"), 
             (bDNA.dh_quality,"dh_quality"), (bDNA.distances,"distances"), (bDNA.co_angles,"co_angles")]
         for prop, prop_name in props_tuple:
             pickle.dump((ts, prop), open( traj_out + name + "__bDNA-" + prop_name + "-" + str(i)+ ".p", "wb"))
+        print("write pdbs", name)
         write_pdb(u, bDNA, PDBs)
     
     # close PDB files
