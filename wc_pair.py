@@ -527,40 +527,48 @@ class BDna(object):
                 out = x[1]["center"]
                 points.append((ins, out))
 
-            # acbd
+            # abcd
             # ((a0 +b0)/2 +  (c0 +d0)/2)/2
             center = sum(p[0] for p in points) * 0.25
             # n0((a0 +b0)/2 -  (c0 +d0)/2)
-            n0 = _norm(points[0][0] + points[2][0] -
-                       points[1][0] - points[3][0])
+            n0 = _norm(points[0][0] + points[1][0] -
+                       points[2][0] - points[3][0])
 
-            acbd = []
+            abcd = []
             for p_in, p_out in points:
-                acbd.append(p_out - p_in)
+                abcd.append(p_out - p_in)
 
-            proj_acbd = project_to_plane(acbd, n0)
+            proj_abcd = project_to_plane(abcd, n0)
 
-            d1 = _proj(proj_acbd[0], proj_acbd[1])
+            # gamma1 = a|| c||
+            d1 = _proj(proj_abcd[0], proj_abcd[2])
             if 1.0 < abs(d1) < 1.0 + TOL:
                 d1 = np.sign(d1)
             gamma1 = np.rad2deg(np.arccos(d1))
-            d2 = _proj(proj_acbd[2], proj_acbd[3])
+            # gamma2 = d|| b||
+            d2 = _proj(proj_abcd[3], proj_abcd[1])
             if 1.0 < abs(d2) < 1.0 + TOL:
                 d2 = np.sign(d2)
             gamma2 = np.rad2deg(np.arccos(d2))
 
-            a1 = _proj(proj_acbd[0], [-x for x in proj_acbd[2]])
+            # alpha1 = a|| -b||
+            a1 = _proj(proj_abcd[0], [-x for x in proj_abcd[1]])
             if 1.0 < abs(a1) < 1.0 + TOL:
                 a1 = np.sign(a1)
             alpha1 = np.rad2deg(np.arccos(a1))
-            a2 = _proj(proj_acbd[1], [-x for x in proj_acbd[3]])
+            # alpha2 = c|| -d||
+            a2 = _proj(proj_abcd[2], [-x for x in proj_abcd[3]])
             if 1.0 < abs(a2) < 1.0 + TOL:
                 a2 = np.sign(a2)
             alpha2 = np.rad2deg(np.arccos(a2))
 
-            ang_temp1 = np.rad2deg(
-                np.arccos(_proj(acbd[0], n0)))  # unprojected
-            ang_temp2 = np.rad2deg(np.arccos(_proj(acbd[2], n0)))
+            # 180 - a n0 - b n0 , unprojected
+            ang_temp1 = np.rad2deg(np.arccos(_proj(abcd[0], n0)))
+            if ang_temp1 > 90.:
+                ang_temp1 = 180. - ang_temp1
+            ang_temp2 = np.rad2deg(np.arccos(_proj(abcd[1], n0)))
+            if ang_temp2 > 90.:
+                ang_temp2 = 180. - ang_temp2
 
             beta = 180. - ang_temp1 - ang_temp2
 
@@ -595,7 +603,7 @@ class BDna(object):
                         double_res_index, double_leg_index, double_co_index,
                         double_coleg_index)
                     co_data = get_co_angles_full(
-                        bpplanes, double_bpplanes)  # acbd
+                        bpplanes, double_bpplanes)  # ac bd
                     crossover_ids = (res_index,  double_res_index,
                                      co_index, double_co_index)
                 elif co_type == "single":
@@ -609,7 +617,7 @@ class BDna(object):
                         single_res_index, single_leg_index, single_co_index,
                         single_coleg_index)
                     co_data = get_co_angles_full(
-                        bpplanes, single_bpplanes)  # acbd
+                        bpplanes, single_bpplanes)  # ac bd
                     crossover_ids = (res_index,  single_res_index,
                                      co_index, single_co_index)
                 else:
