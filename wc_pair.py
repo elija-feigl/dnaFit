@@ -607,7 +607,7 @@ class BDna(object):
                     crossover_ids = (res_index,  double_res_index,
                                      co_index, double_co_index)
                 elif (co_type == "single" and
-                        self.d_Fco[co_index]["type"] != "end"):
+                        self.d_Fco[co_index]["type"][0] != "end"):
                     single_res_index = co["type"][1]
                     single_leg_index = co["type"][2]
                     single_co_index = self.d_Fco[co_index]["type"][1]
@@ -764,12 +764,12 @@ def main():
         bDNA = BDna(u, dict_bp, dict_idid, dict_hpid, dict_co)
 
         # perform analyis
-        """print("eval_wc", name)
+        print("eval_wc", name)
         bDNA.eval_wc()
         print("eval_distances", name)
         bDNA.eval_distances()
         print("eval_dh", name)
-        bDNA.eval_dh()"""
+        bDNA.eval_dh()
         print("eval_co_angles", name)
         bDNA.eval_co_angles()
         # ipdb.set_trace()
