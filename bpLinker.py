@@ -209,15 +209,13 @@ class Linker(object):
                     elif not is_end:
                         neighbors = []
                         for direct in ["up", "down"]:
-                            neigh = (value["base"].up if direct == "up"
-                                     else value["base"].down)
+                            neigh = get_next(value["base"], direct)
                             if neigh is not None:
-                                if (neigh.num_deletions != 0 or
-                                        neigh.num_insertions != 0):
-                                    n_skip = neigh.up if (
-                                        direct == "up") else neigh.down
-                                    if n_skip is not None:
-                                        neigh = n_skip
+                                while is_ins_del(neigh):
+                                    n_new = get_next(neigh, direct)
+                                    if n_new is None:
+                                        break
+                                    neigh = n_new
                             neighbors.append(self.d_DidFid[neigh.id])
                         if n_Fid not in neighbors:
                             single = n_Fid
@@ -245,6 +243,12 @@ class Linker(object):
             return self.d_DidFid[
                 self.d_DhpsDid[(base.h, base.p+i, base.is_scaf)]]
 
+        def is_ins_del(base):
+            return (base.num_deletions != 0 or base.num_insertions != 0)
+
+        def get_next(base, direct):
+            return (base.up if direct == "up" else base.down)
+
         design_allbases = self.design.scaffold.copy()
         design_allbases.extend(
             [base for staple in self.design.staples for base in staple])
@@ -255,19 +259,19 @@ class Linker(object):
             base_Fid = self.d_DidFid[design_base.id]
 
             for direct in ["up", "down"]:
-                neighbor = (design_base.up if direct == "up"
-                            else design_base.down)
+                neighbor = get_next(design_base, direct)
                 if neighbor is not None:
-                    if (neighbor.num_deletions != 0 or
-                            neighbor.num_insertions != 0):
-                        n_skip = (neighbor.up if direct == "up"
-                                  else neighbor.down)
-                        if n_skip is not None:
-                            neighbor = n_skip
+                    while is_ins_del(neighbor):
+                        n_new = get_next(neighbor, direct)
+                        if n_new is None:
+                            break
+                        neighbor = n_new
                     if neighbor.h != design_base.h:  # crossover condition
                         leg_id = get_co_leg_id(design_base, direct)
-                        co_id = self.d_DidFid[neighbor.id]
-
+                        try:
+                            co_id = self.d_DidFid[neighbor.id]
+                        except KeyError:
+                            ipdb.set_trace()
                         position = (design_base.h, design_base.p,
                                     design_base.is_scaf)
 
