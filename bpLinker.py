@@ -441,7 +441,6 @@ def main():
     dict_bp, dict_idid, dict_hpid, dict_color = linker.link()
     dict_coid = linker.identify_crossover()
     dict_nicks = linker.identify_nicks()
-    ipdb.set_trace()
     for dict_name in ["dict_bp", "dict_idid", "dict_hpid", "dict_color",
                       "dict_coid", "dict_nicks"]:
         pickle.dump(eval(dict_name), open(
