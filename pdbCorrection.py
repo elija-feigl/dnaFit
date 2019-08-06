@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import ipdb
 
 
 def number_to_hybrid36_number(number, width):
@@ -136,6 +135,7 @@ class PDB_Corr(object):
                 return possible_chain_ids[1]
 
         # chain_id = line[21:22]
+        # TODO: -low chainID only
         chain = line[72:76]
         is_ter = False
 
