@@ -426,7 +426,7 @@ class BDna(object):
     def _get_A_distance(self, atomname, n=2):
         d_c = {}
         for res in self.u.residues:
-            resindex = res.resindex    
+            resindex = res.resindex
             A = res.atoms.select_atoms("name " + atomname)
             dist_strand = []
             dist_compl = []
