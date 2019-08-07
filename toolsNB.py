@@ -10,7 +10,7 @@ from statistics import mean
 import ipywidgets as widgets
 
 
-DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_co", "dict_nicks"]
+DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_co", "dict_nicks", "list_skips"]
 CATEGORIES = ["co", "co_plus", "ss", "ds", "all", "clean", "nick"]
 CO_CATEGORIES = ["single", "double", "end", "all"]
 PROP_TYPE = ["wc_geometry", "wc_quality",
@@ -131,7 +131,7 @@ class DataPrep(object):
                             idx_self = int(len(dist_list)*0.5)
                             try:
                                 if loc == "strand":
-                                    if dist_list[idx_self+1] is not None:
+                                    if dist_list[idx_self+1] is not None and dist_list[idx_self-1] is not None :
                                         dist = 0.5 * (dist_list[idx_self-1] +
                                                       dist_list[idx_self+1])
                                     else:
@@ -140,6 +140,8 @@ class DataPrep(object):
                                     dist = dist_list[idx_self]
                             except IndexError:
                                 dist = None
+                            except TypeError:
+                                import ipdb; ipdb.set_trace()
                             id_prop_dict[resindex].append(dist)
                             if (atom + "-" + loc) not in self.columns:
                                 self.columns.append(atom + "-" + loc)
