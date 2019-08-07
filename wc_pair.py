@@ -62,26 +62,41 @@ def _v_proj(u, v):
 
 class BDna(object):
 
-    def __init__(self, universe, d_Fbp, d_DidFid, d_DhpsDid, d_Fco):
+    def __init__(self, universe, d_Fbp, d_DidFid, d_DhpsDid, d_Fco, l_Dskips):
         self.u = universe
         self.d_DidFid = d_DidFid
+        self.d_FidDid = {v: k for k, v in d_DidFid.items()}
         self.d_Fbp = d_Fbp
         self.d_Fbp_full = {**d_Fbp, **{v: k for k, v in d_Fbp.items()}}
         self.d_DhpsDid = d_DhpsDid
+        self.d_DidDhps = {v: k for k, v in d_DhpsDid.items()}
         self.d_Fco = d_Fco
+        self.l_Dskips = l_Dskips
 
         self.wc_quality = None
         self.wc_geometry = None
         self.dh_quality = None
-        self.distances = None  # only scaffold bases have complement
+        self.distances = None
         self.co_angles = None
 
-    def _get_next_wc(self, resindex, resindex_wc):
+    def _get_next_wc(self, resindex, resindex_wc, steps=1):
         """ get next residue and its complemt wc pair
             check if next exists.
             check has bp (ony scaffold residues apply here)
+            else returns None
         """
-        n_resindex = resindex + 1
+        n_resindex = resindex + steps
+        h, p, is_scaffold = self.d_DidDhps[self.d_FidDid[resindex]]
+        n_skips = 0
+        for n in range(1, steps+1, np.sign(steps)):
+            if (h, p+n, is_scaffold) in self.l_Dskips:
+                n_skips += 1
+
+        while (h, p+steps+n_skips, is_scaffold) in self.l_Dskips:
+
+        if is_scaffold:
+            scaffold_length = max(self.d_Fbp.keys())
+            n_resindex = n_resindex % scaffold_length
 
         try:
             self.u.residues[n_resindex]
@@ -89,7 +104,7 @@ class BDna(object):
                 n_resindex_wc = self.d_Fbp_full[n_resindex]
             except KeyError:
                 n_resindex_wc = None
-        except KeyError:
+        except IndexError:
             n_resindex = None
             n_resindex_wc = None
 
@@ -406,41 +421,36 @@ class BDna(object):
         d_c = {}
         for res in self.u.residues:
             resindex = res.resindex
+
             A = res.atoms.select_atoms("name " + atomname)
-
-            if len(A) == 0:
-                d_c[resindex] = {"strand": [], "compl": []}
-                continue
-
-            dist_A = []
-            dist_A_wc = []
-            # TODO: -mid- only reasonable neighbors
-            for i in range(-n, n+1):
-                try:
-                    res_x = self.u.residues[resindex + i]
-                    B = res_x.atoms.select_atoms("name " + atomname)
-                    dist = np.linalg.norm(A.positions - B.positions)
-                except IndexError:
-                    dist = None
-                dist_A.append(dist)
-
+            dist_strand = []
+            dist_compl = []
             try:
                 resindex_wc = self.d_Fbp[resindex]
-                for i in range(-n, n+1):
-                    try:
-                        res_x = self.u.residues[resindex_wc + i]
-                        B = res_x.atoms.select_atoms("name " + atomname)
-                        if len(A) == 0:
-                            d_c[resindex] = {"strand": dist_A, "compl": []}
-                            continue
-                        dist = np.linalg.norm(A.positions - B.positions)
-                    except IndexError:
-                        dist = None
-                    dist_A_wc.append(dist)
             except KeyError:
-                pass
+                resindex_wc = None
 
-            d_c[resindex] = {"strand": dist_A, "compl": dist_A_wc}
+            for i in range(-n, n+1):
+                resindex_x, resindex_x_wc = self._get_next_wc(resindex,
+                                                              resindex_wc, i)
+
+                if resindex_x is not None:
+                    res_x = self.u.residues[resindex_x]
+                    B = res_x.atoms.select_atoms("name " + atomname)
+                    strand = np.linalg.norm(A.positions - B.positions)
+                else:
+                    strand = None
+                dist_strand.append(strand)
+
+                if resindex_x_wc is not None:
+                    res_x_wc = self.u.residues[resindex_x_wc]
+                    C = res_x_wc.atoms.select_atoms("name " + atomname)
+                    compl = np.linalg.norm(A.positions - C.positions)
+                else:
+                    compl = None
+                dist_compl.append(compl)
+
+            d_c[resindex] = {"strand": dist_strand, "compl": dist_compl}
         return d_c
 
     def eval_co_angles(self):
@@ -735,10 +745,11 @@ def main():
     frames = list(range(len(u.trajectory)-1, 0, -frames_step))
 
     linker = bpLinker.Linker(base + name)
-    dict_bp, dict_idid, dict_hpid, _ = linker.link()
+    dict_bp, dict_idid, dict_hpid, _, list_skips = linker.link()
     dict_co = linker.identify_crossover()
+    dict_nicks = linker.identify_nicks()
     for dict_name in ["dict_bp", "dict_idid", "dict_hpid", "dict_co",
-                      "universe"]:
+                      "dict_nicks", "universe", "list_skips"]:
         pickle.dump(eval(dict_name), open(
             output + name + "__" + dict_name + ".p", "wb"))
 
@@ -761,7 +772,7 @@ def main():
     # loop over selected frames
     for i, ts in enumerate([u.trajectory[i] for i in frames]):
         print(ts)
-        bDNA = BDna(u, dict_bp, dict_idid, dict_hpid, dict_co)
+        bDNA = BDna(u, dict_bp, dict_idid, dict_hpid, dict_co, list_skips)
 
         # perform analyis
         print("eval_wc", name)
