@@ -423,11 +423,10 @@ class BDna(object):
 
         return
 
-    def _get_A_distance(self, atomname, n=5):
+    def _get_A_distance(self, atomname, n=2):
         d_c = {}
         for res in self.u.residues:
-            resindex = res.resindex
-
+            resindex = res.resindex    
             A = res.atoms.select_atoms("name " + atomname)
             dist_strand = []
             dist_compl = []
@@ -443,7 +442,10 @@ class BDna(object):
                 if resindex_x is not None:
                     res_x = self.u.residues[resindex_x]
                     B = res_x.atoms.select_atoms("name " + atomname)
-                    strand = np.linalg.norm(A.positions - B.positions)
+                    if len(A) + len(B) != 0:
+                        strand = np.linalg.norm(A.positions - B.positions)
+                    else:
+                        strand = None
                 else:
                     strand = None
                 dist_strand.append(strand)
@@ -451,7 +453,10 @@ class BDna(object):
                 if resindex_x_wc is not None:
                     res_x_wc = self.u.residues[resindex_x_wc]
                     C = res_x_wc.atoms.select_atoms("name " + atomname)
-                    compl = np.linalg.norm(A.positions - C.positions)
+                    if len(A) + len(C) != 0:
+                        compl = np.linalg.norm(A.positions - C.positions)
+                    else:
+                        compl = None
                 else:
                     compl = None
                 dist_compl.append(compl)
