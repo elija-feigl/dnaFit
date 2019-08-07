@@ -529,7 +529,7 @@ class BDna(object):
             a1 = bpplanes[0]["center-C6C8"]
             a2 = bpplanes[1]["center-C6C8"]
             c1 = bpplanes[2]["center-C6C8"]
-            c2 = bpplanes[3]["center-C6C8"]
+            # c2 = bpplanes[3]["center-C6C8"]
 
             center = (a1 + c1) * 0.5
             a = a2 - a1
@@ -778,8 +778,9 @@ def main():
     dict_bp, dict_idid, dict_hpid, _, list_skips = linker.link()
     dict_co = linker.identify_crossover()
     dict_nicks = linker.identify_nicks()
+    dict_idseq = linker.d_FidSeq
     for dict_name in ["dict_bp", "dict_idid", "dict_hpid", "dict_co",
-                      "dict_nicks", "universe", "list_skips"]:
+                      "dict_nicks", "universe", "list_skips", "dict_idseq"]:
         pickle.dump(eval(dict_name), open(
             output + name + "__" + dict_name + ".p", "wb"))
 
