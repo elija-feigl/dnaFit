@@ -5,7 +5,6 @@ import os
 import MDAnalysis as mda
 import numpy as np
 import pickle
-import ipdb
 
 from nanodesign.converters import Converter
 from operator import attrgetter
@@ -48,6 +47,13 @@ class Linker(object):
         self.d_Fco = None
         self.l_Dskips = self._get_skips()
         self.d_Fnicks = None
+        self.d_FidSeq = self._get_sequence()
+
+    def _get_sequence(self):
+        d_FidSeq = {}
+        for res in self.fit.u.residues:
+            d_FidSeq[res.resindex] = res.resname[0]
+        return d_FidSeq
 
     def _get_skips(self):
         design_allbases = [
@@ -172,7 +178,8 @@ class Linker(object):
         self.d_DhpsDid = {**d_DhpsDid_sc, **d_DhpsDid_st}
         self.d_Fbp = self._link_bp()
 
-        return self.d_Fbp, self.d_DidFid, self.d_DhpsDid, self.d_color, self.l_Dskips
+        return (self.d_Fbp, self.d_DidFid, self.d_DhpsDid, self.d_color,
+                self.l_Dskips)
 
     def identify_crossover(self):
         """ for every base id that is involved in a crossover
@@ -229,7 +236,7 @@ class Linker(object):
                 elif is_double:
                     value["type"] = ("double", double)
                 else:
-                    ipdb.set_trace()
+                    exit(0)
 
                 value.pop("base")
             return dict_co
@@ -271,7 +278,7 @@ class Linker(object):
                         try:
                             co_id = self.d_DidFid[neighbor.id]
                         except KeyError:
-                            ipdb.set_trace()
+                            exit(0)
                         position = (design_base.h, design_base.p,
                                     design_base.is_scaf)
 
