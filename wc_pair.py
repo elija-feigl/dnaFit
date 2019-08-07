@@ -80,24 +80,30 @@ class BDna(object):
         self.co_angles = None
 
     def _get_next_wc(self, resindex, resindex_wc, steps=1):
-        """ get next residue and its complemt wc pair
+        """ get next residue and its complemt wc pair whithin a helix
             check if next exists.
             check has bp (ony scaffold residues apply here)
             else returns None
         """
+        if steps == 0:
+            return resindex, resindex_wc
+
         n_resindex = resindex + steps
         h, p, is_scaffold = self.d_DidDhps[self.d_FidDid[resindex]]
         n_skips = 0
-        for n in range(1, steps+1, np.sign(steps)):
+        # check if we passed skips
+        for n in range(1, steps+np.sign(steps), np.sign(steps)):
             if (h, p+n, is_scaffold) in self.l_Dskips:
-                n_skips += 1
-
+                n_skips += np.sign(steps)
+        # check if land on skip
         while (h, p+steps+n_skips, is_scaffold) in self.l_Dskips:
+            n_skips += np.sign(steps)
 
-        if is_scaffold:
-            scaffold_length = max(self.d_Fbp.keys())
-            n_resindex = n_resindex % scaffold_length
-
+        try:
+            n_resindex = self.d_DidFid[
+                self.d_DhpsDid[(h, p+steps+n_skips, is_scaffold)]]
+        except KeyError:
+            n_resindex = None
         try:
             self.u.residues[n_resindex]
             try:
