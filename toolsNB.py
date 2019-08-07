@@ -9,14 +9,16 @@ from statistics import mean
 
 import ipywidgets as widgets
 
-
-DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_co", "dict_nicks", "list_skips"]
-CATEGORIES = ["co", "co_plus", "ss", "ds", "all", "clean", "nick"]
+# TODO: -low get dynamically from dicts
+DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_co", "dict_nicks",
+         "list_skips", "dict_idseq"]
+CATEGORIES = ["co", "co_plus", "ss", "ds", "all", "clean", "nick", "A", "T",
+              "G", "C"]
 CO_CATEGORIES = ["single", "double", "end", "all"]
 PROP_TYPE = ["wc_geometry", "wc_quality",
              "dh_quality", "distances"]
 WCGEOMETRY = ["twist", "rise", "tilt", "roll", "shift", "slide"]
-DIST = ["C1'", "P"]  # TODO: -low get dynamically from dicts
+DIST = ["C1'", "P"]
 DIHEDRALS = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "xi"]
 COANGLES = ["co_alpha1", "co_alpha2", "co_gamma1", "co_gamma2", "co_beta"]
 
@@ -56,6 +58,15 @@ class DataPrep(object):
 
     def _categorise(self, plus):
         # TODO: -high sequence
+        id_A = set(resindex for resindex, base in
+                   self.topo["dict_idseq"].items() if base == "A")
+        id_T = set(resindex for resindex, base in
+                   self.topo["dict_idseq"].items() if base == "T")
+        id_G = set(resindex for resindex, base in
+                   self.topo["dict_idseq"].items() if base == "G")
+        id_C = set(resindex for resindex, base in
+                   self.topo["dict_idseq"].items() if base == "C")
+
         id_ds = set()
         id_co_plus = set()
 
@@ -87,7 +98,8 @@ class DataPrep(object):
                    list(self.topo["dict_nicks"].keys()))
 
         return {"co": id_co, "co_plus": id_co_plus, "ss": id_ss, "ds": id_ds,
-                "all": id_all, "clean": id_clean, "nick": id_nick}
+                "all": id_all, "clean": id_clean, "nick": id_nick,
+                "A": id_A, "T": id_T, "G": id_G, "C": id_C}
 
     def create_df(self, frame=0):
         data, ts = self._traj_frame(frame)
@@ -119,7 +131,8 @@ class DataPrep(object):
                         try:
                             cent_ank = data[prop][resindex][geom]
                         except KeyError:
-                            cent_ank = {"anker": None, "center": None}
+                            cent_ank = {"C1p": None,
+                                        "diazine": None, "C6C8": None}
                         for loc, value in cent_ank.items():
                             id_prop_dict[resindex].append(value)
                             if (geom + "-" + loc) not in self.columns:
@@ -131,7 +144,8 @@ class DataPrep(object):
                             idx_self = int(len(dist_list)*0.5)
                             try:
                                 if loc == "strand":
-                                    if dist_list[idx_self+1] is not None and dist_list[idx_self-1] is not None :
+                                    if (dist_list[idx_self+1] is not None and
+                                            dist_list[idx_self-1] is not None):
                                         dist = 0.5 * (dist_list[idx_self-1] +
                                                       dist_list[idx_self+1])
                                     else:
@@ -141,7 +155,8 @@ class DataPrep(object):
                             except IndexError:
                                 dist = None
                             except TypeError:
-                                import ipdb; ipdb.set_trace()
+                                import ipdb
+                                ipdb.set_trace()
                             id_prop_dict[resindex].append(dist)
                             if (atom + "-" + loc) not in self.columns:
                                 self.columns.append(atom + "-" + loc)
