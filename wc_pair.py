@@ -4,7 +4,6 @@ import numpy as np
 import sys
 import os
 
-import ipdb
 from MDAnalysis.lib import mdamath
 
 import pickle
@@ -172,51 +171,53 @@ class BDna(object):
         """
         def _get_twist(basepair, n_basepair):
             twist = []
-            for direct in ["dir-anker", "dir-center"]:
+            for direct in ["dir-C1p", "dir-diazine", "dir-C6C8"]:
                 v1 = basepair[direct]
                 v2 = n_basepair[direct]
                 twist.append(np.rad2deg(np.arccos(_proj(v1, v2))))
 
-            return {"anker": twist[0], "center": twist[1]}
+            return {"C1p": twist[0], "diazine": twist[1],  "C6C8": twist[2]}
 
         def _get_rise(basepair, n_basepair):
             rise = []
             n0 = basepair["n0"]
-            for direct in ["center-anker", "center"]:
+            for direct in ["center-C1p", "center-diazine", "center-C6C8"]:
                 P1 = basepair[direct]
                 P2 = n_basepair[direct]
                 rise.append(np.abs(np.inner((P2 - P1), n0)))
 
-            return {"anker": rise[0], "center": rise[1]}
+            return {"C1p": rise[0], "diazine": rise[1], "C6C8": rise[2]}
 
         def _get_shift(basepair, n_basepair):
             shift = []
-            for direct in [("center-anker", "dir-anker"),
-                           ("center", "dir-center")]:
+            for direct in [("center-C1p", "dir-C1p"),
+                           ("center-diazine", "dir-diazine"),
+                           ("center-C6C8", "dir-C6C8")]:
                 n0 = _norm(np.cross(basepair["n0"], basepair[direct[1]]))
                 P1 = basepair[direct[0]]
                 P2 = n_basepair[direct[0]]
                 shift.append(np.inner((P2 - P1), n0))
 
-            return {"anker": shift[0], "center": shift[1]}
+            return {"C1p": shift[0], "diazine": shift[1], "C6C8": shift[2]}
 
         def _get_slide(basepair, n_basepair):
             slide = []
-            for direct in [("center-anker", "dir-anker"),
-                           ("center", "dir-center")]:
+            for direct in [("center-C1p", "dir-C1p"),
+                           ("center-diazine", "dir-diazine"),
+                           ("center-C6C8", "dir-C6C8")]:
                 n0 = _norm(basepair[direct[1]])
                 P1 = basepair[direct[0]]
                 P2 = n_basepair[direct[0]]
                 slide.append(np.inner((P2 - P1), n0))
 
-            return {"anker": slide[0], "center": slide[1]}
+            return {"C1p": slide[0], "diazine": slide[1], "C6C8": slide[2]}
 
         def _get_tilt(basepair, n_basepair):
             tilt = []
             n0 = basepair["n0"]
             n_n0 = n_basepair["n0"]
 
-            for direct in ["dir-anker", "dir-center"]:
+            for direct in ["dir-C1p", "dir-diazine", "dir-C6C8"]:
                 rot_axis = np.cross(basepair[direct], n0)
                 projn0 = n0 - _v_proj(n0, rot_axis)
                 projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
@@ -233,14 +234,14 @@ class BDna(object):
                 if value > 90.:
                     value - 180.
 
-            return {"anker": tilt[0], "center": tilt[1]}
+            return {"C1p": tilt[0], "diazine": tilt[1], "C6C8": tilt[2]}
 
         def _get_roll(basepair, n_basepair):
             roll = []
             n0 = basepair["n0"]
             n_n0 = n_basepair["n0"]
 
-            for direct in ["dir-anker", "dir-center"]:
+            for direct in ["dir-C1p", "dir-diazine", "dir-C6C8"]:
                 rot_axis = basepair[direct]
                 projn0 = n0 - _v_proj(n0, rot_axis)
                 projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
@@ -253,7 +254,7 @@ class BDna(object):
                 else:
                     roll.append(np.rad2deg(- np.arccos(abs(dist))))
 
-            return {"anker": roll[0], "center": roll[1]}
+            return {"C1p": roll[0], "diazine": roll[1], "C6C8": roll[2]}
 
         bases = []
         for r in [res, res_wc, n_res, n_res_wc]:
@@ -262,11 +263,17 @@ class BDna(object):
         basepairs = []
         for i in [0, 2]:
             basepairs.append(
-                {"center-anker": ((bases[i]["anker"] +
-                                   bases[i+1]["anker"]) * 0.5),
-                 "dir-anker": (bases[i]["anker"] - bases[i+1]["anker"]),
-                 "center": ((bases[i]["center"] + bases[i+1]["center"]) * 0.5),
-                 "dir-center": (bases[i]["anker"] - bases[i+1]["anker"]),
+                {"center-C1p": ((bases[i]["C1p"] +
+                                 bases[i+1]["C1p"]) * 0.5),
+                 "dir-C1p": (bases[i]["C1p"] - bases[i+1]["C1p"]),
+                 "center-diazine": ((bases[i]["diazine"] +
+                                     bases[i+1]["diazine"]) * 0.5),
+                 "dir-diazine": (bases[i]["diazine"] -
+                                 bases[i+1]["diazine"]),
+                 "center-C6C8": ((bases[i]["C6C8"] +
+                                  bases[i+1]["C6C8"]) * 0.5),
+                 "dir-C6C8": (bases[i]["C6C8"] -
+                              bases[i+1]["C6C8"]),
                  "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5)})
 
         geometry = {"rise": _get_rise(*basepairs),
@@ -286,8 +293,13 @@ class BDna(object):
 
         n0 = _norm(np.cross((atom[1]-atom[0]), (atom[2]-atom[1])))
         diazine_center = sum(atom[:-1]) / 3.
+        if res.resname in ["ADE", "GUA"]:
+            ref = res.atoms.select_atoms("name C8")[0].position
+        else:
+            ref = res.atoms.select_atoms("name C6")[0].position
 
-        plane = {"n0": n0, "anker": atom[-1], "center": diazine_center}
+        plane = {"n0": n0, "C1p": atom[-1], "diazine": diazine_center,
+                 "C6C8": ref}
 
         return plane
 
@@ -316,7 +328,7 @@ class BDna(object):
 
         atoms = {}
         try:
-            P = res.atoms.select_atoms("name " + "P")[0]
+            P = res.atoms.select_atoms("name P")[0]
             atoms["P"] = P.position
 
         except (KeyError, IndexError):
@@ -334,8 +346,8 @@ class BDna(object):
         try:
             n_res = self.u.residues[res.resindex + 1]
             if res.segindex == n_res.segindex:
-                n_P = n_res.atoms.select_atoms("name " + "P")[0]
-                n_O5p = n_res.atoms.select_atoms("name " + "O5'")[0]
+                n_P = n_res.atoms.select_atoms("name P")[0]
+                n_O5p = n_res.atoms.select_atoms("name O5'")[0]
                 atoms["P +"] = n_P.position
                 atoms["O5' +"] = n_O5p.position
             else:
@@ -346,7 +358,7 @@ class BDna(object):
         try:
             p_res = self.u.residues[res.resindex - 1]
             if res.segindex == p_res.segindex:
-                p_O3p = p_res.atoms.select_atoms("name " + "O3'")[0]
+                p_O3p = p_res.atoms.select_atoms("name O3'")[0]
                 atoms["O3' -"] = p_O3p.position
             else:
                 iniSeg = True
@@ -442,7 +454,7 @@ class BDna(object):
                 if resindex_x is not None:
                     res_x = self.u.residues[resindex_x]
                     B = res_x.atoms.select_atoms("name " + atomname)
-                    if len(A) + len(B) != 0:
+                    if len(A) + len(B) == 2:  # TODO use  try atomselect[0]
                         strand = np.linalg.norm(A.positions - B.positions)
                     else:
                         strand = None
@@ -453,7 +465,7 @@ class BDna(object):
                 if resindex_x_wc is not None:
                     res_x_wc = self.u.residues[resindex_x_wc]
                     C = res_x_wc.atoms.select_atoms("name " + atomname)
-                    if len(A) + len(C) != 0:
+                    if len(A) + len(C) == 2:
                         compl = np.linalg.norm(A.positions - C.positions)
                     else:
                         compl = None
@@ -491,12 +503,17 @@ class BDna(object):
             bp_planes = []
             for i in [0, 2, 4, 6]:
                 bp_planes.append(
-                    {"center-anker": ((bases[i]["anker"] +
-                                       bases[i+1]["anker"]) * 0.5),
-                     "dir-anker": (bases[i]["anker"] - bases[i+1]["anker"]),
-                     "center": ((bases[i]["center"] +
-                                 bases[i+1]["center"]) * 0.5),
-                     "dir-center": (bases[i]["anker"] - bases[i+1]["anker"]),
+                    {"center-C1p": ((bases[i]["C1p"] +
+                                     bases[i+1]["C1p"]) * 0.5),
+                     "dir-C1p": (bases[i]["C1p"] - bases[i+1]["C1p"]),
+                     "center-diazine": ((bases[i]["diazine"] +
+                                         bases[i+1]["diazine"]) * 0.5),
+                     "dir-diazine": (bases[i]["diazine"] -
+                                     bases[i+1]["diazine"]),
+                     "center-C6C8": ((bases[i]["C6C8"] +
+                                      bases[i+1]["C6C8"]) * 0.5),
+                     "dir-C6C8": (bases[i]["C6C8"] -
+                                  bases[i+1]["C6C8"]),
                      "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5)})
             return bp_planes
 
@@ -509,10 +526,10 @@ class BDna(object):
                     pro.append([x[i] - p[i] for i in range(len(x))])
                 return pro"""
 
-            a1 = bpplanes[0]["center"]
-            a2 = bpplanes[1]["center"]
-            c1 = bpplanes[2]["center"]
-            c2 = bpplanes[3]["center"]
+            a1 = bpplanes[0]["center-C6C8"]
+            a2 = bpplanes[1]["center-C6C8"]
+            c1 = bpplanes[2]["center-C6C8"]
+            c2 = bpplanes[3]["center-C6C8"]
 
             center = (a1 + c1) * 0.5
             a = a2 - a1
@@ -527,7 +544,8 @@ class BDna(object):
             ang_temp = np.rad2deg(np.arccos(_proj(a, n0)))  # unprojected
             beta = 90. - ang_temp
 
-            return {"angles": {"co_beta": beta}, "center": center, "plane": n0}
+            return {"angles": {"co_beta": beta}, "center-co": center,
+                    "plane": n0}
 
         # TODO: -low- cleanup -high- check!
         def get_co_angles_full(bpplanes, double_bpplanes):
@@ -544,8 +562,8 @@ class BDna(object):
 
             for x in [bpplanes[0:2], double_bpplanes[0:2], bpplanes[2:],
                       double_bpplanes[2:]]:  # abcd
-                ins = x[0]["center"]
-                out = x[1]["center"]
+                ins = x[0]["center-C6C8"]
+                out = x[1]["center-C6C8"]
                 points.append((ins, out))
 
             # abcd
@@ -596,7 +614,7 @@ class BDna(object):
             return {"angles": {"co_beta": beta, "co_gamma1": gamma1,
                                "co_gamma2": gamma2, "co_alpha1": alpha1,
                                "co_alpha2": alpha2},
-                    "center": center, "plane": n0}
+                    "center-co": center, "plane": n0}
 
         self.co_angles = {}
 
@@ -649,7 +667,8 @@ class BDna(object):
                 self.co_angles[co["co_index"]] = {
                     "ids(abcd)": crossover_ids, "type": co_type,
                     "is_scaffold": co["is_scaffold"],
-                    "angles": co_data["angles"], "center": co_data["center"]}
+                    "angles": co_data["angles"],
+                    "center-co": co_data["center-co"]}
         return
 
 
@@ -718,7 +737,7 @@ def write_pdb(u, bDNA, PDBs):
         for res in u.residues:
             try:
                 res.atoms.tempfactors = (
-                    bDNA.wc_geometry[res.resindex][cond]["center"])
+                    bDNA.wc_geometry[res.resindex][cond]["center-C6C8"])
             except KeyError:
                 pass
         PDBs[cond].write(u.atoms)
