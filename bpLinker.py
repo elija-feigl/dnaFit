@@ -172,7 +172,7 @@ class Linker(object):
         self.d_DhpsDid = {**d_DhpsDid_sc, **d_DhpsDid_st}
         self.d_Fbp = self._link_bp()
 
-        return self.d_Fbp, self.d_DidFid, self.d_DhpsDid, self.d_color
+        return self.d_Fbp, self.d_DidFid, self.d_DhpsDid, self.d_color, self.l_Dskips
 
     def identify_crossover(self):
         """ for every base id that is involved in a crossover
@@ -438,11 +438,11 @@ def main():
     print("output to ", path)
     linker = Linker(path)
 
-    dict_bp, dict_idid, dict_hpid, dict_color = linker.link()
+    dict_bp, dict_idid, dict_hpid, dict_color, list_skips = linker.link()
     dict_coid = linker.identify_crossover()
     dict_nicks = linker.identify_nicks()
     for dict_name in ["dict_bp", "dict_idid", "dict_hpid", "dict_color",
-                      "dict_coid", "dict_nicks"]:
+                      "dict_coid", "dict_nicks", "list_skips"]:
         pickle.dump(eval(dict_name), open(
             path + "__" + dict_name + ".p", "wb"))
 
