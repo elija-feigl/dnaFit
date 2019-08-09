@@ -56,35 +56,37 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
 
     data_small = np.zeros((xyz_diff,  xyz_diff, xyz_diff), dtype=np.float32)
     data_small[x_low: -int(x_pad) or None, y_low: -int(y_pad) or None, z_low: -
-               int(z_pad) or None] = data[x_min: x_max, y_min: y_max, z_min: z_max]
+               int(z_pad) or None] = data[x_min: x_max, y_min: y_max,
+                                          z_min: z_max]
 
     grid = np.shape(data_small)
-    origin = m_origin + \
-        ((x_min - x_low) * m_spacing[0], (y_min - y_low)
-         * m_spacing[1], (z_min - z_low) * m_spacing[2])
+    origin = m_origin + ((x_min - x_low) * m_spacing[0], (y_min - y_low) *
+                         m_spacing[1], (z_min - z_low) * m_spacing[2])
     cell = grid * m_spacing
-    center = np.divide(grid,2).astype(int)    
+    center = np.divide(grid, 2).astype(int)
 
     with mrcfile.new(path_out + ".mrc", overwrite=True) as mrc_out:
         mrc_out.set_data(np.swapaxes(data_small, 0, 2))
         mrc_out._set_voxel_size(*(cell/grid))
         mrc_out.header["origin"] = tuple(origin)
 
-    path_out_split = path_out.split("/")  
-    #ipdb.set_trace()
+    path_out_split = path_out.split("/")
     path_star = "Tomograms/seg-co/" + path_out_split[-1]
     with open(path_out + ".star", mode="w") as star_out:
         star_out.write(
-            "data_\n\nloop_\n_rlnMicrographName #1\n_rlnCoordinateX #2\n_rlnCoordinateY #3\n _rlnCoordinateZ #4\n")
-        star_out.write(path_star + ".star " +
-                       str(center[0]) + " " + str(center[1]) + " " + str(center[2]))
+            "data_\n\nloop_\n_rlnMicrographName #1\n_rlnCoordinateX #2\n" +
+            "_rlnCoordinateY #3\n _rlnCoordinateZ #4\n")
+        star_out.write(path_star + ".star " + str(center[0]) + " " +
+                       str(center[1]) + " " + str(center[2]))
     return
 
 
 def _categorise_lists(topo, plus=3):
     # TODO. check: names set list etc
-
+    dict_FidDid = {v: k for k, v in topo["dict_idid"].items()}
+    dict_DidDhps = {v: k for k, v in topo["dict_hpid"].items()}
     inv_dict_bp = {v: k for k, v in topo["dict_bp"].items()}
+
     id_ds = set()
     id_coplus = set()
 
@@ -94,13 +96,12 @@ def _categorise_lists(topo, plus=3):
     id_ss = set(topo["dict_idid"].values()) - id_ds
 
     id_co = set()
-    id_co_init = {
-        id_design for id_design in topo["dict_co"].keys() if id_design not in id_ss}
+    id_co_init = {id_design for id_design in topo["dict_co"].keys()
+                  if id_design not in id_ss}
     allready_done = set()
     for base in id_co_init:
         typ = topo["dict_co"][base]["type"][0]
         co_index = topo["dict_co"][base]["co_index"]
-        
 
         if base not in allready_done:
             allready_done.add(base)
@@ -133,15 +134,15 @@ def _categorise_lists(topo, plus=3):
             else:
                 tup = (base, bp, co, co_bp, co_index, typ)
 
-            dict_FidDid = {v: k for k, v in topo["dict_idid"].items()}
-            dict_DidDhps = {v: k for k, v in topo["dict_hpid"].items()}
             tup_plus = []
             for x in tup[:-2]:
                 h, p, is_scaf = dict_DidDhps[dict_FidDid[x]]
                 for i in range(-plus, plus):
                     try:
                         tup_plus.append(
-                            topo["dict_idid"][topo["dict_hpid"][(h, p+i, is_scaf)]])
+                            topo["dict_idid"][topo["dict_hpid"][(h,
+                                                                 p+i,
+                                                                 is_scaf)]])
                     except KeyError:
                         pass  # helix end
 
@@ -150,11 +151,31 @@ def _categorise_lists(topo, plus=3):
             id_co.add(tup)
             id_coplus.add(tuple(tup_plus))
 
-    return id_co, id_coplus
+    id_nick = set()
+    for id1, id2 in topo["dict_nicks"].items():
+        tup = (id1, id2, inv_dict_bp[id1], inv_dict_bp[id2])
+        id_nick.add(tup)
+
+    id_nick_plus = []
+    for nick in id_nick:
+        tup_plus = []
+        for x in nick:
+            h, p, is_scaf = dict_DidDhps[dict_FidDid[x]]
+            for i in range(-plus, plus):
+                try:
+                    tup_plus.append(
+                        topo["dict_idid"][topo["dict_hpid"][(h,
+                                                            p+i,
+                                                            is_scaf)]])
+                except KeyError:
+                    pass  # helix end
+        id_nick_plus.append(tup_plus)
+    return id_co, id_coplus, id_nick, id_nick_plus
 
 
 def _topology(name, path):
-    DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_co", "universe"]
+    DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_co", "universe",
+             "list_skips", "dict_nicks", "dict_idseq"]
     # read general info
     topo = {}
     for pickle_name in DICTS:
@@ -179,34 +200,39 @@ def proc_input():
     if len(sys.argv) > 3:
         context = int(sys.argv[3])
     else:
-        context = 2
+        context = 3
 
     return path, name, rang, context
 
 
 def print_usage():
     print("""
-    initializes MDAnalysis universe and compoutes watson scric base pairs. they are returned as to dictionaries. this process is repeated for each Hbond-deviation criterion
-    subsequently universe and dicts are stored into a pickle. each devia, tion criterion is stored in one pickle
+    initializes MDAnalysis universe and compoutes watson scric base pairs.
+    they are returned as to dictionaries. this process is repeated for each
+    Hbond-deviation criterion
+    subsequently universe and dicts are stored into a pickle. each deviation
+    criterion is stored in one pickle
 
-    usage: designname [range = 5] [context = 2]  ... 
+    usage: designname [range = 5] [context = 3]  ...
 
-    return: creates a pickle for each deviation: the pickle contains: (top, trj), wc_pairs, wc_index_pairs
-            the tuple contains the absolute path of the files md-files (universe cannot be pickled), second and third are the two dictionaries
+    return: creates a pickle for each deviation: the pickle contains:
+            (top, trj), wc_pairs, wc_index_pairs
+            the tuple contains the absolute path of the files md-files
+            (universe cannot be pickled), second and third are the two
+            dictionaries
         """)
 
 
 def main():
 
     path_in, name, rang, context = proc_input()
-    print("output to ", path_in)
+    print("input from ", path_in)
 
     path_analysis = path_in + "/analysis/"
 
     topo = _topology(name, path_analysis)
-    _, id_coplus_lists = _categorise_lists(topo, plus=rang)
+    _, id_coplus_lists, _, id_nickplus_list = _categorise_lists(topo, plus=rang)
 
-    
     # initialize universe and select final frame
     u = mda.Universe(*topo["universe"])
     u.trajectory[-1]
@@ -216,33 +242,46 @@ def main():
                 name + "-masked", context=context)
 
     # crossovers
-    path_out = path_analysis + "/seg-co/"
-    try:
-        os.mkdir(path_out)
-    except FileExistsError:
-        pass
+    motif_cat = {"seg_co": id_coplus_lists, "seg-nick": id_nickplus_list}
 
-    h1_exists = os.path.isfile(path_in + name + "_unfil_half_1.mrc")
-    h2_exists = os.path.isfile(path_in + name + "_unfil_half_2.mrc")
-    calculate_halfmaps = True if h1_exists and h2_exists else False
-    if calculate_halfmaps:
-        print("segmenting halfmaps")
+    for motif in ["seg-nick", "seg_co"]:
+        path_out = path_analysis + motif + "/"
+        print("output to ", path_out)
+        try:
+            os.mkdir(path_out)
+        except FileExistsError:
+            pass
 
-    for co_select_typ in id_coplus_lists:
-        co_select = co_select_typ[:-2]
-        typ = co_select_typ[-1]
-        co_index = co_select_typ[-2]
-        #ipdb.set_trace()
-        atoms_select = mda.AtomGroup([], u)
-        for base_id in co_select:
-            atoms_select += u.residues[base_id].atoms
-        mrc_segment(atoms_select, path_in + name, path_out +
-                    name + "__" + typ + "-co" + str(co_index), context=context)
+        h1_exists = os.path.isfile(path_in + name + "_unfil_half_1.mrc")
+        h2_exists = os.path.isfile(path_in + name + "_unfil_half_2.mrc")
+        calculate_halfmaps = True if h1_exists and h2_exists else False
         if calculate_halfmaps:
-            mrc_segment(atoms_select, path_in + name + "_unfil_half_1",
-                        path_out + name + "__h1-" + typ + "-co" + str(co_index), context=context)
-            mrc_segment(atoms_select, path_in + name + "_unfil_half_2",
-                        path_out + name + "__h2-" + typ + "-co" + str(co_index), context=context)
+            print("segmenting halfmaps")
+        for index, co_select_typ in enumerate(motif_cat[motif]):
+            if motif == "seg-co":
+                co_select = co_select_typ[:-2]
+                typ = co_select_typ[-1]
+                index = co_select_typ[-2]
+                atoms_select = mda.AtomGroup([], u)
+                for base_id in co_select:
+                    atoms_select += u.residues[base_id].atoms
+
+            elif motif == "seg-nick":
+                typ = "nick"
+                atoms_select = mda.AtomGroup([], u)
+                for base_id in co_select_typ:
+                    atoms_select += u.residues[base_id].atoms
+
+            mrc_segment(atoms_select, path_in + name, path_out +
+                        name + "__" + typ + "-co" + str(index),
+                        context=context)
+            if calculate_halfmaps:
+                mrc_segment(atoms_select, path_in + name + "_unfil_half_1",
+                            path_out + name + "__h1-" + typ + "-co" +
+                            str(index), context=context)
+                mrc_segment(atoms_select, path_in + name + "_unfil_half_2",
+                            path_out + name + "__h2-" + typ + "-co" +
+                            str(index), context=context)
 
 
 if __name__ == "__main__":
