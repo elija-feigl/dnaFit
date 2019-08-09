@@ -165,8 +165,8 @@ def _categorise_lists(topo, plus=3):
                 try:
                     tup_plus.append(
                         topo["dict_idid"][topo["dict_hpid"][(h,
-                                                            p+i,
-                                                            is_scaf)]])
+                                                             p+i,
+                                                             is_scaf)]])
                 except KeyError:
                     pass  # helix end
         id_nick_plus.append(tup_plus)
@@ -231,7 +231,8 @@ def main():
     path_analysis = path_in + "/analysis/"
 
     topo = _topology(name, path_analysis)
-    _, id_coplus_lists, _, id_nickplus_list = _categorise_lists(topo, plus=rang)
+    _, id_coplus_lists, _, id_nickplus_list = _categorise_lists(topo,
+                                                                plus=rang)
 
     # initialize universe and select final frame
     u = mda.Universe(*topo["universe"])
