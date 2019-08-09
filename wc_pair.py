@@ -443,7 +443,7 @@ class BDna(object):
             dist_strand = []
             dist_compl = []
             try:
-                resindex_wc = self.d_Fbp[resindex]
+                resindex_wc = self.d_Fbp_full[resindex]
             except KeyError:
                 resindex_wc = None
 
