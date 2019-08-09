@@ -106,9 +106,11 @@ class DataPrep(object):
         max_res = max(self.categories["all"])
         id_prop_dict = {}
         for resindex in range(0, max_res+1):
+            position = self.inv_dict_hpid[self.inv_dict_idid[resindex]]
             categories = [
                 cat for cat in CATEGORIES if resindex in self.categories[cat]]
-            position = self.inv_dict_hpid[self.inv_dict_idid[resindex]]
+            strand_type = "scaffold" if position[2] else "staple"
+            categories.append(strand_type)
             id_prop_dict[resindex] = [categories, position]
 
             for prop in PROP_TYPE:
@@ -142,21 +144,18 @@ class DataPrep(object):
                         dist_dicts = data[prop][resindex][atom]
                         for loc, dist_list in dist_dicts.items():
                             idx_self = int(len(dist_list)*0.5)
-                            try:
-                                if loc == "strand":
-                                    if (dist_list[idx_self+1] is not None and
-                                            dist_list[idx_self-1] is not None):
-                                        dist = 0.5 * (dist_list[idx_self-1] +
-                                                      dist_list[idx_self+1])
-                                    else:
-                                        dist = dist_list[idx_self-1]
+                            if loc == "strand":
+                                if (dist_list[idx_self+1] is not None and
+                                        dist_list[idx_self-1] is not None):
+                                    dist = 0.5 * (dist_list[idx_self-1] +
+                                                  dist_list[idx_self+1])
+                                elif dist_list[idx_self+1] is not None:
+                                    dist = dist_list[idx_self+1]
                                 else:
-                                    dist = dist_list[idx_self]
-                            except IndexError:
-                                dist = None
-                            except TypeError:
-                                import ipdb
-                                ipdb.set_trace()
+                                    dist = dist_list[idx_self-1]
+                            else:
+                                dist = dist_list[idx_self]
+
                             id_prop_dict[resindex].append(dist)
                             if (atom + "-" + loc) not in self.columns:
                                 self.columns.append(atom + "-" + loc)
@@ -267,9 +266,7 @@ def main():
     print("output to ", path)
     prep = DataPrep(path, name, plus=3)
     df, df_co, ts = prep.create_df()
-    import ipdb
-    ipdb.set_trace()
-
+    # import ipdb; ipdb.set_trace()
 
 if __name__ == "__main__":
     main()
