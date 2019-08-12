@@ -56,8 +56,6 @@ def _proj(u, v):
 def _v_proj(u, v):
     return np.inner(u, v) / (np.linalg.norm(v) * np.linalg.norm(v)) * v
 
-# TODO: -mid- eval nicks
-
 
 class BDna(object):
 
@@ -547,7 +545,7 @@ class BDna(object):
             return {"angles": {"co_beta": beta}, "center-co": center,
                     "plane": n0}
 
-        # TODO: -low- cleanup -high- check!
+        # TODO: -low- cleanup
         def get_co_angles_full(bpplanes, double_bpplanes):
 
             def project_to_plane(vect, n0):
