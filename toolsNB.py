@@ -57,7 +57,6 @@ class DataPrep(object):
         return data, ts
 
     def _categorise(self, plus):
-        # TODO: -high sequence
         id_A = set(resindex for resindex, base in
                    self.topo["dict_idseq"].items() if base == "A")
         id_T = set(resindex for resindex, base in
