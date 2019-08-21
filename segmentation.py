@@ -243,9 +243,9 @@ def main():
                 name + "-masked", context=context)
 
     # crossovers
-    motif_cat = {"seg_co": id_coplus_lists, "seg-nick": id_nickplus_list}
+    motif_cat = {"co": id_coplus_lists, "seg-nick": id_nickplus_list}
 
-    for motif in ["seg-nick", "seg_co"]:
+    for motif in ["nick", "co"]:
         path_out = path_analysis + motif + "/"
         print("output to ", path_out)
         try:
@@ -259,7 +259,7 @@ def main():
         if calculate_halfmaps:
             print("segmenting halfmaps")
         for index, co_select_typ in enumerate(motif_cat[motif]):
-            if motif == "seg-co":
+            if motif == "co":
                 co_select = co_select_typ[:-2]
                 typ = co_select_typ[-1]
                 index = co_select_typ[-2]
@@ -267,21 +267,21 @@ def main():
                 for base_id in co_select:
                     atoms_select += u.residues[base_id].atoms
 
-            elif motif == "seg-nick":
-                typ = "nick"
+            elif motif == "nick":
+                typ = ""
                 atoms_select = mda.AtomGroup([], u)
                 for base_id in co_select_typ:
                     atoms_select += u.residues[base_id].atoms
 
             mrc_segment(atoms_select, path_in + name, path_out +
-                        name + "__" + typ + "-co" + str(index),
+                        name + "__" + typ + motif + str(index),
                         context=context)
             if calculate_halfmaps:
                 mrc_segment(atoms_select, path_in + name + "_unfil_half_1",
-                            path_out + name + "__h1-" + typ + "-co" +
+                            path_out + name + "__h1-" + typ + motif +
                             str(index), context=context)
                 mrc_segment(atoms_select, path_in + name + "_unfil_half_2",
-                            path_out + name + "__h2-" + typ + "-co" +
+                            path_out + name + "__h2-" + typ + motif +
                             str(index), context=context)
 
 
