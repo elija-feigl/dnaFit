@@ -53,8 +53,8 @@ class Linker(object):
         list_Dskips = []
         for base in design_allbases:
             if self._is_del(base):
-                hp_s = (base.h, base.p, base.is_scaf)
-                list_Dskips.append(hp_s)
+                Dhps = (base.h, base.p, base.is_scaf)
+                list_Dskips.append(Dhps)
 
         return list_Dskips
 
@@ -193,89 +193,74 @@ class Linker(object):
                     "type": ("single", single, single_leg) /(str, int, int)
                     "type": ("double", double) /(str, int)
         """
-        def add_co_type():  # TODO: -midclean-
-            def get_double(Fid):
-                return Fid
+        def add_co_type():
+            def get_co_leg_p(n_Dhps, i):
+                """determine leg base by Dhps and +1/-1 (def: 2 bases away)"""
+                h, p, is_scaf = n_Dhps
+                Dhps = (h, p+i, is_scaf)
+                while Dhps in self.list_Dskips:
+                    i += i
+                    Dhps = (base.h, base.p+i, base.is_scaf)
+                leg_Did = self.dict_DhpsDid[Dhps]
+                return self.dict_DidFid[leg_Did]
 
-            def get_single(co, Fid, leg):
-                try:
-                    leg = self.dict_DidFid[self.dict_DhpsDid[(
-                        h, p+2*i, is_scaf)]]
-                except KeyError:
-                    leg = self.dict_DidFid[self.dict_DhpsDid[(
-                        h, p+3*i, is_scaf)]]
-
-
-
-                neighbors = []
-                for direct in ["up", "down"]:
-                    neigh = get_next(co["base"], direct)
-                    if neigh is not None:
-                        while self._is_del(neigh):
-                            n_new = get_next(neigh, direct)
-                            if n_new is None:
-                                break
-                            neigh = n_new
-                    neighbors.append(self.dict_DidFid[neigh.id])
-                if n_Fid not in neighbors:
-                    single = n_Fid
-                    single_leg = leg
-                return single, single_leg
+            def is_nextInStrand(b_Dhps, a_Dhps):
+                a_Fid = self.dict_DidFid[self.dict_DhpsDid[a_Dhps]]
+                b_Fid = self.dict_DidFid[self.dict_DhpsDid[b_Dhps]]
+                return True if abs(a_Fid - b_Fid) == 1 else False
 
             for co in self.dict_Fco.values():
                 h, p, is_scaf = co["position"]
-                is_double, is_single, is_end = False, False, False
                 n_Fid = None
                 for i in [-1, 1]:
-                    n_position = (h, p+i, is_scaf)
-                    while n_position in self.list_Dskips:
+                    n_Dhps = (h, p+i, is_scaf)
+                    while n_Dhps in self.list_Dskips:
                         i += i
-                        n_position = (h, p+i, is_scaf)
-                    try:
-                        n_Fid = self.dict_DidFid[self.dict_DhpsDid[n_position]]
-                    except KeyError:
-                        is_end = True
+                        n_Dhps = (h, p+i, is_scaf)
 
-                    is_double = (n_Fid in self.dict_Fco.keys())
-                    is_single = (not is_double and not is_end)
-
-                    if is_double:
-                        double = get_double(n_Fid)
-                        co["type"] = ("double", double)
-                    elif is_single:
-                        single, single_leg = get_single(co, n_Fid)
-                        co["type"] = ("single", single, single_leg)
-                    elif is_end:
-                        co["type"] = ("end", None)
+                    if n_Dhps not in self.dict_DhpsDid:
+                        co["type"] = ("end", None, None)
+                    elif is_nextInStrand(co["position"], n_Dhps):
+                        break
                     else:
-                        exit(0)
+                        n_Fid = self.dict_DidFid[self.dict_DhpsDid[n_Dhps]]
+                        is_double = (n_Fid in self.dict_Fco.keys())
+
+                        if is_double:
+                            co["type"] = ("double", n_Fid, None)
+                        else:
+                            leg = get_co_leg_p(n_Dhps, i)
+                            co["type"] = ("single", n_Fid, leg)
 
                 co.pop("base")
             return
 
         def get_co_leg_id(base, direct):
-            """determine leg base (def: 2 bases away)"""
+            """determine leg base base and up/down (def: 2 bases away)"""
             l = base.down.p if direct == "up" else base.up.p
             i = (l - base.p) * 2.
-            hp_s = (base.h, base.p+i, base.is_scaf)
-            while hp_s in self.list_Dskips:
+            Dhps = (base.h, base.p+i, base.is_scaf)
+            while Dhps in self.list_Dskips:
                 i = i + np.sign(i)
-                hp_s = (base.h, base.p+i, base.is_scaf)
-            leg_Did = self.dict_DhpsDid[hp_s]
+                Dhps = (base.h, base.p+i, base.is_scaf)
+            leg_Did = self.dict_DhpsDid[Dhps]
             return self.dict_DidFid[leg_Did]
 
         def get_next(base, direct):
             return (base.up if direct == "up" else base.down)
 
         def is_co(base, neighbor, direct):
-            while self._is_del(neighbor):
-                neighbor = get_next(neighbor, direct)
-            return neighbor.h != base.h
+            if neighbor is None:
+                return False
+            else:
+                while self._is_del(neighbor):
+                    neighbor = get_next(neighbor, direct)
+                return neighbor.h != base.h
 
         def get_co(base, neighbor, direct, run_id):
             co_id = self.dict_DidFid[neighbor.id]
             leg_id = get_co_leg_id(base, direct)
-            position = (base.h, base.p, base.is_scaf)
+            Dhps = (base.h, base.p, base.is_scaf)
 
             try:  # TODO -high cleanup co_index
                 index = self.dict_Fco[co_id]["co_index"]
@@ -287,7 +272,7 @@ class Linker(object):
                          "co": co_id,
                          "leg": leg_id,
                          "is_scaffold": base.is_scaf,
-                         "position": position,
+                         "position": Dhps,
                          "base": base,
                          }
             return dict_data, run_id
@@ -430,10 +415,10 @@ class Design(object):
             dict s_dict
                 (int) -> (int)
         """
-        list_hp = [(self.h_dict[s[0].h], s[0].p) for s in self.staples]
-        list_hp_s = sorted(list_hp, key=lambda x: (x[0], x[1]))
+        list_Dhps = [(self.h_dict[s[0].h], s[0].p) for s in self.staples]
+        list_Dhps_sorted = sorted(list_Dhps, key=lambda x: (x[0], x[1]))
 
-        idx_list = [list_hp.index(list_hp_s[i]) for i in range(len(list_hp))]
+        idx_list = [list_Dhps.index(list_Dhps_sorted[i]) for i in range(len(list_Dhps))]
         s_dict = dict(zip(idx_list, range(len(idx_list))))
 
         return s_dict
