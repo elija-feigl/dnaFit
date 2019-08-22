@@ -57,17 +57,11 @@ class DataPrep(object):
         return data, ts
 
     def _categorise(self, plus):
-        id_A = set(resindex for resindex, base in
-                   self.topo["dict_idseq"].items() if base == "A")
-        id_T = set(resindex for resindex, base in
-                   self.topo["dict_idseq"].items() if base == "T")
-        id_G = set(resindex for resindex, base in
-                   self.topo["dict_idseq"].items() if base == "G")
-        id_C = set(resindex for resindex, base in
-                   self.topo["dict_idseq"].items() if base == "C")
-
+        id_seq = {}
+        for X in ["A", "T", "G", "C"]:
+            id_seq[X] = set(resindex for resindex, Y in
+                            self.topo["dict_idseq"].items() if Y == X)
         id_ds = set()
-        id_co_plus = set()
 
         for wc_id1, wc_id2 in self.topo["dict_bp"].items():
             id_ds.add(wc_id1)
@@ -86,6 +80,7 @@ class DataPrep(object):
         id_co = id_co | id_co_bp
         id_ds = id_ds - id_co
 
+        id_co_plus = set()
         for resindex in id_co:  # TODO: fix quick and dirty
             id_co_plus.add(resindex)
             for i in range(-plus, plus):
@@ -98,7 +93,8 @@ class DataPrep(object):
 
         return {"co": id_co, "co_plus": id_co_plus, "ss": id_ss, "ds": id_ds,
                 "all": id_all, "clean": id_clean, "nick": id_nick,
-                "A": id_A, "T": id_T, "G": id_G, "C": id_C}
+                "A": id_seq["A"], "T": id_seq["T"], "G": id_seq["G"],
+                "C": id_seq["C"]}
 
     def create_df(self, frame=0):
         data, ts = self._traj_frame(frame)
@@ -266,6 +262,7 @@ def main():
     prep = DataPrep(path, name, plus=3)
     df, df_co, ts = prep.create_df()
     # import ipdb; ipdb.set_trace()
+
 
 if __name__ == "__main__":
     main()
