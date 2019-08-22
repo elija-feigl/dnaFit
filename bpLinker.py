@@ -106,7 +106,7 @@ class Linker(object):
         dict_color = {}
 
         for i, staple in enumerate(self.design.staples):
-            seg_id = self.design.s_dict[i]
+            seg_id = self.design.dict_stapleorder[i]
 
             D_ids = [base.id for base in staple]
             D_hp = [(base.h, base.p, False) for base in staple]
@@ -211,7 +211,6 @@ class Linker(object):
 
             for co in self.dict_Fco.values():
                 h, p, is_scaf = co["position"]
-                n_Fid = None
                 for i in [-1, 1]:
                     n_Dhps = (h, p+i, is_scaf)
                     while n_Dhps in self.list_Dskips:
@@ -221,7 +220,7 @@ class Linker(object):
                     if n_Dhps not in self.dict_DhpsDid:
                         co["type"] = ("end", None, None)
                     elif is_nextInStrand(co["position"], n_Dhps):
-                        break
+                        continue
                     else:
                         n_Fid = self.dict_DidFid[self.dict_DhpsDid[n_Dhps]]
                         is_double = (n_Fid in self.dict_Fco.keys())
@@ -231,7 +230,6 @@ class Linker(object):
                         else:
                             leg = get_co_leg_p(n_Dhps, i)
                             co["type"] = ("single", n_Fid, leg)
-
                 co.pop("base")
             return
 
@@ -358,8 +356,8 @@ class Design(object):
         self.scaffold = self._clean_scaffold(self.strands)
         self.excl = self.scaffold[0].strand
         self.staples = self._clean_staple(self.strands)
-        self.h_dict = self._create_helix_order()
-        self.s_dict = self._create_staple_order()
+        self.dict_helixorder = self._create_helix_order()
+        self.dict_stapleorder = self._create_staple_order()
 
     def _is_del(self, base):
         return base.num_deletions != 0
@@ -398,12 +396,12 @@ class Design(object):
         -------
             Returns
             -------
-            dict h_dict
+            dict dict_helixorder
                 (int) -> (int)
         """
         helices_dict = self.design.structure_helices_map
-        h_dict = {i: h.load_order for (i, h) in helices_dict.items()}
-        return h_dict
+        dict_helixorder = {i: h.load_order for (i, h) in helices_dict.items()}
+        return dict_helixorder
 
     def _create_staple_order(self):
         """ enrgMD and nanodesign number staples differently.
@@ -412,16 +410,18 @@ class Design(object):
         -------
             Returns
             -------
-            dict s_dict
+            dict dict_stapleorder
                 (int) -> (int)
         """
-        list_Dhps = [(self.h_dict[s[0].h], s[0].p) for s in self.staples]
+        list_Dhps = [(self.dict_helixorder[s[0].h], s[0].p)
+                     for s in self.staples]
         list_Dhps_sorted = sorted(list_Dhps, key=lambda x: (x[0], x[1]))
 
-        idx_list = [list_Dhps.index(list_Dhps_sorted[i]) for i in range(len(list_Dhps))]
-        s_dict = dict(zip(idx_list, range(len(idx_list))))
+        order_EMD = range(len(list_Dhps))
+        order_ND = [list_Dhps.index(list_Dhps_sorted[i]) for i in order_EMD]
+        dict_stapleorder = dict(zip(order_ND, order_EMD))
 
-        return s_dict
+        return dict_stapleorder
 
 
 def print_usage():
