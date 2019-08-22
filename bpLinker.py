@@ -22,20 +22,20 @@ class Linker(object):
         self.path = path
         self.fit = Fit(self.path,)
         self.design = Design(self.path)
-        self.d_Fbp = None
-        self.d_DidFid = None
-        self.d_DhpsDid = None
-        self.d_Fco = None
-        self.l_Dskips = self._get_skips()
-        self.d_Fnicks = None
-        self.d_FidSeq = self._get_sequence()
-        # TODO: d_DhpsFid
+        self.dict_Fbp = None
+        self.dict_DidFid = None
+        self.dict_DhpsDid = None
+        self.dict_Fco = None
+        self.list_Dskips = self._get_skips()
+        self.dict_Fnicks = None
+        self.dict_FidSeq = self._get_sequence()
+        # TODO: dict_DhpsFid
 
     def _get_sequence(self):
-        d_FidSeq = {}
+        dict_FidSeq = {}
         for res in self.fit.u.residues:
-            d_FidSeq[res.resindex] = res.resname[0]
-        return d_FidSeq
+            dict_FidSeq[res.resindex] = res.resname[0]
+        return dict_FidSeq
 
     def _is_del(self, base):
         return base.num_deletions != 0
@@ -45,18 +45,18 @@ class Linker(object):
         -------
             Returns
             -------
-            list l_Dskips
+            list list_Dskips
                 (base.h, base.p, base.is_scaf) of all skips
         """
         design_allbases = [
             base for strand in self.design.strands for base in strand.tour]
-        l_Dskips = []
+        list_Dskips = []
         for base in design_allbases:
             if self._is_del(base):
                 hp_s = (base.h, base.p, base.is_scaf)
-                l_Dskips.append(hp_s)
+                list_Dskips.append(hp_s)
 
-        return l_Dskips
+        return list_Dskips
 
     def _link_scaffold(self):
         """ collect position in scaffold (0-x) by comparing to index in list
@@ -64,7 +64,7 @@ class Linker(object):
         -------
             Returns
             -------
-            dict d_DidFid
+            dict dict_DidFid
                 design-id (int) -> fit-id (int)
             dict d_DhpsDid
                 helix-number (int), base-position (int), is_scaffold (bool)
@@ -81,29 +81,29 @@ class Linker(object):
 
         F_id_global = self.fit.scaffold.residues[F_id_local].resindices
 
-        d_DidFid = dict(zip(D_ids, F_id_global))
-        d_DhpsDid = dict(zip(D_hp, D_ids))
-        return d_DidFid, d_DhpsDid
+        dict_DidFid = dict(zip(D_ids, F_id_global))
+        dict_DhpsDid = dict(zip(D_hp, D_ids))
+        return dict_DidFid, dict_DhpsDid
 
     def _link_staples(self):
         """same procedure as scaffold for each
         -------
          Returns
             -------
-            dict d_DidFid
+            dict dict_DidFid
                 design-id (int) -> fit-id (int)
-            dict d_DhpsDid
+            dict dict_DhpsDid
                 helix-number (int), base-position (int), is_scaffold (bool)
                 -> design-id (int)
-            dict d_color
+            dict dict_color
                 fit-segment-id (int) -> color (hex?)
         """
         def get_resid(segindex, resindex_local):
             return self.fit.staples[segindex].residues[resindex_local].resindex
 
-        d_DidFid = {}
-        d_DhpsDid = {}
-        d_color = {}
+        dict_DidFid = {}
+        dict_DhpsDid = {}
+        dict_color = {}
 
         for i, staple in enumerate(self.design.staples):
             seg_id = self.design.s_dict[i]
@@ -116,14 +116,14 @@ class Linker(object):
 
             color = self.design.design.strands[staple[0].strand].icolor
             segidxforcolor = self.fit.staples[seg_id].segindex
-            d_color[segidxforcolor] = color
+            dict_color[segidxforcolor] = color
 
-            d_DidFid_add = dict(zip(D_ids, F_id_global))
-            d_DhpsDid_add = dict(zip(D_hp, D_ids))
-            d_DidFid = {**d_DidFid, **d_DidFid_add}
-            d_DhpsDid = {**d_DhpsDid, **d_DhpsDid_add}
+            dict_DidFid_add = dict(zip(D_ids, F_id_global))
+            dict_DhpsDid_add = dict(zip(D_hp, D_ids))
+            dict_DidFid = {**dict_DidFid, **dict_DidFid_add}
+            dict_DhpsDid = {**dict_DhpsDid, **dict_DhpsDid_add}
 
-        return d_DidFid, d_DhpsDid, d_color
+        return dict_DidFid, dict_DhpsDid, dict_color
 
     def _link_bp(self):
         """ link basepairs by mapping indices according to json (cadnano).
@@ -131,17 +131,17 @@ class Linker(object):
         -------
          Returns
             -------
-            dict d_Fbp
+            dict dict_Fbp
                 fit-id (int) -> fit-id (int)
         """
-        d_Fbp = {}
+        dict_Fbp = {}
         for base in self.design.scaffold:
             if base.across is not None:
-                base_Fid = self.d_DidFid[base.id]
-                across_Fid = self.d_DidFid[base.across.id]
-                d_Fbp[base_Fid] = across_Fid
+                base_Fid = self.dict_DidFid[base.id]
+                across_Fid = self.dict_DidFid[base.across.id]
+                dict_Fbp[base_Fid] = across_Fid
 
-        return d_Fbp
+        return dict_Fbp
 
     def link(self):
         """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping
@@ -152,28 +152,28 @@ class Linker(object):
         -------
          Returns
             -------
-            dict self.d_Fbp
+            dict self.dict_Fbp
                 fit-id (int) -> fit-id (int)
-            dict self.d_DidFid
+            dict self.dict_DidFid
                 design-id (int) -> fit-id (int)
-            dict self.d_DhpsDid
+            dict self.dict_DhpsDid
                 helix-number (int), base-position (int), is_scaffold (bool)
                 -> design-id (int)
-            dict self.d_color
+            dict self.dict_color
                 fit-segment-id (int) -> color (hex?)
         """
-        d_DidFid_sc, d_DhpsDid_sc = self._link_scaffold()
-        d_DidFid_st, d_DhpsDid_st, self.d_color = self._link_staples()
+        dict_DidFid_sc, dict_DhpsDid_sc = self._link_scaffold()
+        dict_DidFid_st, dict_DhpsDid_st, self.dict_color = self._link_staples()
 
-        self.d_DidFid = {**d_DidFid_sc, **d_DidFid_st}
-        self.d_DhpsDid = {**d_DhpsDid_sc, **d_DhpsDid_st}
-        self.d_Fbp = self._link_bp()
+        self.dict_DidFid = {**dict_DidFid_sc, **dict_DidFid_st}
+        self.dict_DhpsDid = {**dict_DhpsDid_sc, **dict_DhpsDid_st}
+        self.dict_Fbp = self._link_bp()
 
-        return (self.d_Fbp,
-                self.d_DidFid,
-                self.d_DhpsDid,
-                self.d_color,
-                self.l_Dskips,
+        return (self.dict_Fbp,
+                self.dict_DidFid,
+                self.dict_DhpsDid,
+                self.dict_color,
+                self.list_Dskips,
                 )
 
     def identify_crossover(self):
@@ -182,7 +182,7 @@ class Linker(object):
         -------
          Returns
             -------
-            dict self.d_Fco
+            dict self.dict_Fco
                 fit-id (int) ->
                 "co_index": co_index (int), "co": co_id (int),
                 "leg": leg_id (int),
@@ -193,123 +193,130 @@ class Linker(object):
                     "type": ("single", single, single_leg) /(str, int, int)
                     "type": ("double", double) /(str, int)
         """
-        def add_co_type(dict_co):  # TODO: -midclean-
-            for value in dict_co.values():
-                h, p, is_scaf = value["position"]
+        def add_co_type():  # TODO: -midclean-
+            def get_double(Fid):
+                return Fid
+
+            def get_single(co, Fid, leg):
+                try:
+                    leg = self.dict_DidFid[self.dict_DhpsDid[(
+                        h, p+2*i, is_scaf)]]
+                except KeyError:
+                    leg = self.dict_DidFid[self.dict_DhpsDid[(
+                        h, p+3*i, is_scaf)]]
+
+
+
+                neighbors = []
+                for direct in ["up", "down"]:
+                    neigh = get_next(co["base"], direct)
+                    if neigh is not None:
+                        while self._is_del(neigh):
+                            n_new = get_next(neigh, direct)
+                            if n_new is None:
+                                break
+                            neigh = n_new
+                    neighbors.append(self.dict_DidFid[neigh.id])
+                if n_Fid not in neighbors:
+                    single = n_Fid
+                    single_leg = leg
+                return single, single_leg
+
+            for co in self.dict_Fco.values():
+                h, p, is_scaf = co["position"]
                 is_double, is_single, is_end = False, False, False
                 n_Fid = None
                 for i in [-1, 1]:
+                    n_position = (h, p+i, is_scaf)
+                    while n_position in self.list_Dskips:
+                        i += i
+                        n_position = (h, p+i, is_scaf)
                     try:
-                        if (h, p+i, is_scaf) in self.l_Dskips:
-                            i *= 2.
-                        n_Fid = self.d_DidFid[self.d_DhpsDid[(
-                            h, p+i, is_scaf)]]
-                        try:
-                            leg = self.d_DidFid[self.d_DhpsDid[(
-                                h, p+2*i, is_scaf)]]
-                        except KeyError:
-                            leg = self.d_DidFid[self.d_DhpsDid[(
-                                h, p+3*i, is_scaf)]]
+                        n_Fid = self.dict_DidFid[self.dict_DhpsDid[n_position]]
                     except KeyError:
                         is_end = True
 
-                    if n_Fid in dict_co.keys():
-                        double = n_Fid
-                        is_double = True
-                    elif not is_end:
-                        neighbors = []
-                        for direct in ["up", "down"]:
-                            neigh = get_next(value["base"], direct)
-                            if neigh is not None:
-                                while self._is_del(neigh):
-                                    n_new = get_next(neigh, direct)
-                                    if n_new is None:
-                                        break
-                                    neigh = n_new
-                            neighbors.append(self.d_DidFid[neigh.id])
-                        if n_Fid not in neighbors:
-                            single = n_Fid
-                            single_leg = leg
-                            is_single = True
+                    is_double = (n_Fid in self.dict_Fco.keys())
+                    is_single = (not is_double and not is_end)
 
-                if is_end:
-                    value["type"] = ("end", None)
-                elif is_single:
-                    value["type"] = ("single", single, single_leg)
-                elif is_double:
-                    value["type"] = ("double", double)
-                else:
-                    exit(0)
+                    if is_double:
+                        double = get_double(n_Fid)
+                        co["type"] = ("double", double)
+                    elif is_single:
+                        single, single_leg = get_single(co, n_Fid)
+                        co["type"] = ("single", single, single_leg)
+                    elif is_end:
+                        co["type"] = ("end", None)
+                    else:
+                        exit(0)
 
-                value.pop("base")
-            return dict_co
+                co.pop("base")
+            return
 
         def get_co_leg_id(base, direct):
             """determine leg base (def: 2 bases away)"""
             l = base.down.p if direct == "up" else base.up.p
             i = (l - base.p) * 2.
             hp_s = (base.h, base.p+i, base.is_scaf)
-            while hp_s in self.l_Dskips:
+            while hp_s in self.list_Dskips:
                 i = i + np.sign(i)
                 hp_s = (base.h, base.p+i, base.is_scaf)
-            leg_Did = self.d_DhpsDid[hp_s]
-            return self.d_DidFid[leg_Did]
+            leg_Did = self.dict_DhpsDid[hp_s]
+            return self.dict_DidFid[leg_Did]
 
         def get_next(base, direct):
             return (base.up if direct == "up" else base.down)
 
-        design_allbases = self.design.scaffold.copy()
-        staples = [base for staple in self.design.staples for base in staple]
-        design_allbases.extend(staples)
+        def is_co(base, neighbor, direct):
+            while self._is_del(neighbor):
+                neighbor = get_next(neighbor, direct)
+            return neighbor.h != base.h
 
-        dict_co = {}
-        co_running_index = 0
-        for design_base in design_allbases:
-            base_Fid = self.d_DidFid[design_base.id]
+        def get_co(base, neighbor, direct, run_id):
+            co_id = self.dict_DidFid[neighbor.id]
+            leg_id = get_co_leg_id(base, direct)
+            position = (base.h, base.p, base.is_scaf)
+
+            try:  # TODO -high cleanup co_index
+                index = self.dict_Fco[co_id]["co_index"]
+            except KeyError:
+                run_id += 1
+                index = run_id
+
+            dict_data = {"co_index": index,
+                         "co": co_id,
+                         "leg": leg_id,
+                         "is_scaffold": base.is_scaf,
+                         "position": position,
+                         "base": base,
+                         }
+            return dict_data, run_id
+
+        allbases = self.design.scaffold.copy()
+        staples = [base for staple in self.design.staples for base in staple]
+        allbases.extend(staples)
+
+        self.dict_Fco = {}
+        run_id = 0
+        for base in allbases:
+            base_Fid = self.dict_DidFid[base.id]
 
             for direct in ["up", "down"]:
-                neighbor = get_next(design_base, direct)
-                if neighbor is not None:
-                    while self._is_del(neighbor):
-                        n_new = get_next(neighbor, direct)
-                        if n_new is None:
-                            break
-                        neighbor = n_new
-                    if neighbor.h != design_base.h:  # crossover condition
-                        leg_id = get_co_leg_id(design_base, direct)
-                        try:
-                            co_id = self.d_DidFid[neighbor.id]
-                        except KeyError:
-                            exit(0)
-                        position = (design_base.h, design_base.p,
-                                    design_base.is_scaf)
+                neighbor = get_next(base, direct)
+                if is_co(base, neighbor, direct):
+                    co_data, run_id = get_co(base, neighbor, direct, run_id)
+                    self.dict_Fco[base_Fid] = co_data
+                    break
 
-                        try:
-                            co_index = dict_co[co_id]["co_index"]
-                        except KeyError:
-                            co_running_index += 1
-                            co_index = co_running_index
-
-                        dict_co[base_Fid] = {
-                            "co_index": co_index,
-                            "co": co_id,
-                            "leg": leg_id,
-                            "is_scaffold": design_base.is_scaf,
-                            "position": position,
-                            "base": design_base,
-                        }
-
-        dict_co = add_co_type(dict_co)
-
-        self.d_Fco = dict_co
-        return self.d_Fco
+        add_co_type()
+        return self.dict_Fco
 
     def identify_nicks(self):
         """ for every nick, provide id of base accross nick
         -------
          Returns
             -------
-            dict self.d_Fnicks
+            dict self.dict_Fnicks
                 fit-id (int) -> fit_id (int)
         """
         def is_nick(candidate, base):
@@ -318,7 +325,7 @@ class Linker(object):
             is_base = (candidate is not base)
             return is_onhelix and is_neighbor and not is_base
 
-        d_Fnicks = {}
+        dict_Fnicks = {}
         staple_end_bases = []
         for staple in self.design.staples:
             staple_end_bases.extend((staple[0], staple[-1]))
@@ -326,12 +333,12 @@ class Linker(object):
         for base in staple_end_bases:
             for candidate in staple_end_bases:
                 if is_nick(candidate, base):
-                    base_Fid = self.d_DidFid[base.id]
-                    nick_Fid = self.d_DidFid[candidate.id]
-                    d_Fnicks[base_Fid] = nick_Fid
+                    base_Fid = self.dict_DidFid[base.id]
+                    nick_Fid = self.dict_DidFid[candidate.id]
+                    dict_Fnicks[base_Fid] = nick_Fid
 
-        self.d_Fnicks = d_Fnicks
-        return self.d_Fnicks
+        self.dict_Fnicks = dict_Fnicks
+        return self.dict_Fnicks
 
 
 class Fit(object):
