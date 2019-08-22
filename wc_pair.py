@@ -776,7 +776,7 @@ def main():
     dict_bp, dict_idid, dict_hpid, _, list_skips = linker.link()
     dict_co = linker.identify_crossover()
     dict_nicks = linker.identify_nicks()
-    dict_idseq = linker.d_FidSeq
+    dict_idseq = linker.dict_FidSeq
     for dict_name in ["dict_bp", "dict_idid", "dict_hpid", "dict_co",
                       "dict_nicks", "universe", "list_skips", "dict_idseq"]:
         pickle.dump(eval(dict_name), open(
