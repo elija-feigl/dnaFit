@@ -11,7 +11,7 @@ from operator import attrgetter
 from typing import List, Set, Dict, Tuple, Optional
 
 DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_color",
-         "dict_coid", "dict_nicks", "list_skips"]
+         "dict_coid", "dict_nicks", "list_skips", "universe"]
 # TODO: -low move or rather make use obsolete
 
 
@@ -58,7 +58,9 @@ class Linker(object):
 
         return list_Dskips
 
-    def _link_scaffold(self) -> (Dict[int, int], Dict[Tuple[int, int, bool]]):
+    def _link_scaffold(self) -> (Dict[int, int], 
+                                 Dict[Tuple[int, int, bool], int],
+                                 ):
         """ collect position in scaffold (0-x) by comparing to index in list
             of scaffold_design positions
         -------
@@ -86,7 +88,7 @@ class Linker(object):
         return dict_DidFid, dict_DhpsDid
 
     def _link_staples(self) -> (Dict[int, int],
-                                Dict[Tuple[int, int, bool]],
+                                Dict[Tuple[int, int, bool], int],
                                 Dict[int, int],
                                 ):
         """same procedure as scaffold for each
@@ -214,7 +216,7 @@ class Linker(object):
                 b_Fid = self.dict_DidFid[self.dict_DhpsDid[b_Dhps]]
                 return True if abs(a_Fid - b_Fid) == 1 else False
 
-            for co in self.dict_Fco.values():
+            for co in iter(self.dict_Fco.values()):
                 h, p, is_scaf = co["position"]
                 for i in [-1, 1]:
                     n_Dhps = (h, p+i, is_scaf)
@@ -229,7 +231,7 @@ class Linker(object):
                         continue
                     else:
                         n_Fid = self.dict_DidFid[self.dict_DhpsDid[n_Dhps]]
-                        is_double = (n_Fid in self.dict_Fco.keys())
+                        is_double = (n_Fid in iter(self.dict_Fco.keys()))
 
                         if is_double:
                             co["type"] = ("double", n_Fid, None)
@@ -251,7 +253,17 @@ class Linker(object):
             return self.dict_DidFid[leg_Did]
 
         def get_next(base, direct: str):
-            return (base.up if direct == "up" else base.down)
+            n = (base.up if direct == "up" else base.down)
+            if n is None:
+                return None
+            else:
+                n_position = (n.h, n.p, n.is_scaf)
+                while n_position in self.list_Dskips:
+                    n = (n.up if direct == "up" else n.down)
+                    if n is None:
+                        return None
+                    n_position = (n.h, n.p, n.is_scaf)
+                return n
 
         def is_co(base, neighbor, direct: str) -> bool:
             if neighbor is None:
@@ -311,8 +323,14 @@ class Linker(object):
         def is_nick(candidate, base) -> bool:
             is_onhelix = (candidate.h == base.h)
             is_neighbor = (abs(base.p - candidate.p) <= 2)  # skip = 2
-            is_base = (candidate is not base)
-            return is_onhelix and is_neighbor and not is_base
+            is_base = (candidate is base)
+            b_Fid = self.dict_DidFid[base.id]
+            c_Fid = self.dict_DidFid[candidate.id]
+            is_ds_staple = (b_Fid in self.dict_Fbp.values() and c_Fid in self.dict_Fbp.values())
+            if is_onhelix and is_neighbor and not is_base and not is_ds_staple:
+                import ipdb
+                ipdb.set_trace()
+            return is_onhelix and is_neighbor and not is_base and is_ds_staple
 
         dict_Fnicks = {}
         staple_end_bases = []
@@ -340,7 +358,7 @@ class Fit(object):
     def _get_universe(self):
         # TODO: -mid- if no dcd, try invoke vmd animate write dcd from pdb
         top = self.path + ".psf"
-        trj = self.path + ".dcd"
+        trj = self.path + ".dcd" #TODO with ignored
         u = mda.Universe(top, trj)
         return u
 
@@ -386,7 +404,7 @@ class Design(object):
 
     def _get_design(self):
         file_name = self.path + ".json"
-        try:
+        try:  # TODO with ignored
             seq_file = self.path + ".seq"
         except FileNotFoundError:
             seq_file = None
@@ -406,7 +424,7 @@ class Design(object):
                 (int) -> (int)
         """
         helices_dict = self.design.structure_helices_map
-        dict_helixorder = {i: h.load_order for (i, h) in helices_dict.items()}
+        dict_helixorder = {i: h.load_order for (i, h) in iter(helices_dict.items())}
         return dict_helixorder
 
     def _create_staple_order(self) -> Dict[int, int]:
@@ -423,7 +441,7 @@ class Design(object):
                      for s in self.staples]
         list_Dhps_sorted = sorted(list_Dhps, key=lambda x: (x[0], x[1]))
 
-        order_EMD = range(len(list_Dhps))
+        order_EMD = range(len(list_Dhps)) #TODO  use dict(enumerate()))
         order_ND = [list_Dhps.index(list_Dhps_sorted[i]) for i in order_EMD]
         dict_stapleorder = dict(zip(order_ND, order_EMD))
 
@@ -453,25 +471,28 @@ def proc_input():
     project = sys.argv[1]
     name = sys.argv[2]
     cwd = os.getcwd()
-
-    output = cwd + "/" + project + "/" + name
-
-    return output
+    in_put = cwd + "/" + project + "/" + name
+    out_put = cwd + "/" + project + "/analysis/"
+    try:
+        os.mkdir(out_put)
+    except FileExistsError:
+        pass
+    return in_put, out_put + name
 
 
 def main():
 
     # process input
-    path = proc_input()
-    print("output to ", path)
-    linker = Linker(path)
-
+    in_put, out_put = proc_input()
+    print("output to ", out_put)
+    linker = Linker(in_put)
+    universe = (in_put + ".psf", in_put + ".dcd")
     dict_bp, dict_idid, dict_hpid, dict_color, list_skips = linker.link()
     dict_coid = linker.identify_crossover()
     dict_nicks = linker.identify_nicks()
     for dict_name in DICTS:
         pickle.dump(eval(dict_name), open(
-            path + "__" + dict_name + ".p", "wb"))
+            out_put + "__" + dict_name + ".p", "wb"))
 
 
 if __name__ == "__main__":
