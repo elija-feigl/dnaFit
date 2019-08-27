@@ -205,7 +205,7 @@ class Linker(object):
                 Dhps = (h, p+i, is_scaf)
                 while Dhps in self.list_Dskips:
                     i += np.sign(i)
-                    Dhps = (base.h, base.p+i, base.is_scaf)
+                    Dhps = (h, p+i, is_scaf)
                 leg_Did = self.dict_DhpsDid[Dhps]
                 return self.dict_DidFid[leg_Did]
 
