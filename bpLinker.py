@@ -179,7 +179,7 @@ class Linker(object):
                 self.dict_DhpsDid,
                 self.dict_color,
                 self.list_Dskips,
-                )  # TODO: named tuple
+                )  # TODO: named tuple?
 
     def identify_crossover(self) -> Dict:
         """ for every base id that is involved in a crossover
@@ -224,13 +224,13 @@ class Linker(object):
                         i += np.sign(i)
                         n_Dhps = (h, p+i, is_scaf)
 
-                    # TODO: d .get('x', c) is equ to d['x'] if 'x' in d else c
-                    if n_Dhps not in self.dict_DhpsDid:
+                    n_Did = self.dict_DhpsDid.get(n_Dhps, None)
+                    n_Fid = self.dict_DidFid.get(n_Did, None)
+                    if n_Fid is None:
                         co["type"] = ("end", None, None)
                     elif is_nextInStrand(co["position"], n_Dhps):
                         continue
                     else:
-                        n_Fid = self.dict_DidFid[self.dict_DhpsDid[n_Dhps]]
                         is_double = (n_Fid in iter(self.dict_Fco.keys()))
 
                         if is_double:
