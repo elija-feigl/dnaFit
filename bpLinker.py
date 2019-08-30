@@ -5,14 +5,24 @@ import os
 import MDAnalysis as mda
 import numpy as np
 import pickle
+import contextlib
 
+from itertools import chain
 from nanodesign.converters import Converter
 from operator import attrgetter
 from typing import List, Set, Dict, Tuple, Optional
 
-DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_color",
-         "dict_coid", "dict_nicks", "list_skips", "universe"]
+DICTS = ["bp", "idid", "hpid", "color",
+         "coid", "nicks", "skips", "universe"]
 # TODO: -low move or rather make use obsolete
+
+
+@contextlib.contextmanager
+def ignored(*exceptions):
+    try:
+        yield
+    except exceptions:
+        pass
 
 
 class Linker(object):
@@ -23,19 +33,19 @@ class Linker(object):
         self.path = path
         self.fit = Fit(self.path)
         self.design = Design(self.path)
-        self.dict_Fbp = None
-        self.dict_DidFid = None
-        self.dict_DhpsDid = None
-        self.dict_Fco = None
-        self.list_Dskips = self._get_skips()
-        self.dict_Fnicks = None
-        self.dict_FidSeq = self._get_sequence()
+        self.Fbp = None
+        self.DidFid = None
+        self.DhpsDid = None
+        self.Fco = None
+        self.Dskips = self._get_skips()
+        self.Fnicks = None
+        self.FidSeq = self._get_sequence()
 
     def _get_sequence(self) -> Dict[int, str]:
-        dict_FidSeq = {}
-        for res in self.fit.u.residues:
-            dict_FidSeq[res.resindex] = res.resname[0]
-        return dict_FidSeq
+        FidSeq = {res.resindex: res.resname[0]
+                  for res in self.fit.u.residues
+                  }
+        return FidSeq
 
     def _is_del(self, base) -> bool:
         return base.num_deletions != 0
@@ -45,20 +55,20 @@ class Linker(object):
         -------
             Returns
             -------
-            list list_Dskips
+            list Dskips
                 (base.h, base.p, base.is_scaf) of all skips
         """
-        design_allbases = [
-            base for strand in self.design.strands for base in strand.tour]
-        list_Dskips = []
-        for base in design_allbases:
-            if self._is_del(base):
-                Dhps = (base.h, base.p, base.is_scaf)
-                list_Dskips.append(Dhps)
+        design_allbases = [base
+                           for strand in self.design.strands
+                           for base in strand.tour
+                           ]
+        Dskips = [(base.h, base.p, base.is_scaf)
+                  for base in design_allbases
+                  if self._is_del(base)
+                  ]
+        return Dskips
 
-        return list_Dskips
-
-    def _link_scaffold(self) -> (Dict[int, int], 
+    def _link_scaffold(self) -> (Dict[int, int],
                                  Dict[Tuple[int, int, bool], int],
                                  ):
         """ collect position in scaffold (0-x) by comparing to index in list
@@ -66,26 +76,22 @@ class Linker(object):
         -------
             Returns
             -------
-            dict dict_DidFid
+            dict DidFid
                 design-id (int) -> fit-id (int)
-            dict d_DhpsDid
+            dict DhpsDid
                 helix-number (int), base-position (int), is_scaffold (bool)
                 -> design-id (int)
         """
+        Dscaffold = self.design.scaffold
 
-        D_ids = [base.id for base in self.design.scaffold]
-        D_hp = [(base.h, base.p, True) for base in self.design.scaffold]
+        Did = [base.id for base in Dscaffold]
+        Dhp = [(base.h, base.p, True) for base in Dscaffold]
+        Fid_local = [Did.index(base.id) for base in Dscaffold]
+        Fid_global = self.fit.scaffold.residues[Fid_local].resindices
 
-        F_id_local = []
-        for base in self.design.scaffold:
-            indx = D_ids.index(base.id)
-            F_id_local.append(indx)
-
-        F_id_global = self.fit.scaffold.residues[F_id_local].resindices
-
-        dict_DidFid = dict(zip(D_ids, F_id_global))
-        dict_DhpsDid = dict(zip(D_hp, D_ids))
-        return dict_DidFid, dict_DhpsDid
+        DidFid = dict(zip(Did, Fid_global))
+        DhpsDid = dict(zip(Dhp, Did))
+        return DidFid, DhpsDid
 
     def _link_staples(self) -> (Dict[int, int],
                                 Dict[Tuple[int, int, bool], int],
@@ -95,40 +101,40 @@ class Linker(object):
         -------
          Returns
             -------
-            dict dict_DidFid
+            dict DidFid
                 design-id (int) -> fit-id (int)
-            dict dict_DhpsDid
+            dict DhpsDid
                 helix-number (int), base-position (int), is_scaffold (bool)
                 -> design-id (int)
-            dict dict_color
+            dict color
                 fit-segment-id (int) -> color (hex?)
         """
         def get_resid(segindex: int, resindex_local: int) -> int:
             return self.fit.staples[segindex].residues[resindex_local].resindex
 
-        dict_DidFid = {}
-        dict_DhpsDid = {}
-        dict_color = {}
+        DidFid = {}
+        DhpsDid = {}
+        color = {}
 
         for i, staple in enumerate(self.design.staples):
-            seg_id = self.design.dict_stapleorder[i]
+            seg_id = self.design.stapleorder[i]
 
-            D_ids = [base.id for base in staple]
-            D_hp = [(base.h, base.p, False) for base in staple]
+            Did = [base.id for base in staple]
+            Dhp = [(base.h, base.p, False) for base in staple]
 
-            F_id_local = [D_ids.index(base.id)for base in staple]
-            F_id_global = [get_resid(seg_id, resid) for resid in F_id_local]
+            Fid_local = [Did.index(base.id)for base in staple]
+            Fid_global = [get_resid(seg_id, resid) for resid in Fid_local]
 
-            color = self.design.design.strands[staple[0].strand].icolor
+            icolor = self.design.design.strands[staple[0].strand].icolor
             segidxforcolor = self.fit.staples[seg_id].segindex
-            dict_color[segidxforcolor] = color
+            color[segidxforcolor] = icolor
 
-            dict_DidFid_add = dict(zip(D_ids, F_id_global))
-            dict_DhpsDid_add = dict(zip(D_hp, D_ids))
-            dict_DidFid = {**dict_DidFid, **dict_DidFid_add}
-            dict_DhpsDid = {**dict_DhpsDid, **dict_DhpsDid_add}
+            DidFid_add = dict(zip(Did, Fid_global))
+            DhpsDid_add = dict(zip(Dhp, Did))
+            DidFid = {**DidFid, **DidFid_add}
+            DhpsDid = {**DhpsDid, **DhpsDid_add}
 
-        return dict_DidFid, dict_DhpsDid, dict_color
+        return DidFid, DhpsDid, color
 
     def _link_bp(self) -> Dict[int, int]:
         """ link basepairs by mapping indices according to json (cadnano).
@@ -136,17 +142,18 @@ class Linker(object):
         -------
          Returns
             -------
-            dict dict_Fbp
+            dict Fbp
                 fit-id (int) -> fit-id (int)
         """
-        dict_Fbp = {}
-        for base in self.design.scaffold:
-            if base.across is not None:
-                base_Fid = self.dict_DidFid[base.id]
-                across_Fid = self.dict_DidFid[base.across.id]
-                dict_Fbp[base_Fid] = across_Fid
+        def Fid(Did):
+            return self.DidFid[Did]
 
-        return dict_Fbp
+        Fbp = {Fid(base.id): Fid(base.across.id)
+               for base in self.design.scaffold
+               if base.across is not None
+               }
+
+        return Fbp
 
     def link(self):
         """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping
@@ -157,29 +164,36 @@ class Linker(object):
         -------
          Returns
             -------
-            dict self.dict_Fbp
+            dict self.Fbp
                 fit-id (int) -> fit-id (int)
-            dict self.dict_DidFid
+            dict self.DidFid
                 design-id (int) -> fit-id (int)
-            dict self.dict_DhpsDid
+            dict self.DhpsDid
                 helix-number (int), base-position (int), is_scaffold (bool)
                 -> design-id (int)
-            dict self.dict_color
+            dict self.color
                 fit-segment-id (int) -> color (hex?)
         """
-        dict_DidFid_sc, dict_DhpsDid_sc = self._link_scaffold()
-        dict_DidFid_st, dict_DhpsDid_st, self.dict_color = self._link_staples()
+        DidFid_sc, DhpsDid_sc = self._link_scaffold()
+        DidFid_st, DhpsDid_st, self.color = self._link_staples()
 
-        self.dict_DidFid = {**dict_DidFid_sc, **dict_DidFid_st}
-        self.dict_DhpsDid = {**dict_DhpsDid_sc, **dict_DhpsDid_st}
-        self.dict_Fbp = self._link_bp()
+        self.DidFid = {**DidFid_sc, **DidFid_st}
+        self.DhpsDid = {**DhpsDid_sc, **DhpsDid_st}
+        self.Fbp = self._link_bp()
 
-        return (self.dict_Fbp,
-                self.dict_DidFid,
-                self.dict_DhpsDid,
-                self.dict_color,
-                self.list_Dskips,
-                )  # TODO: named tuple?
+        return (self.Fbp,
+                self.DidFid,
+                self.DhpsDid,
+                self.color,
+                self.Dskips,
+                )
+
+    def _get_nextInHelix(self, h, p, is_scaf, i):
+        Dhps = (h, p+i, is_scaf)
+        while Dhps in self.Dskips:
+            i += np.sign(i)
+            Dhps = (h, p+i, is_scaf)
+        return Dhps
 
     def identify_crossover(self) -> Dict:
         """ for every base id that is involved in a crossover
@@ -187,7 +201,7 @@ class Linker(object):
         -------
          Returns
             -------
-            dict self.dict_Fco
+            dict self.Fco
                 fit-id (int) ->
                 "co_index": co_index (int), "co": co_id (int),
                 "leg": leg_id (int),
@@ -199,39 +213,34 @@ class Linker(object):
                     "type": ("double", double) /(str, int)
         """
         def add_co_type() -> None:
+
             def get_co_leg_p(n_Dhps: Tuple[int, int, bool], i: int) -> int:
                 """determine leg base by Dhps and +1/-1 (def: 2 bases away)"""
                 h, p, is_scaf = n_Dhps
-                Dhps = (h, p+i, is_scaf)
-                while Dhps in self.list_Dskips:
-                    i += np.sign(i)
-                    Dhps = (h, p+i, is_scaf)
-                leg_Did = self.dict_DhpsDid[Dhps]
-                return self.dict_DidFid[leg_Did]
+                Dhps = self._get_nextInHelix(h, p, is_scaf, i)
+                leg_Did = self.DhpsDid[Dhps]
+                return self.DidFid[leg_Did]
 
             def is_nextInStrand(b_Dhps: Tuple[int, int, bool],
                                 a_Dhps: Tuple[int, int, bool]
                                 ) -> bool:
-                a_Fid = self.dict_DidFid[self.dict_DhpsDid[a_Dhps]]
-                b_Fid = self.dict_DidFid[self.dict_DhpsDid[b_Dhps]]
+                a_Fid = self.DidFid[self.DhpsDid[a_Dhps]]
+                b_Fid = self.DidFid[self.DhpsDid[b_Dhps]]
                 return True if abs(a_Fid - b_Fid) == 1 else False
 
-            for co in iter(self.dict_Fco.values()):
+            for co in iter(self.Fco.values()):
                 h, p, is_scaf = co["position"]
                 for i in [-1, 1]:
-                    n_Dhps = (h, p+i, is_scaf)
-                    while n_Dhps in self.list_Dskips:
-                        i += np.sign(i)
-                        n_Dhps = (h, p+i, is_scaf)
+                    n_Dhps = self._get_nextInHelix(h, p, is_scaf, i)
+                    n_Did = self.DhpsDid.get(n_Dhps, None)
+                    n_Fid = self.DidFid.get(n_Did, None)
 
-                    n_Did = self.dict_DhpsDid.get(n_Dhps, None)
-                    n_Fid = self.dict_DidFid.get(n_Did, None)
                     if n_Fid is None:
                         co["type"] = ("end", None, None)
                     elif is_nextInStrand(co["position"], n_Dhps):
                         continue
                     else:
-                        is_double = (n_Fid in iter(self.dict_Fco.keys()))
+                        is_double = (n_Fid in iter(self.Fco.keys()))
 
                         if is_double:
                             co["type"] = ("double", n_Fid, None)
@@ -245,12 +254,9 @@ class Linker(object):
             """determine leg base base and up/down (def: 2 bases away)"""
             l = base.down.p if direct == "up" else base.up.p
             i = (l - base.p) * 2.
-            Dhps = (base.h, base.p+i, base.is_scaf)
-            while Dhps in self.list_Dskips:
-                i += np.sign(i)
-                Dhps = (base.h, base.p+i, base.is_scaf)
-            leg_Did = self.dict_DhpsDid[Dhps]
-            return self.dict_DidFid[leg_Did]
+            Dhps = self._get_nextInHelix(base.h, base.p, base.is_scaf, i)
+            leg_Did = self.DhpsDid[Dhps]
+            return self.DidFid[leg_Did]
 
         def get_next(base, direct: str):
             n = (base.up if direct == "up" else base.down)
@@ -258,7 +264,7 @@ class Linker(object):
                 return None
             else:
                 n_position = (n.h, n.p, n.is_scaf)
-                while n_position in self.list_Dskips:
+                while n_position in self.Dskips:
                     n = (n.up if direct == "up" else n.down)
                     if n is None:
                         return None
@@ -274,78 +280,80 @@ class Linker(object):
                 return neighbor.h != base.h
 
         def get_co(base, neighbor, direct: str, run_id: int) -> (Dict, int):
-            co_id = self.dict_DidFid[neighbor.id]
+            co_id = self.DidFid[neighbor.id]
             leg_id = get_co_leg_id(base, direct)
             Dhps = (base.h, base.p, base.is_scaf)
 
             try:  # TODO -high cleanup co_index
-                index = self.dict_Fco[co_id]["co_index"]
+                index = self.Fco[co_id]["co_index"]
             except KeyError:
                 run_id += 1
                 index = run_id
 
-            dict_data = {"co_index": index,
-                         "co": co_id,
-                         "leg": leg_id,
-                         "is_scaffold": base.is_scaf,
-                         "position": Dhps,
-                         "base": base,
-                         }
-            return dict_data, run_id
+            data = {"co_index": index,
+                    "co": co_id,
+                    "leg": leg_id,
+                    "is_scaffold": base.is_scaf,
+                    "position": Dhps,
+                    "base": base,
+                    }
+            return data, run_id
 
         allbases = self.design.scaffold.copy()
         staples = [base for staple in self.design.staples for base in staple]
         allbases.extend(staples)
 
-        self.dict_Fco = {}
+        self.Fco = {}
         run_id = 0
         for base in allbases:
-            base_Fid = self.dict_DidFid[base.id]
+            base_Fid = self.DidFid[base.id]
 
             for direct in ["up", "down"]:
                 neighbor = get_next(base, direct)
                 if is_co(base, neighbor, direct):
                     co_data, run_id = get_co(base, neighbor, direct, run_id)
-                    self.dict_Fco[base_Fid] = co_data
+                    self.Fco[base_Fid] = co_data
                     break
 
         add_co_type()
-        return self.dict_Fco
+        return self.Fco
 
     def identify_nicks(self) -> Dict[int, int]:
         """ for every nick, provide id of base accross nick
         -------
          Returns
             -------
-            dict self.dict_Fnicks
+            dict self.Fnicks
                 fit-id (int) -> fit_id (int)
         """
         def is_nick(candidate, base) -> bool:
             is_onhelix = (candidate.h == base.h)
             is_neighbor = (abs(base.p - candidate.p) <= 2)  # skip = 2
             is_base = (candidate is base)
-            b_Fid = self.dict_DidFid[base.id]
-            c_Fid = self.dict_DidFid[candidate.id]
-            is_ds_staple = (b_Fid in self.dict_Fbp.values() and c_Fid in self.dict_Fbp.values())
-            if is_onhelix and is_neighbor and not is_base and not is_ds_staple:
-                import ipdb
-                ipdb.set_trace()
-            return is_onhelix and is_neighbor and not is_base and is_ds_staple
+            b_Fid = self.DidFid[base.id]
+            c_Fid = self.DidFid[candidate.id]
+            is_ds_staple = (b_Fid in self.Fbp.values() and
+                            c_Fid in self.Fbp.values()
+                            )
+            return (is_onhelix and
+                    is_neighbor and
+                    not is_base and
+                    is_ds_staple
+                    )
 
-        dict_Fnicks = {}
-        staple_end_bases = []
-        for staple in self.design.staples:
-            staple_end_bases.extend((staple[0], staple[-1]))
+        def Fid(Did):
+            return self.DidFid[Did]
 
-        for base in staple_end_bases:
-            for candidate in staple_end_bases:
-                if is_nick(candidate, base):
-                    base_Fid = self.dict_DidFid[base.id]
-                    nick_Fid = self.dict_DidFid[candidate.id]
-                    dict_Fnicks[base_Fid] = nick_Fid
+        staple_end_bases = list(chain.from_iterable((s[0], s[-1])
+                                for s in self.design.staples)
+                                )
+        self.Fnicks = {Fid(base.id): Fid(candidate.id)
+                       for base in staple_end_bases
+                       for candidate in staple_end_bases
+                       if is_nick(candidate, base)
+                       }
 
-        self.dict_Fnicks = dict_Fnicks
-        return self.dict_Fnicks
+        return self.Fnicks
 
 
 class Fit(object):
@@ -356,9 +364,12 @@ class Fit(object):
         self.scaffold, self.staples = self._split_strands()
 
     def _get_universe(self):
-        # TODO: -mid- if no dcd, try invoke vmd animate write dcd from pdb
         top = self.path + ".psf"
-        trj = self.path + ".dcd" #TODO with ignored
+        try:
+            trj = self.path + ".dcd"
+        except FileExistsError:
+            pass  # TODO: -mid- if pdb, try invoke vmd animate write dcd
+
         u = mda.Universe(top, trj)
         return u
 
@@ -380,8 +391,8 @@ class Design(object):
         self.scaffold = self._clean_scaffold(self.strands)
         self.excl = self.scaffold[0].strand
         self.staples = self._clean_staple(self.strands)
-        self.dict_helixorder = self._create_helix_order()
-        self.dict_stapleorder = self._create_staple_order()
+        self.helixorder = self._create_helix_order()
+        self.stapleorder = self._create_staple_order()
 
     def _is_del(self, base) -> bool:
         return base.num_deletions != 0
@@ -396,22 +407,21 @@ class Design(object):
     def _clean_staple(self, strands):
         # TODO: -low- insertions
         staples = [s.tour for s in strands if not s.is_scaffold]
-        staples_clean = []
-        for s in staples:
-            tour = [b for b in s if not self._is_del(b)]
-            staples_clean.append(tour)
+        staples_clean = [[b for b in s if not self._is_del(b)]
+                         for s in staples
+                         ]
+
         return staples_clean
 
     def _get_design(self):
         file_name = self.path + ".json"
-        try:  # TODO with ignored
+        with ignored(FileNotFoundError):
             seq_file = self.path + ".seq"
-        except FileNotFoundError:
-            seq_file = None
-        seq_name = None
-
         converter = Converter()
-        converter.read_cadnano_file(file_name, seq_file, seq_name)
+        converter.read_cadnano_file(file_name=file_name,
+                                    seq_file_name=seq_file,
+                                    seq_name=None,
+                                    )
         return converter.dna_structure
 
     def _create_helix_order(self) -> Dict[int, int]:
@@ -420,12 +430,12 @@ class Design(object):
         -------
             Returns
             -------
-            dict dict_helixorder
+            dict helixorder
                 (int) -> (int)
         """
         helices_dict = self.design.structure_helices_map
-        dict_helixorder = {i: h.load_order for (i, h) in iter(helices_dict.items())}
-        return dict_helixorder
+        helixorder = {i: h.load_order for (i, h) in iter(helices_dict.items())}
+        return helixorder
 
     def _create_staple_order(self) -> Dict[int, int]:
         """ enrgMD and nanodesign number staples differently.
@@ -434,18 +444,20 @@ class Design(object):
         -------
             Returns
             -------
-            dict dict_stapleorder
+            dict stapleorder
                 (int) -> (int)
         """
-        list_Dhps = [(self.dict_helixorder[s[0].h], s[0].p)
-                     for s in self.staples]
-        list_Dhps_sorted = sorted(list_Dhps, key=lambda x: (x[0], x[1]))
+        Dhps = [(self.helixorder[s[0].h], s[0].p)
+                for s in self.staples
+                ]
+        Dhps_sorted = sorted(Dhps, key=lambda x: (x[0], x[1]))
 
-        order_EMD = range(len(list_Dhps)) #TODO  use dict(enumerate()))
-        order_ND = [list_Dhps.index(list_Dhps_sorted[i]) for i in order_EMD]
-        dict_stapleorder = dict(zip(order_ND, order_EMD))
+        order_ND = [Dhps.index(Dhps_sorted[i])
+                    for i, _ in enumerate(Dhps)
+                    ]
+        stapleorder = {nd: idx for (idx, nd) in enumerate(order_ND)}
 
-        return dict_stapleorder
+        return stapleorder
 
 
 def print_usage():  # TODO:cleanup
@@ -457,8 +469,8 @@ def print_usage():  # TODO:cleanup
     usage: projectname designname
 
     return: creates the following pickles:
-        ["dict_bp", "dict_idid", "dict_hpid", "dict_color", "dict_coid",
-        "dict_nicks", "list_skips"]
+        ["bp", "idid", "hpid", "color", "coid",
+        "nicks", "skips"]
         NOTE: (mda-universe cannot be pickled)
         """)
 
@@ -473,10 +485,8 @@ def proc_input():
     cwd = os.getcwd()
     in_put = cwd + "/" + project + "/" + name
     out_put = cwd + "/" + project + "/analysis/"
-    try:
+    with ignored(FileExistsError):
         os.mkdir(out_put)
-    except FileExistsError:
-        pass
     return in_put, out_put + name
 
 
@@ -487,12 +497,12 @@ def main():
     print("output to ", out_put)
     linker = Linker(in_put)
     universe = (in_put + ".psf", in_put + ".dcd")
-    dict_bp, dict_idid, dict_hpid, dict_color, list_skips = linker.link()
-    dict_coid = linker.identify_crossover()
-    dict_nicks = linker.identify_nicks()
-    for dict_name in DICTS:
-        pickle.dump(eval(dict_name), open(
-            out_put + "__" + dict_name + ".p", "wb"))
+    bp, idid, hpid, color, skips = linker.link()
+    coid = linker.identify_crossover()
+    nicks = linker.identify_nicks()
+    for name in DICTS:
+        pickle.dump(eval(name), open(
+            out_put + "__" + name + ".p", "wb"))
 
 
 if __name__ == "__main__":
