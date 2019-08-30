@@ -476,6 +476,7 @@ def get_description():  # TODO:cleanup
 
 def proc_input():
     parser = argparse.ArgumentParser(description=get_description(),
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter
                                      )
     parser.add_argument('--folder',
                         help='input folder',
@@ -485,7 +486,8 @@ def proc_input():
     parser.add_argument('--name',
                         help='design name',
                         type=str,
-                        required="True"
+                        required="True",
+                        default=argparse.SUPPRESS,
                         )
     args = parser.parse_args()
 
@@ -493,7 +495,7 @@ def proc_input():
     name = args.name
     in_put = project + "/" + name
     out_put = project + "/analysis/"
-    
+
     with ignored(FileExistsError):
         os.mkdir(out_put)
     return in_put, out_put + name
