@@ -461,17 +461,11 @@ class Design(object):
         return stapleorder
 
 
-def get_description():  # TODO:cleanup
-    return """
-    initializes MDAnalysis universe and creates dictionaries that link bse id
-    in design and fit to design position, wc-partner, nicks, crossovers and
-    staple color.
-
-    return: creates the following pickles:
-        ["bp", "idid", "hpid", "color", "coid",
-        "nicks", "skips"]
-        NOTE: (mda-universe cannot be pickled)
-        """
+def get_description():  
+    return """links structural information of the cadnano designfile
+              [design.json] to fitted atomic model [design.psf, design.dcd].
+              stores dictionaries as pickles containg mapping for motifs,
+              residue-id, lattice position and base-pairing."""
 
 
 def proc_input():
