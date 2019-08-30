@@ -86,7 +86,6 @@ class Linker(object):
                 -> design-id (int)
         """
         Dscaffold = self.design.scaffold
-
         Did = [base.id for base in Dscaffold]
         Dhp = [(base.h, base.p, True) for base in Dscaffold]
         Fid_local = [Did.index(base.id) for base in Dscaffold]
@@ -151,12 +150,10 @@ class Linker(object):
         def Fid(Did):
             return self.DidFid[Did]
 
-        Fbp = {Fid(base.id): Fid(base.across.id)
-               for base in self.design.scaffold
-               if base.across is not None
-               }
-
-        return Fbp
+        return {Fid(base.id): Fid(base.across.id)
+                for base in self.design.scaffold
+                if base.across is not None
+                }
 
     def link(self):
         """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping
@@ -244,7 +241,6 @@ class Linker(object):
                         continue
                     else:
                         is_double = (n_Fid in iter(self.Fco.keys()))
-
                         if is_double:
                             co["type"] = ("double", n_Fid, None)
                         else:
@@ -292,7 +288,6 @@ class Linker(object):
             except KeyError:
                 run_id += 1
                 index = run_id
-
             data = {"co_index": index,
                     "co": co_id,
                     "leg": leg_id,
@@ -310,14 +305,12 @@ class Linker(object):
         run_id = 0
         for base in allbases:
             base_Fid = self.DidFid[base.id]
-
             for direct in ["up", "down"]:
                 neighbor = get_next(base, direct)
                 if is_co(base, neighbor, direct):
                     co_data, run_id = get_co(base, neighbor, direct, run_id)
                     self.Fco[base_Fid] = co_data
                     break
-
         add_co_type()
         return self.Fco
 
@@ -355,7 +348,6 @@ class Linker(object):
                        for candidate in staple_end_bases
                        if is_nick(candidate, base)
                        }
-
         return self.Fnicks
 
 
@@ -455,12 +447,10 @@ class Design(object):
                 for s in self.staples
                 ]
         Dhps_sorted = sorted(Dhps, key=lambda x: (x[0], x[1]))
-
         order_ND = [Dhps.index(Dhps_sorted[i])
                     for i, _ in enumerate(Dhps)
                     ]
         stapleorder = {nd: idx for (idx, nd) in enumerate(order_ND)}
-
         return stapleorder
 
 
@@ -493,10 +483,8 @@ def proc_input():
                       output=Path(args.folder) / "analysis",
                       name=args.name,
                       )
-
     with ignored(FileExistsError):
         os.mkdir(project.output)
-
     return project
 
 
