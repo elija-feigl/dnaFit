@@ -6,6 +6,7 @@ import MDAnalysis as mda
 import numpy as np
 import pickle
 import contextlib
+import argparse
 
 from itertools import chain
 from nanodesign.converters import Converter
@@ -460,31 +461,39 @@ class Design(object):
         return stapleorder
 
 
-def print_usage():  # TODO:cleanup
-    print("""
+def get_description():  # TODO:cleanup
+    return """
     initializes MDAnalysis universe and creates dictionaries that link bse id
     in design and fit to design position, wc-partner, nicks, crossovers and
     staple color.
-
-    usage: projectname designname
 
     return: creates the following pickles:
         ["bp", "idid", "hpid", "color", "coid",
         "nicks", "skips"]
         NOTE: (mda-universe cannot be pickled)
-        """)
+        """
 
 
 def proc_input():
-    if len(sys.argv) < 2:
-        print_usage()
-        sys.exit(0)
+    parser = argparse.ArgumentParser(description=get_description(),
+                                     )
+    parser.add_argument('--folder',
+                        help='input folder',
+                        type=str,
+                        default="./",
+                        )
+    parser.add_argument('--name',
+                        help='design name',
+                        type=str,
+                        required="True"
+                        )
+    args = parser.parse_args()
 
-    project = sys.argv[1]
-    name = sys.argv[2]
-    cwd = os.getcwd()
-    in_put = cwd + "/" + project + "/" + name
-    out_put = cwd + "/" + project + "/analysis/"
+    project = args.folder
+    name = args.name
+    in_put = project + "/" + name
+    out_put = project + "/analysis/"
+    
     with ignored(FileExistsError):
         os.mkdir(out_put)
     return in_put, out_put + name
