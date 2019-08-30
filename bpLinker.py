@@ -8,10 +8,12 @@ import pickle
 import contextlib
 import argparse
 
+from pathlib import Path
 from itertools import chain
-from nanodesign.converters import Converter
 from operator import attrgetter
 from typing import List, Set, Dict, Tuple, Optional
+from collections import namedtuple
+from nanodesign.converters import Converter
 
 DICTS = ["bp", "idid", "hpid", "color",
          "coid", "nicks", "skips", "universe"]
@@ -30,10 +32,10 @@ class Linker(object):
     """ Linker class
     """
 
-    def __init__(self, path: str):
-        self.path = path
-        self.fit = Fit(self.path)
-        self.design = Design(self.path)
+    def __init__(self, project):
+        self.project = project
+        self.fit = Fit(project)
+        self.design = Design(project)
         self.Fbp = None
         self.DidFid = None
         self.DhpsDid = None
@@ -359,19 +361,19 @@ class Linker(object):
 
 class Fit(object):
 
-    def __init__(self, path: str):
-        self.path = path
+    def __init__(self, project):
+        self.infile = project.input / project.name
         self.u = self._get_universe()
         self.scaffold, self.staples = self._split_strands()
 
     def _get_universe(self):
-        top = self.path + ".psf"
-        try:
-            trj = self.path + ".dcd"
-        except FileExistsError:
-            pass  # TODO: -mid- if pdb, try invoke vmd animate write dcd
-
-        u = mda.Universe(top, trj)
+        top = self.infile.with_suffix(".psf")
+        trj = self.infile.with_suffix(".dcd")
+        # TODO: -mid- if pdb, try invoke vmd animate write dcd
+        if top.exists() and trj.exists():
+            u = mda.Universe(str(top), str(trj))
+        else:
+            raise FileNotFoundError
         return u
 
     def _split_strands(self):
@@ -385,8 +387,8 @@ class Fit(object):
 
 class Design(object):
 
-    def __init__(self, path: str):
-        self.path = path
+    def __init__(self, project):
+        self.infile = project.input / project.name
         self.design = self._get_design()
         self.strands = self.design.strands
         self.scaffold = self._clean_scaffold(self.strands)
@@ -411,18 +413,19 @@ class Design(object):
         staples_clean = [[b for b in s if not self._is_del(b)]
                          for s in staples
                          ]
-
         return staples_clean
 
     def _get_design(self):
-        file_name = self.path + ".json"
-        with ignored(FileNotFoundError):
-            seq_file = self.path + ".seq"
+        fil = self.infile.with_suffix(".json")
+        seq = self.infile.with_suffix(".seq")
         converter = Converter()
-        converter.read_cadnano_file(file_name=file_name,
-                                    seq_file_name=seq_file,
-                                    seq_name=None,
-                                    )
+        if fil.exists() and seq.exists():
+            converter.read_cadnano_file(file_name=str(fil),
+                                        seq_file_name=str(seq),
+                                        seq_name=None,
+                                        )
+        else:
+            raise FileNotFoundError
         return converter.dna_structure
 
     def _create_helix_order(self) -> Dict[int, int]:
@@ -461,7 +464,7 @@ class Design(object):
         return stapleorder
 
 
-def get_description():  
+def get_description():
     return """links structural information of the cadnano designfile
               [design.json] to fitted atomic model [design.psf, design.dcd].
               stores dictionaries as pickles containg mapping for motifs,
@@ -469,9 +472,10 @@ def get_description():
 
 
 def proc_input():
-    parser = argparse.ArgumentParser(description=get_description(),
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter
-                                     )
+    parser = argparse.ArgumentParser(
+        description=get_description(),
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
     parser.add_argument("--folder",
                         help="input folder",
                         type=str,
@@ -484,27 +488,31 @@ def proc_input():
                         default=argparse.SUPPRESS,
                         )
     args = parser.parse_args()
-
-    project = args.folder
-    name = args.name
-    in_put = project + "/" + name
-    out_put = project + "/analysis/"
+    Project = namedtuple("Project", ["input", "output", "name"])
+    project = Project(input=Path(args.folder),
+                      output=Path(args.folder) / "analysis",
+                      name=args.name,
+                      )
 
     with ignored(FileExistsError):
-        os.mkdir(out_put)
-    return in_put, out_put + name
+        os.mkdir(project.output)
+
+    return project
 
 
 def main():
 
     # process input
-    in_put, out_put = proc_input()
-    print("output to ", out_put)
-    linker = Linker(in_put)
-    universe = (in_put + ".psf", in_put + ".dcd")
+    project = proc_input()
+    print("output to ", project.output)
+    linker = Linker(project)
+    infile = project.input / project.name
+
+    universe = (infile.with_suffix(".psf"), infile.with_suffix(".dcd"))
     bp, idid, hpid, color, skips = linker.link()
     coid = linker.identify_crossover()
     nicks = linker.identify_nicks()
+
     for name in DICTS:
         pickle.dump(eval(name), open(
             out_put + "__" + name + ".p", "wb"))
