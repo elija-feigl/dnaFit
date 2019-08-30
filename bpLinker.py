@@ -377,7 +377,7 @@ class Fit(object):
     def _split_strands(self):
         # TODO: -low- multiscaffold
         strands = self.u.segments
-        scaffold = max(strands, key=attrgetter('residues.n_residues'))
+        scaffold = max(strands, key=attrgetter("residues.n_residues"))
         staples = [strand for strand in strands if len(
             strand.atoms) != len(scaffold.atoms)]
         return scaffold, staples
@@ -478,13 +478,13 @@ def proc_input():
     parser = argparse.ArgumentParser(description=get_description(),
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter
                                      )
-    parser.add_argument('--folder',
-                        help='input folder',
+    parser.add_argument("--folder",
+                        help="input folder",
                         type=str,
                         default="./",
                         )
-    parser.add_argument('--name',
-                        help='design name',
+    parser.add_argument("--name",
+                        help="name of design and files",
                         type=str,
                         required="True",
                         default=argparse.SUPPRESS,
