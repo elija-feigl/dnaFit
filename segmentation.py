@@ -83,52 +83,43 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
 
 def _categorise_lists(topo, plus=3):
     # TODO. check: names set list etc
-    dict_FidDid = {v: k for k, v in topo["dict_idid"].items()}
-    dict_DidDhps = {v: k for k, v in topo["dict_hpid"].items()}
-    inv_dict_bp = {v: k for k, v in topo["dict_bp"].items()}
+    dict_FidDid = {v: k for k, v in iter(topo["dict_idid"].items())}
+    dict_DidDhps = {v: k for k, v in iter(topo["dict_hpid"].items())}
+    dict_bpFULL = {**topo["dict_bp"], **{v: k for k, v in iter(topo["dict_bp"].items())}}
 
     id_ds = set()
     id_coplus = set()
 
-    for wc_id1, wc_id2 in topo["dict_bp"].items():
+    for wc_id1, wc_id2 in iter(topo["dict_bp"].items()):
         id_ds.add(wc_id1)
         id_ds.add(wc_id2)
     id_ss = set(topo["dict_idid"].values()) - id_ds
 
     id_co = set()
-    id_co_init = {id_design for id_design in topo["dict_co"].keys()
+    id_co_init = {id_design for id_design in topo["dict_coid"].keys()
                   if id_design not in id_ss}
     allready_done = set()
     for base in id_co_init:
-        typ = topo["dict_co"][base]["type"][0]
-        co_index = topo["dict_co"][base]["co_index"]
+        typ = topo["dict_coid"][base]["type"][0]
+        co_index = topo["dict_coid"][base]["co_index"]
 
         if base not in allready_done:
             allready_done.add(base)
-            co = topo["dict_co"][base]["co"]
+            co = topo["dict_coid"][base]["co"]
             allready_done.add(co)
-            try:
-                co_bp = topo["dict_bp"][co]
-            except KeyError:
-                co_bp = inv_dict_bp[co]
-            try:
-                bp = topo["dict_bp"][base]
-            except KeyError:
-                bp = inv_dict_bp[base]
 
-            if topo["dict_co"][base]["type"][0] == "double":
-                dou = topo["dict_co"][base]["type"][1]
+            co_bp = dict_bpFULL[co]
+            bp = dict_bpFULL[base]
+
+            if topo["dict_coid"][base]["type"][0] == "double":
+                dou = topo["dict_coid"][base]["type"][1]
                 allready_done.add(dou)
-                dou_co = topo["dict_co"][dou]["co"]
+                dou_co = topo["dict_coid"][dou]["co"]
                 allready_done.add(dou_co)
-                try:
-                    dou_co_bp = topo["dict_bp"][dou_co]
-                except KeyError:
-                    dou_co_bp = inv_dict_bp[dou_co]
-                try:
-                    dou_bp = topo["dict_bp"][dou]
-                except KeyError:
-                    dou_bp = inv_dict_bp[dou]
+
+                dou_co_bp = dict_bpFULL[dou_co]
+                dou_bp = dict_bpFULL[dou]
+
                 tup = (base, bp, co, co_bp, dou,
                        dou_bp, dou_co, dou_co_bp, co_index, typ)
             else:
@@ -151,10 +142,14 @@ def _categorise_lists(topo, plus=3):
             id_co.add(tup)
             id_coplus.add(tuple(tup_plus))
 
+    nick_allready_done = set()
     id_nick = set()
-    for id1, id2 in topo["dict_nicks"].items():
-        tup = (id1, id2, inv_dict_bp[id1], inv_dict_bp[id2])
-        id_nick.add(tup)
+    for id1, id2 in iter(topo["dict_nicks"].items()):
+        if id1 not in nick_allready_done:
+            nick_allready_done.add(id1)
+            nick_allready_done.add(id2)
+            tup = (id1, id2, dict_bpFULL[id1], dict_bpFULL[id2])
+            id_nick.add(tup)
 
     id_nick_plus = []
     for nick in id_nick:
@@ -174,8 +169,8 @@ def _categorise_lists(topo, plus=3):
 
 
 def _topology(name, path):
-    DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_co", "universe",
-             "list_skips", "dict_nicks", "dict_idseq"]
+    DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_color",
+             "dict_coid", "dict_nicks", "list_skips", "universe"]
     # read general info
     topo = {}
     for pickle_name in DICTS:
@@ -231,19 +226,25 @@ def main():
     path_analysis = path_in + "/analysis/"
 
     topo = _topology(name, path_analysis)
-    _, id_coplus_lists, _, id_nickplus_list = _categorise_lists(topo,
-                                                                plus=rang)
+    _, id_coplus_lists, _, id_nickplus_list = _categorise_lists(
+        topo,
+        plus=rang,
+    )
 
     # initialize universe and select final frame
     u = mda.Universe(*topo["universe"])
     u.trajectory[-1]
 
     # full map masked
-    mrc_segment(u.atoms, path_in + name, path_analysis +
-                name + "-masked", context=context)
+    mrc_segment(
+        u.atoms,
+        path_in + name,
+        path_analysis + name + "-masked",
+        context=context,
+    )
 
     # crossovers
-    motif_cat = {"co": id_coplus_lists, "seg-nick": id_nickplus_list}
+    motif_cat = {"co": id_coplus_lists, "nick": id_nickplus_list}
 
     for motif in ["nick", "co"]:
         path_out = path_analysis + motif + "/"
@@ -253,8 +254,8 @@ def main():
         except FileExistsError:
             pass
 
-        h1_exists = os.path.isfile(path_in + name + "_unfil_half_1.mrc")
-        h2_exists = os.path.isfile(path_in + name + "_unfil_half_2.mrc")
+        h1_exists = os.path.isfile(path_in + name + "_unfil_half1.mrc")
+        h2_exists = os.path.isfile(path_in + name + "_unfil_half2.mrc")
         calculate_halfmaps = True if h1_exists and h2_exists else False
         if calculate_halfmaps:
             print("segmenting halfmaps")
@@ -277,10 +278,10 @@ def main():
                         name + "__" + typ + motif + str(index),
                         context=context)
             if calculate_halfmaps:
-                mrc_segment(atoms_select, path_in + name + "_unfil_half_1",
+                mrc_segment(atoms_select, path_in + name + "_unfil_half1",
                             path_out + name + "__h1-" + typ + motif +
                             str(index), context=context)
-                mrc_segment(atoms_select, path_in + name + "_unfil_half_2",
+                mrc_segment(atoms_select, path_in + name + "_unfil_half2",
                             path_out + name + "__h2-" + typ + motif +
                             str(index), context=context)
 
