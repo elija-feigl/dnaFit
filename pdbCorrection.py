@@ -38,12 +38,8 @@ def number_to_hybrid36_number(number, width):
             return encode_pure(digits_lower, number)
     raise ValueError("value out of range.")
 
+# TODO: low- reset atom number, residuenumber, chain number
 
-REPLACEMENT_DICT = {' O1P': ' OP1', ' O2P': ' OP2', ' C5M': ' C7 '}
-REPLACEMENT_DICT_BASES = {'CYT': ' DC', 'GUA': ' DG', 'THY': ' DT',
-                          'ADE': ' DA', 'DA5': ' DA', 'DA3': ' DA',
-                          'DT5': ' DT', 'DT3': ' DT', 'DG5': ' DG',
-                          'DG3': ' DG', 'DC5': ' DC', 'DC3': ' DC'}
 OCC = "9.99"
 BFAC = "1.00"
 HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.2.0\n"
@@ -51,10 +47,19 @@ HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.2.0\n"
 
 class PDB_Corr(object):
 
-    def __init__(self):
+    def __init__(self, reverse):
         self.current = {"atom_number": 1, "old_molecule_number": 1,
                         "last_molecule_number": 1, "chain_id": "A",
                         "chain_id_repeats": 1, "chain": None}
+        self.reverse = reverse
+        self.nomcla = {' O1P': ' OP1', ' O2P': ' OP2', ' C5M': ' C7 '}
+        self.nomcla_rev = {' OP1': ' O1P', ' OP2': ' O2P', ' C7 ': ' C5M'}
+        self.nomcla_base = {'CYT': ' DC', 'GUA': ' DG', 'THY': ' DT',
+                            'ADE': ' DA', 'DA5': ' DA', 'DA3': ' DA',
+                            'DT5': ' DT', 'DT3': ' DT', 'DG5': ' DG',
+                            'DG3': ' DG', 'DC5': ' DC', 'DC3': ' DC'}
+        self.nomcla_base_rev = {' DC': 'CYT', ' DG': 'GUA', ' DT': 'THY',
+                                ' DA': 'ADE'}
 
     def reshuffle_pdb(self, pdb_file):
         unshuff_file = []
@@ -69,8 +74,9 @@ class PDB_Corr(object):
         newFile_list = (rem + unshuff_file)
         return newFile_list
 
-    def correct_pdb(self, pdb_file, add_header, nomenclature, molecule_chain,
-                    atom_number, occupancy, atomtype, remove_H):
+    def correct_pdb(self, pdb_file, add_header, nomenclature,
+                    molecule_chain, atom_number, occupancy, atomtype,
+                    remove_H):
         reset_numbers = True
         # TODO: -low MODEL
         body = []
@@ -114,11 +120,18 @@ class PDB_Corr(object):
 
     def correct_nomenclature(self, line):
         atom = line[12:16]
-        if atom in REPLACEMENT_DICT:
-            atom = REPLACEMENT_DICT.get(atom, '    ')
+        if self.reverse:
+            REPLACEMENT = self.nomcla_rev
+            REPLACEMENT_BASES = self.nomcla_base_rev
+        else:
+            REPLACEMENT = self.nomcla
+            REPLACEMENT_BASES = self.nomcla_base
+
+        if atom in REPLACEMENT:
+            atom = REPLACEMENT.get(atom, '    ')
         base = line[17:20]
-        if base in REPLACEMENT_DICT_BASES:
-            base = REPLACEMENT_DICT_BASES.get(base, '   ')
+        if base in REPLACEMENT_BASES:
+            base = REPLACEMENT_BASES.get(base, '   ')
         newline = line[0:12] + atom + ' ' + base + line[20:]
         return newline
 
@@ -205,7 +218,8 @@ class PDB_Corr(object):
 
 
 def get_description():
-    return """namd (enrgMD) PDB to chimmera PDB."""
+    return """namd (enrgMD) PDB to chimera PDB.
+           """
 
 
 def proc_input():
@@ -226,7 +240,7 @@ def proc_input():
                         default=argparse.SUPPRESS,
                         )
     parser.add_argument("--reverse",
-                        help="chimera to enrgMD",
+                        help="reset nomenclature enrgMD",
                         action="store_true"
                         )
     parser.add_argument("--reshuffle",
@@ -258,7 +272,7 @@ def main():
     project = proc_input()
 
     print("start")
-    pdb_Corr = PDB_Corr()
+    pdb_Corr = PDB_Corr(project.reverse)
     with open(project.input, 'r') as file_init:
         if project.reshuffle:
             file_list = pdb_Corr.reshuffle_pdb(file_init)
