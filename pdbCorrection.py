@@ -2,6 +2,9 @@
 
 import argparse
 
+from collections import namedtuple
+from pathlib import Path
+
 
 def number_to_hybrid36_number(number, width):
 
@@ -201,22 +204,76 @@ class PDB_Corr(object):
         return newline
 
 
-def main():
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--i', nargs='?', help='input filename', type=str)
-    parser.add_argument('--o', nargs='?', help='output filename', type=str)
-    parser.add_argument('--h', help='keep header', action="store_true")
+def get_description():
+    return """namd (enrgMD) PDB to chimmera PDB."""
+
+
+def proc_input():
+    parser = argparse.ArgumentParser(
+        description=get_description(),
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument("--input",
+                        help="input file",
+                        type=str,
+                        required="True",
+                        default=argparse.SUPPRESS,
+                        )
+    parser.add_argument("--output",
+                        help="output file",
+                        type=str,
+                        required="True",
+                        default=argparse.SUPPRESS,
+                        )
+    parser.add_argument("--reverse",
+                        help="chimera to enrgMD",
+                        action="store_true"
+                        )
+    parser.add_argument("--reshuffle",
+                        help="reshuffle pdb by residue (for subsets)",
+                        action="store_true"
+                        )
+    parser.add_argument("--header",
+                        help="keep header",
+                        action="store_true"
+                        )
     args = parser.parse_args()
+    Project = namedtuple("Project", ["input",
+                                     "output",
+                                     "reverse",
+                                     "reshuffle",
+                                     "header",
+                                     ]
+                         )
+    project = Project(input=Path(args.input),
+                      output=Path(args.output),
+                      reverse=args.reverse,
+                      reshuffle=args.reshuffle,
+                      header=args.header,
+                      )
+    return project
+
+
+def main():
+    project = proc_input()
 
     print("start")
     pdb_Corr = PDB_Corr()
-    with open(args.i, 'r') as file_init:
-        reshuffFile_list = pdb_Corr.reshuffle_pdb(file_init)
-        newFile = pdb_Corr.correct_pdb(
-            reshuffFile_list, args.h, True, True, True, True, True,
-            remove_H=False)
-
-    with open(args.o, "w") as file_corr:
+    with open(project.input, 'r') as file_init:
+        if project.reshuffle:
+            file_list = pdb_Corr.reshuffle_pdb(file_init)
+        else:
+            file_list = file_init
+        newFile = pdb_Corr.correct_pdb(pdb_file=file_list,
+                                       add_header=project.header,
+                                       nomenclature=True,
+                                       molecule_chain=True,
+                                       atom_number=True,
+                                       occupancy=True,
+                                       atomtype=True,
+                                       remove_H=False,
+                                       )
+    with open(project.output, "w") as file_corr:
         file_corr.write(newFile)
 
     print("done")
