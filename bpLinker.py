@@ -51,8 +51,11 @@ class ENBond(object):
         self.r0 = r0
         self.type = bond_type
 
+    def __repr__(self):
+        return "bond {} - {}".format(self.a, self.b)
+
     def __str__(self):
-        return NotImplementedError
+        return "bond {b.a} {b.b} {b.k} {b.r0}".format(b=self)
 
 
 class ElaticNetwortModifier(object):
@@ -173,7 +176,7 @@ class ElaticNetwortModifier(object):
 
         with open(exb_filepath, mode="w+") as mod_exb_file:
             for bond in mod_network:
-                mod_exb_file.write("%s\n" % bond)
+                mod_exb_file.write("{}\n".format(bond))
         return
 
     def _compute_dihedral(self):
@@ -695,8 +698,8 @@ def main():
             str(project.output) + "__" + name + ".p", "wb"))
 
     en = ElaticNetwortModifier(linker)
-    # import ipdb
-    # ipdb.set_trace()
+    import ipdb
+    ipdb.set_trace()
 
 if __name__ == "__main__":
     main()
