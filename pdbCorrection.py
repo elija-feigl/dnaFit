@@ -272,7 +272,7 @@ def main():
     project = proc_input()
 
     print("start")
-    pdb_Corr = PDB_Corr(project.reverse)
+    pdb_Corr = PDB_Corr(reverse=project.reverse)
     with open(project.input, 'r') as file_init:
         if project.reshuffle:
             file_list = pdb_Corr.reshuffle_pdb(file_init)
