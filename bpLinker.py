@@ -28,15 +28,31 @@ def ignored(*exceptions):
         pass
 
 
-class ElaticNetwortBond(object):
-    """ Elatic Networt Bond class
-    """
-    __slots__ = ["a", "b", "k", "type"]
+class UnexpectedCaseError(Exception):
+    """Raised when a case occurs that makes no sense in the programs context"""
+    pass
 
-    def __init__(self, a, b, k, bond_type):
+
+class ENBond(object):
+    """ Elatic Networt Bond class
+        harmonic bond of the from k*(r(ab)-r0)**2
+        http://www.ks.uiuc.edu/Research/namd/2.7/ug/node26.html
+        -------
+         Input
+            -------
+                a (int): atomnumber 1
+                b (int): atomnumber 2
+                k (int): force konstant []
+                r0 (int): equilibrium distance [A]
+                type (Set[str]): keywords that indicate topology
+    """
+    __slots__ = ["a", "b", "k", "r0", "type"]
+
+    def __init__(self, a, b, k, r0, bond_type):
         self.a = a
         self.b = b
         self.k = k
+        self.r0 = r0
         self.type = bond_type
 
     def __str__(self):
@@ -48,8 +64,8 @@ class ElaticNetwortModifier(object):
     """
     def __init__(self, Linker):
         self.linker = Linker
-        self.u = Linker.fit.u  # self.u.residues[n_resindex]
-        self.network = self._get_network()  # set of bonds
+        self.u = Linker.fit.u  
+        self.network = self._get_network()
 
     def _get_network(self):
         infile = self.linker.project.input / self.linker.project.name
@@ -68,7 +84,68 @@ class ElaticNetwortModifier(object):
             -------
             EN elastic_network
         """
-        return NotImplementedError
+        def categorize_bond(atom1, atom2, r0):
+            bond_type = set()
+            if r0 > 10.:
+                bond_type.add("long")
+            else:
+                bond_type.add("short")
+                res1 = self.u.atoms[atom1].resindex
+                res2 = self.u.atoms[atom2].resindex
+                res1_bp = self.linker.Fbp.get(res1, None)
+                res2_bp = self.linker.Fbp.get(res2, None)
+                is_same = (abs(res1-res2) == 0)
+                is_neighbor = (abs(res1-res2) == 1)
+                if res1_bp is not None and res2_bp is not None:
+                    is_crossstack = (abs(res1_bp-res2) == 1)
+                    is_Hbond = (res1_bp == res2)
+                    is_nick = (res1 == self.linker.Fnicks.get(res2, None) or
+                               res1_bp == self.linker.Fnicks.get(res2_bp, None) or
+                               res1 == self.linker.Fnicks.get(res2_bp, None) or
+                               res2 == self.linker.Fnicks.get(res1_bp, None)
+                               )  # TODO: -mid- improve
+                    is_co = (res1 in self.linker.Fco or
+                             res2 in self.linker.Fco
+                             )  # TODO: -mid- improve
+                else:
+                    is_crossstack = False
+                    is_Hbond = False
+                    is_nick = False
+                    is_co = False
+
+                if is_same:
+                    raise UnexpectedCaseError
+                elif is_neighbor:
+                    bond_type.add("strand")
+                elif is_Hbond:
+                    bond_type.add("Hbond")
+                elif is_crossstack:
+                    bond_type.add("crossstack")
+                if is_nick:
+                    bond_type.add("nick")
+                if is_co:
+                    bond_type.add("co")
+
+                if len(bond_type) == 0:
+                    import ipdb
+                    ipdb.set_trace()
+            return bond_type
+
+        network = set()
+        for line in exb_file:
+            split_line = line.split()
+            if split_line[0] == "bond":
+                a = int(split_line[1])
+                b = int(split_line[2])
+                k = float(split_line[3])
+                r0 = float(split_line[4])
+                bond_type = categorize_bond(atom1=a, atom2=b, r0=r0)
+                network.add(ENBond(a=a, b=b, k=k, r0=r0, bond_type=bond_type))
+            elif split_line[0] == "dihedral":
+                raise NotImplementedError
+            else:
+                raise UnexpectedCaseError
+        return network
 
     def _modify_en(self, logic):
         """ create reduced elastic network according to boolean flags
@@ -160,7 +237,7 @@ class Linker(object):
                                          "Dcolor",
                                          "Dskips",
                                          "Fnicks",
-                                         "universe"
+                                         "universe",
                                          "Fco",
                                          ]
                              )
@@ -170,7 +247,7 @@ class Linker(object):
         universe = self.get_universe_tuple()
         return Linkage(Fbp=Link.Fbp,
                        DidFid=Link.DidFid,
-                       DhpsFid=Link.DhpsDid,
+                       DhpsDid=Link.DhpsDid,
                        Dcolor=Link.Dcolor,
                        Dskips=Link.Dskips,
                        Fco=Fco,
@@ -428,7 +505,7 @@ class Linker(object):
         return self.Fco
 
     def identify_nicks(self) -> Dict[int, int]:
-        """ for every nick, provide id of base accross nick
+        """ for every nick, provide id of base accross nick, bidirectional
         -------
          Returns
             -------
@@ -614,11 +691,13 @@ def main():
     print("output to ", project.output)
     linker = Linker(project)
     linkage = linker.create_linkage()
-
-    for name in linkage:
-        pickle.dump(eval(name), open(
+    for name, link in linkage._asdict().items():
+        pickle.dump(link, open(
             str(project.output) + "__" + name + ".p", "wb"))
 
+    en = ElaticNetwortModifier(linker)
+    import ipdb
+    ipdb.set_trace()
 
 if __name__ == "__main__":
     main()
