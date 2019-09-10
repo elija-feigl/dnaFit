@@ -71,6 +71,31 @@ class Linker(object):
                   ]
         return Dskips
 
+    def create_linkage(self):
+        Linkage = namedtuple("Linkage", ["Fbp",
+                                         "DidFid",
+                                         "DhpsDid",
+                                         "Dcolor",
+                                         "Dskips",
+                                         "Fnicks",
+                                         "universe"
+                                         "Fco",
+                                         ]
+                             )
+        Link = self.link()
+        Fco = self.identify_crossover()
+        Fnicks = self.identify_nicks()
+        universe = self.get_universe_tuple()
+        return Linkage(Fbp=Link.Fbp,
+                       DidFid=Link.DidFid,
+                       DhpsFid=Link.DhpsDid,
+                       Dcolor=Link.Dcolor,
+                       Dskips=Link.Dskips,
+                       Fco=Fco,
+                       Fnicks=Fnicks,
+                       universe=universe,
+                       )
+
     def _link_scaffold(self) -> (Dict[int, int],
                                  Dict[Tuple[int, int, bool], int],
                                  ):
@@ -175,18 +200,24 @@ class Linker(object):
                 fit-segment-id (int) -> color (hex?)
         """
         DidFid_sc, DhpsDid_sc = self._link_scaffold()
-        DidFid_st, DhpsDid_st, self.color = self._link_staples()
+        DidFid_st, DhpsDid_st, self.Dcolor = self._link_staples()
 
         self.DidFid = {**DidFid_sc, **DidFid_st}
         self.DhpsDid = {**DhpsDid_sc, **DhpsDid_st}
         self.Fbp = self._link_bp()
-
-        return (self.Fbp,
-                self.DidFid,
-                self.DhpsDid,
-                self.color,
-                self.Dskips,
-                )
+        Link = namedtuple("Link", ["Fbp",
+                                   "DidFid",
+                                   "DhpsDid",
+                                   "Dcolor",
+                                   "Dskips",
+                                   ]
+                          )
+        return Link(Fbp=self.Fbp,
+                    DidFid=self.DidFid,
+                    DhpsDid=self.DhpsDid,
+                    Dcolor=self.Dcolor,
+                    Dskips=self.Dskips,
+                    )
 
     def _get_nextInHelix(self, h, p, is_scaf, i):
         Dhps = (h, p+i, is_scaf)
@@ -337,7 +368,7 @@ class Linker(object):
                     is_ds_staple
                     )
 
-        def Fid(Did):
+        def Fid(Did: int) -> int:
             return self.DidFid[Did]
 
         staple_end_bases = list(chain.from_iterable((s[0], s[-1])
@@ -349,6 +380,12 @@ class Linker(object):
                        if is_nick(candidate, base)
                        }
         return self.Fnicks
+
+    def get_universe_tuple(self) -> Tuple[str, str]:
+        infile = self.project.input / self.project.name
+        top = infile.with_suffix(".psf")
+        trj = infile.with_suffix(".dcd")
+        return (str(top), str(trj))
 
 
 class Fit(object):
@@ -494,16 +531,11 @@ def main():
     project = proc_input()
     print("output to ", project.output)
     linker = Linker(project)
-    infile = project.input / project.name
+    linkage = linker.create_linkage()
 
-    universe = (infile.with_suffix(".psf"), infile.with_suffix(".dcd"))
-    bp, idid, hpid, color, skips = linker.link()
-    coid = linker.identify_crossover()
-    nicks = linker.identify_nicks()
-
-    for name in DICTS:
+    for name in linkage:
         pickle.dump(eval(name), open(
-            out_put + "__" + name + ".p", "wb"))
+            str(project.output) + "__" + name + ".p", "wb"))
 
 
 if __name__ == "__main__":
