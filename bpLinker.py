@@ -28,10 +28,92 @@ def ignored(*exceptions):
         pass
 
 
+class ElaticNetwortBond(object):
+    """ Elatic Networt Bond class
+    """
+    __slots__ = ["a", "b", "k", "type"]
+
+    def __init__(self, a, b, k, bond_type):
+        self.a = a
+        self.b = b
+        self.k = k
+        self.type = bond_type
+
+    def __str__(self):
+        return NotImplementedError
+
+
+class ElaticNetwortModifier(object):
+    """ Elatic Networt Modifier class
+    """
+    def __init__(self, Linker):
+        self.linker = Linker
+        self.u = Linker.fit.u  # self.u.residues[n_resindex]
+        self.network = self._get_network()  # set of bonds
+
+    def _get_network(self):
+        infile = self.linker.project.input / self.linker.project.name
+        exb_filepath = infile.with_suffix(".exb")
+        if exb_filepath.exists():
+            with open(exb_filepath) as exb_file:
+                network = self._process_exb(exb_file)
+        else:
+            raise FileNotFoundError
+        return network
+
+    def _process_exb(self, exb_file):
+        """ create elastic network from file
+        -------
+         Returns
+            -------
+            EN elastic_network
+        """
+        return NotImplementedError
+
+    def _modify_en(self, logic):
+        """ create reduced elastic network according to boolean flags
+        -------
+         Returns
+            -------
+            EN reduced_elastic_network
+        """
+        raise NotImplementedError
+        no_longbonds, no_stacking, no_backbone, no_hbond, no_dihedral = logic
+        if not no_dihedral:
+            dihedral = self._compute_dihedral()
+
+        return set()
+
+    def write_en(self, logic):
+        """ write the  modified (by logic) network to file
+        -------
+         Returns
+            -------
+            None
+        """
+        mod_network = self._modify_en(logic)
+        outfile = self.linker.project.input / self.linker.project.name
+        exb_filepath = str(outfile) + "__.exb"
+
+        with open(exb_filepath, mode="w+") as mod_exb_file:
+            for bond in mod_network:
+                mod_exb_file.write("%s\n" % bond)
+        return
+
+    def _compute_dihedral(self):
+        """ compute restraints corresponding to backbone dihedral
+        -------
+         Returns
+            -------
+            EN dihedral_elastic_network
+        """
+        return NotImplementedError
+
+
 class Linker(object):
     """ Linker class
     """
-
+    # TODO: move categoriye to linker?
     def __init__(self, project):
         self.project = project
         self.fit = Fit(project)
