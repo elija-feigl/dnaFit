@@ -64,7 +64,8 @@ class ElaticNetwortModifier(object):
     """
     def __init__(self, Linker):
         self.linker = Linker
-        self.u = Linker.fit.u  
+        self.u = Linker.fit.u
+        self.Fbp_full = {**Linker.Fbp, **{v: k for k, v in Linker.Fbp.items()}}
         self.network = self._get_network()
 
     def _get_network(self):
@@ -84,7 +85,7 @@ class ElaticNetwortModifier(object):
             -------
             EN elastic_network
         """
-        def categorize_bond(atom1, atom2, r0):
+        def categorize_bond(atom1, atom2, r0):  # TODO: -mid- improve
             bond_type = set()
             if r0 > 10.:
                 bond_type.add("long")
@@ -92,12 +93,14 @@ class ElaticNetwortModifier(object):
                 bond_type.add("short")
                 res1 = self.u.atoms[atom1].resindex
                 res2 = self.u.atoms[atom2].resindex
-                res1_bp = self.linker.Fbp.get(res1, None)
-                res2_bp = self.linker.Fbp.get(res2, None)
+                res1_bp = self.Fbp_full.get(res1, None)
+                res2_bp = self.Fbp_full.get(res2, None)
                 is_same = (abs(res1-res2) == 0)
                 is_neighbor = (abs(res1-res2) == 1)
                 if res1_bp is not None and res2_bp is not None:
-                    is_crossstack = (abs(res1_bp-res2) == 1)
+                    is_crossstack = (abs(res1_bp-res2) == 1 or
+                                     abs(res2_bp-res1)
+                                     )
                     is_Hbond = (res1_bp == res2)
                     is_nick = (res1 == self.linker.Fnicks.get(res2, None) or
                                res1_bp == self.linker.Fnicks.get(res2_bp, None) or
@@ -107,11 +110,13 @@ class ElaticNetwortModifier(object):
                     is_co = (res1 in self.linker.Fco or
                              res2 in self.linker.Fco
                              )  # TODO: -mid- improve
+                    is_single = False
                 else:
                     is_crossstack = False
                     is_Hbond = False
                     is_nick = False
                     is_co = False
+                    is_single = True
 
                 if is_same:
                     raise UnexpectedCaseError
@@ -125,10 +130,8 @@ class ElaticNetwortModifier(object):
                     bond_type.add("nick")
                 if is_co:
                     bond_type.add("co")
-
-                if len(bond_type) == 0:
-                    import ipdb
-                    ipdb.set_trace()
+                if is_single:
+                    bond_type.add("single")
             return bond_type
 
         network = set()
@@ -696,8 +699,8 @@ def main():
             str(project.output) + "__" + name + ".p", "wb"))
 
     en = ElaticNetwortModifier(linker)
-    import ipdb
-    ipdb.set_trace()
+    #import ipdb
+    #ipdb.set_trace()
 
 if __name__ == "__main__":
     main()
