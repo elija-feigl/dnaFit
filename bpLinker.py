@@ -15,10 +15,6 @@ from typing import List, Set, Dict, Tuple, Optional
 from collections import namedtuple
 from nanodesign.converters import Converter
 
-DICTS = ["bp", "idid", "hpid", "color",
-         "coid", "nicks", "skips", "universe"]
-# TODO: -low move or rather make use obsolete
-
 
 @contextlib.contextmanager
 def ignored(*exceptions):
