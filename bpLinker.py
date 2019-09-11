@@ -99,10 +99,17 @@ class ElaticNetwortModifier(object):
 
     def _categorize_bond(self, atom1, atom2, r0):  # TODO: -mid- improve
         def categorize_logic(atom1, atom2, r0):
+            is_long = False
+            is_neighbor = False
+            is_crossstack = False
+            is_Hbond = False
+            is_nick = False
+            is_co = False
+            is_ssDNA = False
+
             if r0 > 10.:
                 is_long = True
             else:
-                is_long = False
                 res1 = self.u.atoms[atom1].resindex
                 res2 = self.u.atoms[atom2].resindex
                 res1_bp = self.Fbp_full.get(res1, None)
@@ -123,12 +130,7 @@ class ElaticNetwortModifier(object):
                     is_co = (res1 in self.linker.Fco or
                              res2 in self.linker.Fco
                              )  # TODO: -mid- improve
-                    is_ssDNA = False
                 else:
-                    is_crossstack = False
-                    is_Hbond = False
-                    is_nick = False
-                    is_co = False
                     is_ssDNA = True
 
             bond_logic = self.Logic(long=is_long,
@@ -138,7 +140,6 @@ class ElaticNetwortModifier(object):
                                     nick=is_nick,
                                     co=is_co,
                                     ssDNA=is_ssDNA,
-                                    # dihedral=False,
                                     )
             return bond_logic
 
