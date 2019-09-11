@@ -61,11 +61,31 @@ class ENBond(object):
 class ElaticNetwortModifier(object):
     """ Elatic Networt Modifier class
     """
+    Logic = namedtuple("Logic", ["long",
+                                 "strand",
+                                 "Hbond",
+                                 "crossstack",
+                                 "nick",
+                                 "co",
+                                 "ssDNA",
+                                 "dihedral",
+                                 ]
+                       )
+
     def __init__(self, Linker):
         self.linker = Linker
         self.u = Linker.fit.u
         self.Fbp_full = {**Linker.Fbp, **{v: k for k, v in Linker.Fbp.items()}}
         self.network = self._get_network()
+        self.modify_logic = self.Logic(long=True,
+                                       strand=True,
+                                       Hbond=True,
+                                       crossstack=True,
+                                       nick=True,
+                                       co=True,
+                                       ssDNA=True,
+                                       dihedral=False,
+                                       )
 
     def _get_network(self):
         infile = self.linker.project.input / self.linker.project.name
@@ -130,7 +150,7 @@ class ElaticNetwortModifier(object):
                 if is_co:
                     bond_type.add("co")
                 if is_single:
-                    bond_type.add("single")
+                    bond_type.add("ssDNA")
             return bond_type
 
         network = set()
@@ -149,30 +169,42 @@ class ElaticNetwortModifier(object):
                 raise UnexpectedCaseError
         return network
 
-    def _modify_en(self, logic):
+    def _modify_en(self):
         """ create reduced elastic network according to boolean flags
         -------
          Returns
             -------
             EN reduced_elastic_network
         """
-        raise NotImplementedError
-        no_longbonds, no_stacking, no_backbone, no_hbond, no_dihedral = logic
-        if not no_dihedral:
-            dihedral = self._compute_dihedral()
+        if self.modify_logic.dihedral:
+            _ = self._compute_dihedral()
 
-        return set()
+        # TODO: set logic
+        self.modify_logic = self.Logic(long=False,
+                                       strand=False,
+                                       Hbond=True,
+                                       crossstack=False,
+                                       nick=False,
+                                       co=True,
+                                       ssDNA=False,
+                                       dihedral=False,
+                                       )
 
-    def write_en(self, logic):
+        logic = self.modify_logic._asdict()
+        exclude_type = {name for name, is_active in logic.items() if is_active}
+
+        mod_network = {bond for bond in self.network
+                       if any(ex in exclude_type for ex in bond.type)
+                       }
+        return mod_network
+
+    def write_en(self):
         """ write the  modified (by logic) network to file
-        -------
-         Returns
-            -------
-            None
         """
-        mod_network = self._modify_en(logic)
+        mod_network = self._modify_en()
         outfile = self.linker.project.input / self.linker.project.name
-        exb_filepath = str(outfile) + "__.exb"
+        exb_filepath = str(outfile) + "_modified.exb"
+        # TODO: -low refelct changes in name
 
         with open(exb_filepath, mode="w+") as mod_exb_file:
             for bond in mod_network:
@@ -698,8 +730,7 @@ def main():
             str(project.output) + "__" + name + ".p", "wb"))
 
     en = ElaticNetwortModifier(linker)
-    import ipdb
-    ipdb.set_trace()
+    en.write_en()
 
 if __name__ == "__main__":
     main()
