@@ -104,17 +104,15 @@ class ElaticNetwortModifier(object):
             -------
             EN elastic_network
         """
-        def categorize_bond(atom1, atom2, r0):  # TODO: -mid- improve
-            bond_type = set()
+        def categorize_logic(atom1, atom2, r0):
             if r0 > 10.:
-                bond_type.add("long")
+                is_long = True
             else:
-                bond_type.add("short")
+                is_long = False
                 res1 = self.u.atoms[atom1].resindex
                 res2 = self.u.atoms[atom2].resindex
                 res1_bp = self.Fbp_full.get(res1, None)
                 res2_bp = self.Fbp_full.get(res2, None)
-                is_same = (abs(res1-res2) == 0)
                 is_neighbor = (abs(res1-res2) == 1)
                 if res1_bp is not None and res2_bp is not None:
                     is_crossstack = (abs(res1_bp-res2) == 1 or
@@ -129,28 +127,47 @@ class ElaticNetwortModifier(object):
                     is_co = (res1 in self.linker.Fco or
                              res2 in self.linker.Fco
                              )  # TODO: -mid- improve
-                    is_single = False
+                    is_ssDNA = False
                 else:
                     is_crossstack = False
                     is_Hbond = False
                     is_nick = False
                     is_co = False
-                    is_single = True
+                    is_ssDNA = True
 
-                if is_same:
-                    raise UnexpectedCaseError
-                elif is_neighbor:
+                bond_logic = self.Logic(long=is_long,
+                                        strand=is_neighbor,
+                                        Hbond=is_Hbond,
+                                        crossstack=is_crossstack,
+                                        nick=is_nick,
+                                        co=is_co,
+                                        ssDNA=is_ssDNA,
+                                        # dihedral=False,
+                                        )
+                return bond_logic
+
+        def categorize_bond(atom1, atom2, r0):  # TODO: -mid- improve
+            bond_type = set()
+            bond_logic = categorize_logic(atom1, atom2, r0)
+
+            if bond_logic.long:
+                bond_type.add("long")
+            else:
+                bond_type.add("short")
+                pass
+                if bond_logic.strand:
                     bond_type.add("strand")
-                elif is_Hbond:
+                elif bond_logic.Hbond:
                     bond_type.add("Hbond")
-                elif is_crossstack:
+                elif bond_logic.crossstack:
                     bond_type.add("crossstack")
-                if is_nick:
+                if bond_logic.nick:
                     bond_type.add("nick")
-                if is_co:
+                if bond_logic.co:
                     bond_type.add("co")
-                if is_single:
+                if bond_logic.ssDNA:
                     bond_type.add("ssDNA")
+
             return bond_type
 
         network = set()
