@@ -114,15 +114,17 @@ class ElaticNetwortModifier(object):
                 res1_bp = self.Fbp_full.get(res1, None)
                 res2_bp = self.Fbp_full.get(res2, None)
                 is_neighbor = (abs(res1-res2) == 1)
+
                 if res1_bp is not None and res2_bp is not None:
+                    Fnicks = self.linker.Fnicks
                     is_crossstack = (abs(res1_bp-res2) == 1 or
                                      abs(res2_bp-res1)
                                      )
                     is_Hbond = (res1_bp == res2)
-                    is_nick = (res1 == self.linker.Fnicks.get(res2, None) or
-                               res1_bp == self.linker.Fnicks.get(res2_bp, None) or
-                               res1 == self.linker.Fnicks.get(res2_bp, None) or
-                               res2 == self.linker.Fnicks.get(res1_bp, None)
+                    is_nick = (res1 == Fnicks.get(res2, None) or
+                               res1_bp == Fnicks.get(res2_bp, None) or
+                               res1 == Fnicks.get(res2_bp, None) or
+                               res2 == Fnicks.get(res1_bp, None)
                                )  # TODO: -mid- improve
                     is_co = (res1 in self.linker.Fco or
                              res2 in self.linker.Fco
@@ -147,26 +149,26 @@ class ElaticNetwortModifier(object):
                 return bond_logic
 
         def categorize_bond(atom1, atom2, r0):  # TODO: -mid- improve
-            bond_type = set()
             bond_logic = categorize_logic(atom1, atom2, r0)
 
+            bond_type = set()
             if bond_logic.long:
                 bond_type.add("long")
             else:
                 bond_type.add("short")
-                pass
                 if bond_logic.strand:
                     bond_type.add("strand")
                 elif bond_logic.Hbond:
                     bond_type.add("Hbond")
                 elif bond_logic.crossstack:
                     bond_type.add("crossstack")
+                elif bond_logic.ssDNA:
+                    bond_type.add("ssDNA")
+
                 if bond_logic.nick:
                     bond_type.add("nick")
                 if bond_logic.co:
                     bond_type.add("co")
-                if bond_logic.ssDNA:
-                    bond_type.add("ssDNA")
 
             return bond_type
 
@@ -202,7 +204,7 @@ class ElaticNetwortModifier(object):
                                        Hbond=True,
                                        crossstack=False,
                                        nick=False,
-                                       co=True,
+                                       co=False,
                                        ssDNA=False,
                                        dihedral=False,
                                        )
@@ -724,11 +726,16 @@ def proc_input():
                         required="True",
                         default=argparse.SUPPRESS,
                         )
+    parser.add_argument("--ENmodify",
+                        help="reset nomenclature enrgMD",
+                        action="store_true"
+                        )
     args = parser.parse_args()
-    Project = namedtuple("Project", ["input", "output", "name"])
+    Project = namedtuple("Project", ["input", "output", "name", "ENmodify"])
     project = Project(input=Path(args.folder),
                       output=Path(args.folder) / "analysis",
                       name=args.name,
+                      ENmodify=args.ENmodify,
                       )
     with ignored(FileExistsError):
         os.mkdir(project.output)
@@ -736,18 +743,20 @@ def proc_input():
 
 
 def main():
-
-    # process input
     project = proc_input()
-    print("output to ", project.output)
+
     linker = Linker(project)
     linkage = linker.create_linkage()
-    for name, link in linkage._asdict().items():
-        pickle.dump(link, open(
-            str(project.output) + "__" + name + ".p", "wb"))
 
-    en = ElaticNetwortModifier(linker)
-    en.write_en()
+    if not project.ENmodify:
+        print("output to ", project.output)
+        for name, link in linkage._asdict().items():
+            pickle.dump(link, open(
+                str(project.output) + "__" + name + ".p", "wb"))
+    else:
+        print("modifying extrabonds")
+        en = ElaticNetwortModifier(linker)
+        en.write_en()
 
 if __name__ == "__main__":
     main()
