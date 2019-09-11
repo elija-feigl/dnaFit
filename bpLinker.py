@@ -97,13 +97,7 @@ class ElaticNetwortModifier(object):
             raise FileNotFoundError
         return network
 
-    def _process_exb(self, exb_file):
-        """ create elastic network from file
-        -------
-         Returns
-            -------
-            EN elastic_network
-        """
+    def _categorize_bond(self, atom1, atom2, r0):  # TODO: -mid- improve
         def categorize_logic(atom1, atom2, r0):
             if r0 > 10.:
                 is_long = True
@@ -137,41 +131,46 @@ class ElaticNetwortModifier(object):
                     is_co = False
                     is_ssDNA = True
 
-                bond_logic = self.Logic(long=is_long,
-                                        strand=is_neighbor,
-                                        Hbond=is_Hbond,
-                                        crossstack=is_crossstack,
-                                        nick=is_nick,
-                                        co=is_co,
-                                        ssDNA=is_ssDNA,
-                                        # dihedral=False,
-                                        )
-                return bond_logic
+            bond_logic = self.Logic(long=is_long,
+                                    strand=is_neighbor,
+                                    Hbond=is_Hbond,
+                                    crossstack=is_crossstack,
+                                    nick=is_nick,
+                                    co=is_co,
+                                    ssDNA=is_ssDNA,
+                                    # dihedral=False,
+                                    )
+            return bond_logic
 
-        def categorize_bond(atom1, atom2, r0):  # TODO: -mid- improve
-            bond_logic = categorize_logic(atom1, atom2, r0)
+        bond_logic = categorize_logic(atom1, atom2, r0)
+        bond_type = set()
+        if bond_logic.long:
+            bond_type.add("long")
+        else:
+            bond_type.add("short")
+            if bond_logic.strand:
+                bond_type.add("strand")
+            elif bond_logic.Hbond:
+                bond_type.add("Hbond")
+            elif bond_logic.crossstack:
+                bond_type.add("crossstack")
+            elif bond_logic.ssDNA:
+                bond_type.add("ssDNA")
 
-            bond_type = set()
-            if bond_logic.long:
-                bond_type.add("long")
-            else:
-                bond_type.add("short")
-                if bond_logic.strand:
-                    bond_type.add("strand")
-                elif bond_logic.Hbond:
-                    bond_type.add("Hbond")
-                elif bond_logic.crossstack:
-                    bond_type.add("crossstack")
-                elif bond_logic.ssDNA:
-                    bond_type.add("ssDNA")
+            if bond_logic.nick:
+                bond_type.add("nick")
+            if bond_logic.co:
+                bond_type.add("co")
 
-                if bond_logic.nick:
-                    bond_type.add("nick")
-                if bond_logic.co:
-                    bond_type.add("co")
+        return bond_type
 
-            return bond_type
-
+    def _process_exb(self, exb_file):
+        """ create elastic network from file
+        -------
+         Returns
+            -------
+            EN elastic_network
+        """
         network = set()
         for line in exb_file:
             split_line = line.split()
@@ -180,7 +179,7 @@ class ElaticNetwortModifier(object):
                 b = int(split_line[2])
                 k = float(split_line[3])
                 r0 = float(split_line[4])
-                bond_type = categorize_bond(atom1=a, atom2=b, r0=r0)
+                bond_type = self._categorize_bond(atom1=a, atom2=b, r0=r0)
                 network.add(ENBond(a=a, b=b, k=k, r0=r0, bond_type=bond_type))
             elif split_line[0] == "dihedral":
                 raise NotImplementedError
