@@ -77,15 +77,6 @@ class ElaticNetwortModifier(object):
         self.u = Linker.fit.u
         self.Fbp_full = {**Linker.Fbp, **{v: k for k, v in Linker.Fbp.items()}}
         self.network = self._get_network()
-        self.modify_logic = self.Logic(long=True,
-                                       strand=True,
-                                       Hbond=True,
-                                       crossstack=True,
-                                       nick=True,
-                                       co=True,
-                                       ssDNA=True,
-                                       dihedral=False,
-                                       )
 
     def _get_network(self):
         infile = self.linker.project.input / self.linker.project.name
@@ -140,6 +131,7 @@ class ElaticNetwortModifier(object):
                                     nick=is_nick,
                                     co=is_co,
                                     ssDNA=is_ssDNA,
+                                    dihedral=False,
                                     )
             return bond_logic
 
@@ -188,6 +180,19 @@ class ElaticNetwortModifier(object):
                 raise UnexpectedCaseError
         return network
 
+    def _change_modify_logic(self):
+        logic_string = self.linker.project.EN
+        self.modify_logic = self.Logic(long=bool(logic_string[0]),
+                                       strand=bool(logic_string[1]),
+                                       Hbond=bool(logic_string[2]),
+                                       crossstack=bool(logic_string[3]),
+                                       nick=bool(logic_string[4]),
+                                       co=bool(logic_string[5]),
+                                       ssDNA=bool(logic_string[6]),
+                                       dihedral=bool(logic_string[7]),
+                                       )
+        return
+
     def _modify_en(self):
         """ create reduced elastic network according to boolean flags
         -------
@@ -195,20 +200,9 @@ class ElaticNetwortModifier(object):
             -------
             EN reduced_elastic_network
         """
+        self._change_modify_logic()
         if self.modify_logic.dihedral:
             _ = self._compute_dihedral()
-
-        # TODO: set logic
-        self.modify_logic = self.Logic(long=False,
-                                       strand=False,
-                                       Hbond=True,
-                                       crossstack=False,
-                                       nick=False,
-                                       co=False,
-                                       ssDNA=False,
-                                       dihedral=False,
-                                       )
-
         logic = self.modify_logic._asdict()
         exclude_type = {name for name, is_active in logic.items() if is_active}
 
@@ -222,8 +216,7 @@ class ElaticNetwortModifier(object):
         """
         mod_network = self._modify_en()
         outfile = self.linker.project.input / self.linker.project.name
-        exb_filepath = str(outfile) + "_modified.exb"
-        # TODO: -low refelct changes in name
+        exb_filepath = "{}_{}.exb".format(outfile, self.linker.project.EN)
 
         with open(exb_filepath, mode="w+") as mod_exb_file:
             for bond in mod_network:
@@ -243,7 +236,7 @@ class ElaticNetwortModifier(object):
 class Linker(object):
     """ Linker class
     """
-    # TODO: move categoriye to linker?
+    # TODO: move categorize to linker?
     def __init__(self, project):
         self.project = project
         self.fit = Fit(project)
@@ -730,12 +723,25 @@ def proc_input():
                         help="reset nomenclature enrgMD",
                         action="store_true"
                         )
+    parser.add_argument("--EN",
+                        help="""bool-string:
+                                long,strand,Hbond,xstack,nick,co,ss,dhdrl""",
+                        type=str,
+                        default="11111110",
+                        )
     args = parser.parse_args()
-    Project = namedtuple("Project", ["input", "output", "name", "ENmodify"])
+    Project = namedtuple("Project", ["input",
+                                     "output",
+                                     "name",
+                                     "ENmodify",
+                                     "EN",
+                                     ]
+                         )
     project = Project(input=Path(args.folder),
                       output=Path(args.folder) / "analysis",
                       name=args.name,
                       ENmodify=args.ENmodify,
+                      EN=args.EN,
                       )
     with ignored(FileExistsError):
         os.mkdir(project.output)
