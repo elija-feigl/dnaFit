@@ -758,7 +758,8 @@ def main():
         print("output to ", project.output)
         for name, link in linkage._asdict().items():
             pickle.dump(link, open(
-                str(project.output) + "/" + project.name + "__" + name + ".p", "wb"))
+                str(project.output) + "/" +
+                project.name + "__" + name + ".p", "wb"))
     else:
         print("modifying extrabonds")
         en = ElaticNetwortModifier(linker)
