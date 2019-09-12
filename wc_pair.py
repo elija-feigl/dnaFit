@@ -713,7 +713,7 @@ def proc_input():
     parser.add_argument("--frames",
                         help="number of frames samples",
                         type=int,
-                        default=2,
+                        default=1,
                         )
     parser.add_argument("--dev",
                         help="deviation of H-bond",
@@ -788,12 +788,15 @@ def main():
     linker = bpLinker.Linker(project)
     linkage = linker.create_linkage()
     u = mda.Universe(*linkage.universe)
-    frames_step = int(len(u.trajectory) / project.frames)
-    frames = list(range(len(u.trajectory)-1, 0, -frames_step))
+    if project.frames == 1:
+        frames = [-1]
+    else:
+        frames_step = int(len(u.trajectory) / project.frames)
+        frames = list(range(len(u.trajectory)-1, 0, -frames_step))
 
     for name, link in linkage._asdict().items():
-        pickle.dump(link, open(str(project.output) + "/" + project.name +
-                    "__" + name + ".p", "wb"))
+        pickle_name = project.output / "{}__{}.p".format(project.name, name)
+        pickle.dump(link, open(pickle_name, "wb"))
 
     properties = []
     traj_out = project.output / "frames"
@@ -804,14 +807,12 @@ def main():
 
     # open PDB files
     PDBs = {}
-    for pdb_name in [*WC_PROPERTIES, "bp", "qual"]:
-        PDBs[pdb_name] = mda.Writer(
-            str(project.output) + "/" + project.name + "__wc_" + pdb_name +
-            ".pdb", multiframe=True)
-    for pdb_name in DH_ATOMS.keys():
-        PDBs[pdb_name] = mda.Writer(
-            str(project.output) + "/" + project.name + "__dh_" + pdb_name +
-            ".pdb", multiframe=True)
+    for name in [*WC_PROPERTIES, "bp", "qual"]:
+        pdb_name = project.output / "{}__wc_{}.pdb".format(project.name, name)
+        PDBs[name] = mda.Writer(pdb_name, multiframe=True)
+    for name in DH_ATOMS.keys():
+        pdb_name = project.output / "{}__dh_{}.pdb".format(project.name, name)
+        PDBs[name] = mda.Writer(pdb_name, multiframe=True)
 
     # loop over selected frames
     for i, ts in enumerate([u.trajectory[i] for i in frames]):
@@ -842,10 +843,11 @@ def main():
             (bDNA.dh_quality, "dh_quality"), (bDNA.distances, "distances"),
             (bDNA.co_angles, "co_angles")]
         for prop, prop_name in props_tuple:
-            pickle.dump((ts, prop), open(
-                str(traj_out) + "/" + project.name + "__bDNA-" +
-                prop_name + "-" + str(i) + ".p",
-                "wb"))
+            pickle_name = traj_out / "{}__bDNA-{}-{}.p".format(project.name,
+                                                               prop_name,
+                                                               i,
+                                                               )
+            pickle.dump((ts, prop), open(pickle_name, "wb"))
         print("write pdbs", project.name)
         write_pdb(u, bDNA, PDBs)
 
