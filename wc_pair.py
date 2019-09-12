@@ -17,6 +17,7 @@ from operator import attrgetter
 from typing import List, Set, Dict, Tuple, Optional
 from collections import namedtuple
 
+
 @contextlib.contextmanager
 def ignored(*exceptions):
     try:
@@ -786,12 +787,12 @@ def main():
 
     linker = bpLinker.Linker(project)
     linkage = linker.create_linkage()
-    u = mda.Universe(linkage.universe)
+    u = mda.Universe(*linkage.universe)
     frames_step = int(len(u.trajectory) / project.frames)
     frames = list(range(len(u.trajectory)-1, 0, -frames_step))
 
     for name, link in linkage._asdict().items():
-        pickle.dump(link, open(str(project.output) + "__" + name + ".p", "wb"))
+        pickle.dump(link, open(str(project.output) +  "/" + project.name + "__" + name + ".p", "wb"))
 
     properties = []
     traj_out = project.output / "frames"
@@ -804,10 +805,10 @@ def main():
     PDBs = {}
     for pdb_name in [*WC_PROPERTIES, "bp", "qual"]:
         PDBs[pdb_name] = mda.Writer(
-            str(project.output) + "__wc_" + pdb_name + ".pdb", multiframe=True)
+            str(project.output) + "/" + project.name + "__wc_" + pdb_name + ".pdb", multiframe=True)
     for pdb_name in DH_ATOMS.keys():
         PDBs[pdb_name] = mda.Writer(
-            str(project.output) + "__dh_" + pdb_name + ".pdb", multiframe=True)
+            str(project.output) + "/" + project.name + "__dh_" + pdb_name + ".pdb", multiframe=True)
 
     # loop over selected frames
     for i, ts in enumerate([u.trajectory[i] for i in frames]):
@@ -839,7 +840,8 @@ def main():
             (bDNA.co_angles, "co_angles")]
         for prop, prop_name in props_tuple:
             pickle.dump((ts, prop), open(
-                traj_out + project.name + "__bDNA-" + prop_name + "-" + str(i) + ".p",
+                str(traj_out) + "/" + project.name + "__bDNA-" +
+                prop_name + "-" + str(i) + ".p",
                 "wb"))
         print("write pdbs", project.name)
         write_pdb(u, bDNA, PDBs)
