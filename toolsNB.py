@@ -10,8 +10,8 @@ from statistics import mean
 import ipywidgets as widgets
 
 # TODO: -low get dynamically from dicts
-DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_co", "dict_nicks",
-         "list_skips", "dict_idseq"]
+DICTS = ["Fbp", "DidFid", "DhpsDid", "Fco", "Fnicks",
+         "Dskips", "FidSeq"]
 CATEGORIES = ["co", "co_plus", "ss", "ds", "all", "clean", "nick", "A", "T",
               "G", "C"]
 CO_CATEGORIES = ["single", "double", "end", "all"]
@@ -40,9 +40,9 @@ class DataPrep(object):
             topo[pickle_name] = pickle.load(
                 open(self.path + self.name + "__" + pickle_name + ".p", "rb"))
 
-        self.inv_dict_idid = {v: k for k, v in topo["dict_idid"].items()}
-        self.inv_dict_hpid = {v: k for k, v in topo["dict_hpid"].items()}
-        self.inv_dict_bp = {v: k for k, v in topo["dict_bp"].items()}
+        self.inv_dict_idid = {v: k for k, v in topo["DidFid"].items()}
+        self.inv_dict_hpid = {v: k for k, v in topo["DhpsDid"].items()}
+        self.inv_dict_bp = {v: k for k, v in topo["Fbp"].items()}
 
         return topo
 
@@ -60,20 +60,20 @@ class DataPrep(object):
         id_seq = {}
         for X in ["A", "T", "G", "C"]:
             id_seq[X] = set(resindex for resindex, Y in
-                            self.topo["dict_idseq"].items() if Y == X)
+                            self.topo["FidSeq"].items() if Y == X)
         id_ds = set()
 
-        for wc_id1, wc_id2 in self.topo["dict_bp"].items():
+        for wc_id1, wc_id2 in self.topo["Fbp"].items():
             id_ds.add(wc_id1)
             id_ds.add(wc_id2)
-        id_ss = set(self.topo["dict_idid"].values()) - id_ds
+        id_ss = set(self.topo["DidFid"].values()) - id_ds
 
         id_co_bp = set()
-        id_co = {id_fit for id_fit in self.topo["dict_co"].keys()
+        id_co = {id_fit for id_fit in self.topo["Fco"].keys()
                  if id_fit not in id_ss}
         for resindex in id_co:
             try:
-                id_co_bp.add(self.topo["dict_bp"][resindex])
+                id_co_bp.add(self.topo["Fbp"][resindex])
             except KeyError:
                 id_co_bp.add(self.inv_dict_bp[resindex])
 
@@ -88,8 +88,8 @@ class DataPrep(object):
 
         id_all = id_ss | id_ds | id_co_plus
         id_clean = id_all - (id_co | id_co_plus | id_ss)
-        id_nick = (list(self.topo["dict_nicks"].values()) +
-                   list(self.topo["dict_nicks"].keys()))
+        id_nick = (list(self.topo["Fnicks"].values()) +
+                   list(self.topo["Fnicks"].keys()))
 
         return {"co": id_co, "co_plus": id_co_plus, "ss": id_ss, "ds": id_ds,
                 "all": id_all, "clean": id_clean, "nick": id_nick,
