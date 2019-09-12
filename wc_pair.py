@@ -8,6 +8,21 @@ from MDAnalysis.lib import mdamath
 
 import pickle
 import bpLinker
+import contextlib
+import argparse
+
+from pathlib import Path
+from itertools import chain
+from operator import attrgetter
+from typing import List, Set, Dict, Tuple, Optional
+from collections import namedtuple
+
+@contextlib.contextmanager
+def ignored(*exceptions):
+    try:
+        yield
+    except exceptions:
+        pass
 
 # TODO: -mid- DOC
 # TODO: -mid- move CONSTANTS
@@ -670,52 +685,58 @@ class BDna(object):
         return
 
 
-def print_usage():
-    print("""
-    initializes MDAnalysis universe and compoutes watson scric base pairs.
+def get_description():
+    return """initializes MDAnalysis universe and compoutes watson scric base pairs.
     they are returned as to dictionaries. this process is repeated for each
      Hbond-deviation criterion
     subsequently universe and dicts are stored into a pickle. each deviation
-    criterion is stored in one pickle
-
-    usage: projectname designname frames ####[dev = 0.1] [dev2] [dev3] ...
-
-    return: creates a pickle for each deviation: the pickle contains:
-    (top, trj), wc_pairs, wc_index_pairs
-            the tuple contains the absolute path of the files md-files
-        (universe cannot be pickled), second and third are the two dictionaries
-        """)
+    criterion is stored in one pickle"""
 
 
 def proc_input():
+    parser = argparse.ArgumentParser(
+        description=get_description(),
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument("--folder",
+                        help="input folder",
+                        type=str,
+                        default="./",
+                        )
+    parser.add_argument("--name",
+                        help="name of design and files",
+                        type=str,
+                        required="True",
+                        default=argparse.SUPPRESS,
+                        )
+    parser.add_argument("--frames",
+                        help="number of frames samples",
+                        type=int,
+                        default=2,
+                        )
+    parser.add_argument("--dev",
+                        help="deviation of H-bond",
+                        type=float,
+                        default=0.1,
+                        )
+    args = parser.parse_args()
 
-    if len(sys.argv) < 3:
-        print_usage()
-        exit(0)
-
-    project = sys.argv[1]
-    name = sys.argv[2]
-    cwd = os.getcwd()
-    base = cwd + "/" + project + "/"
-
-    top = base + name + ".psf"
-    trj = base + name + ".dcd"
-    output = base + "analysis/"
-    try:
-        os.mkdir(output)
-    except FileExistsError:
-        pass
-
-    n_frames = int(sys.argv[3])
-
-    dev = []
-    if len(sys.argv) == 4:
-        dev.append(0.1)
-
-    for av in sys.argv[4:]:
-        dev.append(float(av))
-
-    return top, trj, base, name, output, dev, n_frames
+    Project = namedtuple("Project", ["input",
+                                     "output",
+                                     "name",
+                                     "frames",
+                                     "dev"
+                                     ]
+                         )
+    project = Project(input=Path(args.folder),
+                      output=Path(args.folder) / "analysis",
+                      name=args.name,
+                      frames=args.frames,
+                      dev=args.dev,
+                      )
+    with ignored(FileExistsError):
+        os.mkdir(project.output)
+    return project
 
 
 def write_pdb(u, bDNA, PDBs):
@@ -761,29 +782,19 @@ def write_pdb(u, bDNA, PDBs):
 
 
 def main():
-    top, trj, base, name, output, deviations, n_frames = proc_input()
-    print("read ", top, trj, deviations, n_frames)
-    print("output to ", output)
+    project = proc_input()
 
-    # initialize universe and select final frame
-    universe = (top, trj)
-    u = mda.Universe(top, trj)
-
-    frames_step = int(len(u.trajectory) / n_frames)
+    linker = bpLinker.Linker(project)
+    linkage = linker.create_linkage()
+    u = mda.Universe(linkage.universe)
+    frames_step = int(len(u.trajectory) / project.frames)
     frames = list(range(len(u.trajectory)-1, 0, -frames_step))
 
-    linker = bpLinker.Linker(base + name)
-    dict_bp, dict_idid, dict_hpid, _, list_skips = linker.link()
-    dict_co = linker.identify_crossover()
-    dict_nicks = linker.identify_nicks()
-    dict_idseq = linker.dict_FidSeq
-    for dict_name in ["dict_bp", "dict_idid", "dict_hpid", "dict_co",
-                      "dict_nicks", "universe", "list_skips", "dict_idseq"]:
-        pickle.dump(eval(dict_name), open(
-            output + name + "__" + dict_name + ".p", "wb"))
+    for name, link in linkage._asdict().items():
+        pickle.dump(link, open(str(project.output) + "__" + name + ".p", "wb"))
 
     properties = []
-    traj_out = output + "frames/"
+    traj_out = project.output / "frames"
     try:
         os.mkdir(traj_out)
     except FileExistsError:
@@ -793,28 +804,34 @@ def main():
     PDBs = {}
     for pdb_name in [*WC_PROPERTIES, "bp", "qual"]:
         PDBs[pdb_name] = mda.Writer(
-            output + name + "__wc_" + pdb_name + ".pdb", multiframe=True)
+            str(project.output) + "__wc_" + pdb_name + ".pdb", multiframe=True)
     for pdb_name in DH_ATOMS.keys():
         PDBs[pdb_name] = mda.Writer(
-            output + name + "__dh_" + pdb_name + ".pdb", multiframe=True)
+            str(project.output) + "__dh_" + pdb_name + ".pdb", multiframe=True)
 
     # loop over selected frames
     for i, ts in enumerate([u.trajectory[i] for i in frames]):
         print(ts)
-        bDNA = BDna(u, dict_bp, dict_idid, dict_hpid, dict_co, list_skips)
+        bDNA = BDna(u,
+                    linkage.Fbp,
+                    linkage.DidFid,
+                    linkage.DhpsDid,
+                    linkage.Fco,
+                    linkage.Dskips
+                    )
 
         # perform analyis
-        print("eval_wc", name)
+        print("eval_wc", project.name)
         bDNA.eval_wc()
-        print("eval_distances", name)
+        print("eval_distances", project.name)
         bDNA.eval_distances()
-        print("eval_dh", name)
+        print("eval_dh", project.name)
         bDNA.eval_dh()
-        print("eval_co_angles", name)
+        print("eval_co_angles", project.name)
         bDNA.eval_co_angles()
         # ipdb.set_trace()
 
-        print("write pickle", name)
+        print("write pickle", project.name)
         properties.append(bDNA)
         props_tuple = [
             (bDNA.wc_geometry, "wc_geometry"), (bDNA.wc_quality, "wc_quality"),
@@ -822,9 +839,9 @@ def main():
             (bDNA.co_angles, "co_angles")]
         for prop, prop_name in props_tuple:
             pickle.dump((ts, prop), open(
-                traj_out + name + "__bDNA-" + prop_name + "-" + str(i) + ".p",
+                traj_out + project.name + "__bDNA-" + prop_name + "-" + str(i) + ".p",
                 "wb"))
-        print("write pdbs", name)
+        print("write pdbs", project.name)
         write_pdb(u, bDNA, PDBs)
 
     # close PDB files
