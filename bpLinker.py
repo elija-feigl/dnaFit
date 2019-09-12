@@ -247,12 +247,13 @@ class Linker(object):
         self.Fco = None
         self.Dskips = self._get_skips()
         self.Fnicks = None
-        self.FidSeq = self._get_sequence()
+        self.FidSeq = None
 
-    def _get_sequence(self) -> Dict[int, str]:
+    def get_sequence(self) -> Dict[int, str]:
         FidSeq = {res.resindex: res.resname[0]
                   for res in self.fit.u.residues
                   }
+        self.FidSeq = FidSeq
         return FidSeq
 
     def _is_del(self, base) -> bool:
@@ -285,11 +286,13 @@ class Linker(object):
                                          "Fnicks",
                                          "universe",
                                          "Fco",
+                                         "FidSeq",
                                          ]
                              )
         Link = self.link()
         Fco = self.identify_crossover()
         Fnicks = self.identify_nicks()
+        FidSeq = self.get_sequence()
         universe = self.get_universe_tuple()
         return Linkage(Fbp=Link.Fbp,
                        DidFid=Link.DidFid,
@@ -298,6 +301,7 @@ class Linker(object):
                        Dskips=Link.Dskips,
                        Fco=Fco,
                        Fnicks=Fnicks,
+                       FidSeq=FidSeq,
                        universe=universe,
                        )
 
@@ -756,10 +760,9 @@ def main():
 
     if not project.ENmodify:
         print("output to ", project.output)
-        for name, link in linkage._asdict().items():
-            pickle.dump(link, open(
-                str(project.output) + "/" +
-                project.name + "__" + name + ".p", "wb"))
+        for n, link in linkage._asdict().items():
+            pickle_name = project.output / "{}__{}.p".format(project.name, n)
+            pickle.dump(link, open(pickle_name, "wb"))
     else:
         print("modifying extrabonds")
         en = ElaticNetwortModifier(linker)
