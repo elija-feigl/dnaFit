@@ -88,8 +88,8 @@ class ElaticNetwortModifier(object):
             raise FileNotFoundError
         return network
 
-    def _categorize_bond(self, atom1, atom2, r0):  # TODO: -mid- improve
-        def categorize_logic(atom1, atom2, r0):
+    def _categorize_bond(self, atom1, atom2, r0):
+        def categorize_logic(atom1, atom2, r0):  # TODO: -low-improve: default?
             is_long = False
             is_neighbor = False
             is_crossstack = False
@@ -117,10 +117,10 @@ class ElaticNetwortModifier(object):
                                res1_bp == Fnicks.get(res2_bp, None) or
                                res1 == Fnicks.get(res2_bp, None) or
                                res2 == Fnicks.get(res1_bp, None)
-                               )  # TODO: -mid- improve
+                               )
                     is_co = (res1 in self.linker.Fco or
                              res2 in self.linker.Fco
-                             )  # TODO: -mid- improve
+                             )
                 else:
                     is_ssDNA = True
 
