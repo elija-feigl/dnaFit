@@ -44,17 +44,17 @@ class ENBond(object):
     """
     __slots__ = ["a", "b", "k", "r0", "type"]
 
-    def __init__(self, a, b, k, r0, bond_type):
+    def __init__(self, a: int, b: int, k: float, r0: float, bond_type: List[int]):
         self.a = a
         self.b = b
         self.k = k
         self.r0 = r0
         self.type = bond_type
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "bond {} - {}".format(self.a, self.b)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "bond {b.a} {b.b} {b.k} {b.r0}".format(b=self)
 
 
@@ -72,13 +72,13 @@ class ElaticNetwortModifier(object):
                                  ]
                        )
 
-    def __init__(self, Linker):
+    def __init__(self, Linker: object):
         self.linker = Linker
         self.u = Linker.fit.u
         self.Fbp_full = {**Linker.Fbp, **{v: k for k, v in Linker.Fbp.items()}}
         self.network = self._get_network()
 
-    def _get_network(self):
+    def _get_network(self) -> set:
         infile = self.linker.project.input / self.linker.project.name
         exb_filepath = infile.with_suffix(".exb")
         if exb_filepath.exists():
@@ -88,8 +88,9 @@ class ElaticNetwortModifier(object):
             raise FileNotFoundError
         return network
 
-    def _categorize_bond(self, atom1, atom2, r0):
-        def categorize_logic(atom1, atom2, r0):  # TODO: -low-improve: default?
+    def _categorize_bond(self, atom1: int, atom2: int, r0: float) -> set:
+        def categorize_logic(atom1: int, atom2: int, r0: float) -> Tuple(float):
+            # TODO: -low-improve: default?
             is_long = False
             is_neighbor = False
             is_crossstack = False
@@ -157,7 +158,7 @@ class ElaticNetwortModifier(object):
 
         return bond_type
 
-    def _process_exb(self, exb_file):
+    def _process_exb(self, exb_file: str) -> set:
         """ create elastic network from file
         -------
          Returns
@@ -180,7 +181,7 @@ class ElaticNetwortModifier(object):
                 raise UnexpectedCaseError
         return network
 
-    def _change_modify_logic(self):
+    def _change_modify_logic(self) -> None:
         logic_string = self.linker.project.EN
         self.modify_logic = self.Logic(long=bool(logic_string[0]),
                                        strand=bool(logic_string[1]),
@@ -193,7 +194,7 @@ class ElaticNetwortModifier(object):
                                        )
         return
 
-    def _modify_en(self):
+    def _modify_en(self) -> set:
         """ create reduced elastic network according to boolean flags
         -------
          Returns
@@ -211,7 +212,7 @@ class ElaticNetwortModifier(object):
                        }
         return mod_network
 
-    def write_en(self):
+    def write_en(self) -> None:
         """ write the  modified (by logic) network to file
         """
         mod_network = self._modify_en()
@@ -223,7 +224,7 @@ class ElaticNetwortModifier(object):
                 mod_exb_file.write("{}\n".format(bond))
         return
 
-    def _compute_dihedral(self):
+    def _compute_dihedral(self) -> None:
         """ compute restraints corresponding to backbone dihedral
         -------
          Returns
@@ -237,7 +238,7 @@ class Linker(object):
     """ Linker class
     """
     # TODO: move categorize to linker?
-    def __init__(self, project):
+    def __init__(self, project: tuple):
         self.project = project
         self.fit = Fit(project)
         self.design = Design(project)
@@ -256,7 +257,7 @@ class Linker(object):
         self.FidSeq = FidSeq
         return FidSeq
 
-    def _is_del(self, base) -> bool:
+    def _is_del(self, base: object) -> bool:
         return base.num_deletions != 0
 
     def _get_skips(self) -> List[Tuple[int, int, bool]]:
@@ -277,7 +278,7 @@ class Linker(object):
                   ]
         return Dskips
 
-    def create_linkage(self):
+    def create_linkage(self) -> tuple:
         Linkage = namedtuple("Linkage", ["Fbp",
                                          "DidFid",
                                          "DhpsDid",
@@ -381,7 +382,7 @@ class Linker(object):
             dict Fbp
                 fit-id (int) -> fit-id (int)
         """
-        def Fid(Did):
+        def Fid(Did: int) -> int:
             return self.DidFid[Did]
 
         return {Fid(base.id): Fid(base.across.id)
@@ -389,7 +390,7 @@ class Linker(object):
                 if base.across is not None
                 }
 
-    def link(self):
+    def link(self) -> tuple:
         """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping
             of every base design-id to fit-id as well as the basepair mapping.
             basepairs are mapped from scaffold to staple, unique (invertable).
@@ -428,14 +429,14 @@ class Linker(object):
                     Dskips=self.Dskips,
                     )
 
-    def _get_nextInHelix(self, h, p, is_scaf, i):
+    def _get_nextInHelix(self, h: int, p: int, is_scaf: bool, i: int) -> Tuple[int, int, bool]:
         Dhps = (h, p+i, is_scaf)
         while Dhps in self.Dskips:
             i += np.sign(i)
             Dhps = (h, p+i, is_scaf)
         return Dhps
 
-    def identify_crossover(self) -> Dict:
+    def identify_crossover(self) -> dict:
         """ for every base id that is involved in a crossover
             updates linker attribute of crossovers and returns it
         -------
@@ -489,7 +490,7 @@ class Linker(object):
                 co.pop("base")
             return
 
-        def get_co_leg_id(base, direct: str) -> int:
+        def get_co_leg_id(base: object, direct: str) -> int:
             """determine leg base base and up/down (def: 2 bases away)"""
             l = base.down.p if direct == "up" else base.up.p
             i = (l - base.p) * 2.
@@ -497,7 +498,7 @@ class Linker(object):
             leg_Did = self.DhpsDid[Dhps]
             return self.DidFid[leg_Did]
 
-        def get_next(base, direct: str):
+        def get_next(base: object, direct: str) -> object:
             n = (base.up if direct == "up" else base.down)
             if n is None:
                 return None
@@ -510,7 +511,7 @@ class Linker(object):
                     n_position = (n.h, n.p, n.is_scaf)
                 return n
 
-        def is_co(base, neighbor, direct: str) -> bool:
+        def is_co(base: object, neighbor: object, direct: str) -> bool:
             if neighbor is None:
                 return False
             else:
@@ -518,7 +519,7 @@ class Linker(object):
                     neighbor = get_next(neighbor, direct)
                 return neighbor.h != base.h
 
-        def get_co(base, neighbor, direct: str, run_id: int) -> (Dict, int):
+        def get_co(base: object, neighbor: object, direct: str, run_id: int) -> (dict, int):
             co_id = self.DidFid[neighbor.id]
             leg_id = get_co_leg_id(base, direct)
             Dhps = (base.h, base.p, base.is_scaf)
@@ -562,7 +563,7 @@ class Linker(object):
             dict self.Fnicks
                 fit-id (int) -> fit_id (int)
         """
-        def is_nick(candidate, base) -> bool:
+        def is_nick(candidate: object, base: object) -> bool:
             is_onhelix = (candidate.h == base.h)
             is_neighbor = (abs(base.p - candidate.p) <= 2)  # skip = 2
             is_base = (candidate is base)
@@ -599,12 +600,12 @@ class Linker(object):
 
 class Fit(object):
 
-    def __init__(self, project):
+    def __init__(self, project: tuple):
         self.infile = project.input / project.name
         self.u = self._get_universe()
         self.scaffold, self.staples = self._split_strands()
 
-    def _get_universe(self):
+    def _get_universe(self) -> object:
         top = self.infile.with_suffix(".psf")
         trj = self.infile.with_suffix(".dcd")
         # TODO: -mid- if pdb, try invoke vmd animate write dcd
@@ -614,7 +615,7 @@ class Fit(object):
             raise FileNotFoundError
         return u
 
-    def _split_strands(self):
+    def _split_strands(self) -> (object, object):
         # TODO: -low- multiscaffold
         strands = self.u.segments
         scaffold = max(strands, key=attrgetter("residues.n_residues"))
@@ -625,7 +626,7 @@ class Fit(object):
 
 class Design(object):
 
-    def __init__(self, project):
+    def __init__(self, project: tuple):
         self.infile = project.input / project.name
         self.design = self._get_design()
         self.strands = self.design.strands
@@ -635,17 +636,17 @@ class Design(object):
         self.helixorder = self._create_helix_order()
         self.stapleorder = self._create_staple_order()
 
-    def _is_del(self, base) -> bool:
+    def _is_del(self, base: object) -> bool:
         return base.num_deletions != 0
 
-    def _clean_scaffold(self, strands):
+    def _clean_scaffold(self, strands: List[object]) -> List[object]:
         # TODO: -low- multiscaffold
         # TODO: -low- insertions
         scaffold = [s.tour for s in strands if s.is_scaffold][0]
         scaffold_clean = [b for b in scaffold if not self._is_del(b)]
         return scaffold_clean
 
-    def _clean_staple(self, strands):
+    def _clean_staple(self, strands: List[object]) -> List[object]:
         # TODO: -low- insertions
         staples = [s.tour for s in strands if not s.is_scaffold]
         staples_clean = [[b for b in s if not self._is_del(b)]
@@ -653,7 +654,7 @@ class Design(object):
                          ]
         return staples_clean
 
-    def _get_design(self):
+    def _get_design(self) -> object:
         fil = self.infile.with_suffix(".json")
         seq = self.infile.with_suffix(".seq")
         converter = Converter()
@@ -700,14 +701,14 @@ class Design(object):
         return stapleorder
 
 
-def get_description():
+def get_description() -> str:
     return """links structural information of the cadnano designfile
               [design.json] to fitted atomic model [design.psf, design.dcd].
               stores dictionaries as pickles containg mapping for motifs,
               residue-id, lattice position and base-pairing."""
 
 
-def proc_input():
+def proc_input() -> tuple:
     parser = argparse.ArgumentParser(
         description=get_description(),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
