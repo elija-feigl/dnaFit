@@ -36,41 +36,62 @@ class ENBond(object):
         -------
          Input
             -------
-                a (int): atomnumber 1
-                b (int): atomnumber 2
+                a1 (int): atomnumber 1
+                a2 (int): atomnumber 2
                 k (int): force konstant []
                 r0 (int): equilibrium distance [A]
                 type (Set[str]): keywords that indicate topology
     """
-    __slots__ = ["a", "b", "k", "r0", "type"]
+    __slots__ = ["a1", "a2", "k", "r0", "type"]
 
-    def __init__(self, a: int, b: int, k: float, r0: float, bond_type: List[int]):
-        self.a = a
-        self.b = b
+    def __init__(self, a1: int, a2: int, k: float, r0: float, btype: List[int]):
+        self.a1 = a1
+        self.a2 = a2
         self.k = k
         self.r0 = r0
-        self.type = bond_type
+        self.type = btype
 
     def __repr__(self) -> str:
-        return "bond {} - {}".format(self.a, self.b)
+        return "bond {} - {}".format(self.a1, self.a2)
 
     def __str__(self) -> str:
-        return "bond {b.a} {b.b} {b.k} {b.r0}".format(b=self)
+        return "bond {b.a1} {b.a2} {b.k} {b.r0}".format(b=self)
 
 
 class ElaticNetwortModifier(object):
     """ Elatic Networt Modifier class
     """
-    Logic = namedtuple("Logic", ["long",
-                                 "strand",
-                                 "Hbond",
-                                 "crossstack",
-                                 "nick",
-                                 "co",
-                                 "ssDNA",
-                                 "dihedral",
-                                 ]
-                       )
+    class Logic(object):
+        """ Logic base class for elastic networks
+        """
+        __slots__ = ["long",
+                     "strand",
+                     "Hbond",
+                     "crossstack",
+                     "nick",
+                     "co",
+                     "ssDNA",
+                     "dihedral",
+                     ]
+
+        def __init__(self,
+                     long=False,
+                     strand=False,
+                     Hbond=False,
+                     crossstack=False,
+                     nick=False,
+                     co=False,
+                     ssDNA=False,
+                     dihedral=False,
+                     ):
+            self.long = long
+            self.strand = strand
+            self.Hbond = Hbond
+            self.crossstack = crossstack
+            self.nick = nick
+            self.co = co
+            self.ssDNA = ssDNA
+            self.dihedral = dihedral
 
     def __init__(self, Linker: object):
         self.linker = Linker
@@ -88,55 +109,41 @@ class ElaticNetwortModifier(object):
             raise FileNotFoundError
         return network
 
-    def _categorize_bond(self, atom1: int, atom2: int, r0: float) -> set:
-        def categorize_logic(atom1: int, atom2: int, r0: float) -> Tuple(float):
-            # TODO: -low-improve: default?
-            is_long = False
-            is_neighbor = False
-            is_crossstack = False
-            is_Hbond = False
-            is_nick = False
-            is_co = False
-            is_ssDNA = False
-
+    def _categorize_bond(self, a1: int, a2: int, r0: float) -> set:
+        def categorize_logic(a1: int, a2: int, r0: float) -> tuple:
+            bond_logic = self.Logic()
             if r0 > 10.:
-                is_long = True
+                bond_logic.long = True
             else:
-                res1 = self.u.atoms[atom1].resindex
-                res2 = self.u.atoms[atom2].resindex
-                res1_bp = self.Fbp_full.get(res1, None)
-                res2_bp = self.Fbp_full.get(res2, None)
-                is_neighbor = (abs(res1-res2) == 1)
+                base = [self.u.atoms[b].resindex for b in [a1, a2]]
+                pair = [self.Fbp_full.get(b, None) for b in base]
+                res = base + pair
 
-                if res1_bp is not None and res2_bp is not None:
-                    Fnicks = self.linker.Fnicks
-                    is_crossstack = (abs(res1_bp-res2) == 1 or
-                                     abs(res2_bp-res1)
-                                     )
-                    is_Hbond = (res1_bp == res2)
-                    is_nick = (res1 == Fnicks.get(res2, None) or
-                               res1_bp == Fnicks.get(res2_bp, None) or
-                               res1 == Fnicks.get(res2_bp, None) or
-                               res2 == Fnicks.get(res1_bp, None)
-                               )
-                    is_co = (res1 in self.linker.Fco or
-                             res2 in self.linker.Fco
-                             )
+                is_neighbor = (abs(base[0]-base[1]) == 1)
+                bond_logic.crossstack = True if is_neighbor else False
+
+                is_ddDNA = all(bp is not None for bp in pair)
+                if is_ddDNA:
+                    is_crossstack = any(abs(b-p) == 1
+                                        for (b, p) in zip(base, reversed(pair))
+                                        )
+                    bond_logic.crossstack = True if is_crossstack else False
+                    is_Hbond = all(b == p
+                                   for (b, p) in zip(base, reversed(pair))
+                                   )
+                    bond_logic.Hbond = True if is_Hbond else False
+                    is_nick = any(resA == self.linker.Fnicks.get(resB, None)
+                                  for resA in res
+                                  for resB in res
+                                  )
+                    bond_logic.nick = True if is_nick else False
+                    is_co = any(b in self.linker.Fco for b in base)
+                    bond_logic.co = True if is_co else False
                 else:
-                    is_ssDNA = True
-
-            bond_logic = self.Logic(long=is_long,
-                                    strand=is_neighbor,
-                                    Hbond=is_Hbond,
-                                    crossstack=is_crossstack,
-                                    nick=is_nick,
-                                    co=is_co,
-                                    ssDNA=is_ssDNA,
-                                    dihedral=False,
-                                    )
+                    bond_logic.ssDNA = True
             return bond_logic
 
-        bond_logic = categorize_logic(atom1, atom2, r0)
+        bond_logic = categorize_logic(a1=a1, a2=a2, r0=r0)
         bond_type = set()
         if bond_logic.long:
             bond_type.add("long")
@@ -169,12 +176,12 @@ class ElaticNetwortModifier(object):
         for line in exb_file:
             split_line = line.split()
             if split_line[0] == "bond":
-                a = int(split_line[1])
-                b = int(split_line[2])
+                a1 = int(split_line[1])
+                a2 = int(split_line[2])
                 k = float(split_line[3])
                 r0 = float(split_line[4])
-                bond_type = self._categorize_bond(atom1=a, atom2=b, r0=r0)
-                network.add(ENBond(a=a, b=b, k=k, r0=r0, bond_type=bond_type))
+                bond_type = self._categorize_bond(a1=a1, a2=a2, r0=r0)
+                network.add(ENBond(a1=a1, a2=a2, k=k, r0=r0, btype=bond_type))
             elif split_line[0] == "dihedral":
                 raise NotImplementedError
             else:
@@ -429,7 +436,8 @@ class Linker(object):
                     Dskips=self.Dskips,
                     )
 
-    def _get_nextInHelix(self, h: int, p: int, is_scaf: bool, i: int) -> Tuple[int, int, bool]:
+    def _get_nextInHelix(self, h: int, p: int, is_scaf: bool, i: int
+                         ) -> Tuple[int, int, bool]:
         Dhps = (h, p+i, is_scaf)
         while Dhps in self.Dskips:
             i += np.sign(i)
@@ -519,7 +527,8 @@ class Linker(object):
                     neighbor = get_next(neighbor, direct)
                 return neighbor.h != base.h
 
-        def get_co(base: object, neighbor: object, direct: str, run_id: int) -> (dict, int):
+        def get_co(base: object, neighbor: object, direct: str, run_id: int
+                   ) -> (dict, int):
             co_id = self.DidFid[neighbor.id]
             leg_id = get_co_leg_id(base, direct)
             Dhps = (base.h, base.p, base.is_scaf)
