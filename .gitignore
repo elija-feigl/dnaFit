@@ -1,3 +1,4 @@
+*.json
 pointer
 test*
 temp
@@ -8,3 +9,4 @@ temp
 *.ipynb*
 *.p
 *.pdb
+*mypy*
