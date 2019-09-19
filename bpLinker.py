@@ -8,7 +8,7 @@ import pickle
 import contextlib
 import argparse
 import attr
-import nanodesign
+import nanodesign as nd
 
 from pathlib import Path
 from itertools import chain
@@ -77,7 +77,7 @@ class Linker(object):
         self.FidSeq = FidSeq
         return FidSeq
 
-    def _is_del(self, base: "nanodesign.base") -> bool:
+    def _is_del(self, base: "nd.base") -> bool:
         return base.num_deletions != 0
 
     def _get_skips(self) -> List[Tuple[int, int, bool]]:
@@ -293,7 +293,7 @@ class Linker(object):
                 co.pop("base")
             return
 
-        def get_co_leg_id(base: "nanodesign.base", direct: str) -> int:
+        def get_co_leg_id(base: "nd.base", direct: str) -> int:
             """determine leg base base and up/down (def: 2 bases away)"""
             l = base.down.p if direct == "up" else base.up.p
             i = (l - base.p) * 2.
@@ -301,7 +301,7 @@ class Linker(object):
             leg_Did = self.DhpsDid[Dhps]
             return self.DidFid[leg_Did]
 
-        def get_next(base: "nanodesign.base", direct: str) -> "nanodesign.base":
+        def get_next(base: "nd.base", direct: str) -> "nd.base":
             n = (base.up if direct == "up" else base.down)
             if n is None:
                 return None
@@ -314,7 +314,7 @@ class Linker(object):
                     n_position = (n.h, n.p, n.is_scaf)
                 return n
 
-        def is_co(base: "nanodesign.base", neighbor: "nanodesign.base", direct: str) -> bool:
+        def is_co(base: "nd.base", neighbor: "nd.base", direct: str) -> bool:
             if neighbor is None:
                 return False
             else:
@@ -322,7 +322,10 @@ class Linker(object):
                     neighbor = get_next(neighbor, direct)
                 return neighbor.h != base.h
 
-        def get_co(base: "nanodesign.base", neighbor: "nanodesign.base", direct: str, run_id: int
+        def get_co(base: "nd.base",
+                   neighbor: "nd.base",
+                   direct: str,
+                   run_id: int
                    ) -> Tuple[dict, int]:
             co_id = self.DidFid[neighbor.id]
             leg_id = get_co_leg_id(base, direct)
@@ -367,7 +370,7 @@ class Linker(object):
             dict self.Fnicks
                 fit-id (int) -> fit_id (int)
         """
-        def is_nick(candidate: "nanodesign.base", base: "nanodesign.base") -> bool:
+        def is_nick(candidate: "nd.base", base: "nd.base") -> bool:
             is_onhelix = (candidate.h == base.h)
             is_neighbor = (abs(base.p - candidate.p) <= 2)  # skip = 2
             is_base = (candidate is base)
@@ -602,7 +605,7 @@ class Fit(object):
         self.u = self._get_universe()
         self.scaffold, self.staples = self._split_strands()
 
-    def _get_universe(self) -> "nanodesign.universe":
+    def _get_universe(self) -> "nd.universe":
         top = self.infile.with_suffix(".psf")
         trj = self.infile.with_suffix(".dcd")
         # TODO: -mid- if pdb, try invoke vmd animate write dcd
@@ -612,7 +615,7 @@ class Fit(object):
             raise FileNotFoundError
         return u
 
-    def _split_strands(self) -> Tuple["nanodesign.segment", List["nanodesign.segment"]]:
+    def _split_strands(self) -> Tuple["nd.segment", List["nd.segment"]]:
         # TODO: -low- multiscaffold
         strands = self.u.segments
         scaffold = max(strands, key=attrgetter("residues.n_residues"))
@@ -635,17 +638,17 @@ class Design(object):
         self.helixorder = self._create_helix_order()
         self.stapleorder = self._create_staple_order()
 
-    def _is_del(self, base: "nanodesign.base") -> bool:
+    def _is_del(self, base: "nd.base") -> bool:
         return base.num_deletions != 0
 
-    def _clean_scaffold(self, strands: List["nanodesign.base"]) -> List["nanodesign.base"]:
+    def _clean_scaffold(self, strands: List["nd.base"]) -> List["nd.base"]:
         # TODO: -low- multiscaffold
         # TODO: -low- insertions
         scaffold = [s.tour for s in strands if s.is_scaffold][0]
         scaffold_clean = [b for b in scaffold if not self._is_del(b)]
         return scaffold_clean
 
-    def _clean_staple(self, strands: List["nanodesign.base"]) -> List[List["nanodesign.base"]]:
+    def _clean_staple(self, strands: List["nd.base"]) -> List[List["nd.base"]]:
         # TODO: -low- insertions
         staples = [s.tour for s in strands if not s.is_scaffold]
         staples_clean = [[b for b in s if not self._is_del(b)]
@@ -705,6 +708,7 @@ def get_description() -> str:
               [design.json] to fitted atomic model [design.psf, design.dcd].
               stores dictionaries as pickles containg mapping for motifs,
               residue-id, lattice position and base-pairing."""
+
 
 def proc_input() -> Project:
     parser = argparse.ArgumentParser(
