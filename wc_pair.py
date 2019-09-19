@@ -794,7 +794,7 @@ def main():
         frames_step = int(len(u.trajectory) / project.frames)
         frames = list(range(len(u.trajectory)-1, 0, -frames_step))
 
-    for name, link in linkage._asdict().items():
+    for name, link in vars(linkage).items():
         pickle_name = project.output / "{}__{}.p".format(project.name, name)
         pickle.dump(link, open(pickle_name, "wb"))
 
