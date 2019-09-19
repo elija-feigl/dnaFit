@@ -40,166 +40,67 @@ class Project(object):
     EN: str = attr.ib()
 
 
+@attr.s(auto_attribs=True)
+class Linkage(object):
+    Fbp: Dict[int, int] = {}
+    DidFid: Dict[int, int] = {}
+    DhpsDid: Dict[Tuple[int, int, bool], int] = {}
+    Dcolor: Dict[int, int] = {}
+    Dskips: Set[Tuple[int, int, bool]] = set()
+    Fnicks: Dict[int, int] = {}
+    FidSeq: Dict[int, str] = {}
+    Fco: Dict[int, Any] = {}
+    universe: Tuple[str, str] = ("", "")
+
+
 @attr.s
 class Linker(object):
     """ Linker class
     """
-    @attr.s(slots=True)
-    class Linkage(object):
-        Fbp: Dict[int, int] = attr.ib(factory=dict)
-        DidFid: Dict[int, int] = attr.ib(factory=dict)
-        DhpsDid: Dict[Tuple[int, int, bool], int] = attr.ib(factory=dict)
-        Dcolor: Dict[int, int] = attr.ib(factory=dict)
-        Dskips: List[Tuple[int, int, bool]] = attr.ib(factory=list)
-        Fnicks: Dict[int, int] = attr.ib(factory=dict)
-        FidSeq: Dict[int, str] = attr.ib(factory=dict)
-        Fco:  Dict[int, Any] = attr.ib(factory=dict)
-        universe: tuple = attr.ib(factory=tuple)
-
     # TODO: move categorize to linker?
     project: Project = attr.ib()
-    Fbp: Dict[int, int] = attr.ib(factory=dict)
-    DidFid: Dict[int, int] = attr.ib(factory=dict)
-    DhpsDid: Dict[Tuple[int, int, bool], int] = attr.ib(factory=dict)
-    Fnicks: Dict[int, int] = attr.ib(factory=list)
-    FidSeq: Dict[int, str] = attr.ib(factory=dict)
-    Fco:  Dict[int, Any] = attr.ib(factory=dict)
+    Fbp: Dict[int, int] = {}
+    DidFid: Dict[int, int] = {}
+    DhpsDid: Dict[Tuple[int, int, bool], int] = {}
+    Fnicks: Dict[int, int] = {}
+    FidSeq: Dict[int, str] = {}
+    Dskips: Set[Tuple[int, int, bool]] = set()
+    Fco:  Dict[int, Any] = {}
 
     def __attrs_post_init__(self):
         self.fit = Fit(self.project)
         self.design = Design(self.project)
-        self.Dskips = self._get_skips()
+        self._eval_skips()
+        self._eval_sequence()
 
-    def get_sequence(self) -> Dict[int, str]:
-        FidSeq = {res.resindex: res.resname[0]
-                  for res in self.fit.u.residues
-                  }
-        self.FidSeq = FidSeq
-        return FidSeq
+    def _eval_sequence(self) -> Dict[int, str]:
+        self.FidSeq = {res.resindex: res.resname[0]
+                       for res in self.fit.u.residues
+                       }
+        return self.FidSeq
 
-    def _is_del(self, base: "nd.base") -> bool:
-        return base.num_deletions != 0
-
-    def _get_skips(self) -> List[Tuple[int, int, bool]]:
+    def _eval_skips(self) -> Set[Tuple[int, int, bool]]:
         """ collect position of skips in design
         -------
             Returns
             -------
-            list Dskips
+            set Dskips
                 (base.h, base.p, base.is_scaf) of all skips
         """
         design_allbases = [base
                            for strand in self.design.strands
                            for base in strand.tour
                            ]
-        Dskips = [(base.h, base.p, base.is_scaf)
-                  for base in design_allbases
-                  if self._is_del(base)
-                  ]
-        return Dskips
+        self.Dskips = set((base.h, base.p, base.is_scaf)
+                          for base in design_allbases
+                          if self._is_del(base)
+                          )
+        return self.Dskips
+
+    def _is_del(self, base: "nd.base") -> bool:
+        return base.num_deletions != 0
 
     def create_linkage(self) -> Linkage:
-        Link = self.link()
-        Fco = self.identify_crossover()
-        Fnicks = self.identify_nicks()
-        FidSeq = self.get_sequence()
-        universe = self.get_universe_tuple()
-        return self.Linkage(Fbp=Link.Fbp,
-                            DidFid=Link.DidFid,
-                            DhpsDid=Link.DhpsDid,
-                            Dcolor=Link.Dcolor,
-                            Dskips=Link.Dskips,
-                            Fco=Fco,
-                            Fnicks=Fnicks,
-                            FidSeq=FidSeq,
-                            universe=universe,
-                            )
-
-    def _link_scaffold(self) -> Tuple[Dict[int, int],
-                                      Dict[Tuple[int, int, bool], int],
-                                      ]:
-        """ collect position in scaffold (0-x) by comparing to index in list
-            of scaffold_design positions
-        -------
-            Returns
-            -------
-            dict DidFid
-                design-id (int) -> fit-id (int)
-            dict DhpsDid
-                helix-number (int), base-position (int), is_scaffold (bool)
-                -> design-id (int)
-        """
-        Dscaffold = self.design.scaffold
-        Did = [base.id for base in Dscaffold]
-        Dhp = [(base.h, base.p, True) for base in Dscaffold]
-        Fid_local = [Did.index(base.id) for base in Dscaffold]
-        Fid_global = self.fit.scaffold.residues[Fid_local].resindices
-
-        DidFid = dict(zip(Did, Fid_global))
-        DhpsDid = dict(zip(Dhp, Did))
-        return DidFid, DhpsDid
-
-    def _link_staples(self) -> Tuple[Dict[int, int],
-                                     Dict[Tuple[int, int, bool], int],
-                                     Dict[int, int],
-                                     ]:
-        """same procedure as scaffold for each
-        -------
-         Returns
-            -------
-            dict DidFid
-                design-id (int) -> fit-id (int)
-            dict DhpsDid
-                helix-number (int), base-position (int), is_scaffold (bool)
-                -> design-id (int)
-            dict color
-                fit-segment-id (int) -> color (hex?)
-        """
-        def get_resid(segindex: int, resindex_local: int) -> int:
-            return self.fit.staples[segindex].residues[resindex_local].resindex
-
-        DidFid: Dict[int, int] = {}
-        DhpsDid: Dict[Tuple[int, int, bool], int] = {}
-        color: Dict[int, int] = {}
-
-        for i, staple in enumerate(self.design.staples):
-            seg_id = self.design.stapleorder[i]
-
-            Did = [base.id for base in staple]
-            Dhp = [(base.h, base.p, False) for base in staple]
-
-            Fid_local = [Did.index(base.id)for base in staple]
-            Fid_global = [get_resid(seg_id, resid) for resid in Fid_local]
-
-            icolor = self.design.design.strands[staple[0].strand].icolor
-            segidxforcolor = self.fit.staples[seg_id].segindex
-            color[segidxforcolor] = icolor
-
-            DidFid_add = dict(zip(Did, Fid_global))
-            DhpsDid_add = dict(zip(Dhp, Did))
-            DidFid = {**DidFid, **DidFid_add}
-            DhpsDid = {**DhpsDid, **DhpsDid_add}
-
-        return DidFid, DhpsDid, color
-
-    def _link_bp(self) -> Dict[int, int]:
-        """ link basepairs by mapping indices according to json (cadnano).
-            basepairs are mapped from scaffold to staple, unique (invertable).
-        -------
-         Returns
-            -------
-            dict Fbp
-                fit-id (int) -> fit-id (int)
-        """
-        def Fid(Did: int) -> int:
-            return self.DidFid[Did]
-
-        return {Fid(base.id): Fid(base.across.id)
-                for base in self.design.scaffold
-                if base.across is not None
-                }
-
-    def link(self) -> Linkage:
         """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping
             of every base design-id to fit-id as well as the basepair mapping.
             basepairs are mapped from scaffold to staple, unique (invertable).
@@ -218,18 +119,118 @@ class Linker(object):
             dict self.color
                 fit-segment-id (int) -> color (hex?)
         """
-        DidFid_sc, DhpsDid_sc = self._link_scaffold()
-        DidFid_st, DhpsDid_st, self.Dcolor = self._link_staples()
+
+        self._link()
+        self._identify_bp()
+        self._identify_crossover()
+        self._identify_nicks()
+        universe = self._get_universe_tuple()
+
+        return Linkage(Fbp=self.Fbp,
+                       DidFid=self.DidFid,
+                       DhpsDid=self.DhpsDid,
+                       Dcolor=self.Dcolor,
+                       Dskips=self.Dskips,
+                       Fco=self.Fco,
+                       Fnicks=self.Fnicks,
+                       FidSeq=self.FidSeq,
+                       universe=universe,
+                       )
+
+    def _link(self) -> Tuple[Dict[int, int],
+                             Dict[Tuple[int, int, bool], int],
+                             ]:
+        def link_scaffold() -> Tuple[Dict[int, int],
+                                     Dict[Tuple[int, int, bool], int],
+                                     ]:
+            """ collect position in scaffold (0-x) by comparing index in list
+                of scaffold_design positions
+            -------
+                Returns
+                -------
+                dict DidFid
+                    design-id (int) -> fit-id (int)
+                dict DhpsDid
+                    helix-number (int), base-position (int), is_scaffold (bool)
+                    -> design-id (int)
+            """
+            Dscaffold = self.design.scaffold
+            Did = [base.id for base in Dscaffold]
+            Dhp = [(base.h, base.p, True) for base in Dscaffold]
+            Fid_local = [Did.index(base.id) for base in Dscaffold]
+            Fid_global = self.fit.scaffold.residues[Fid_local].resindices
+
+            DidFid = dict(zip(Did, Fid_global))
+            DhpsDid = dict(zip(Dhp, Did))
+            return (DidFid, DhpsDid)
+
+        def link_staples() -> Tuple[Dict[int, int],
+                                        Dict[Tuple[int, int, bool], int],
+                                        Dict[int, int],
+                                        ]:
+            """same procedure as scaffold for each
+            -------
+            Returns
+                -------
+                dict DidFid
+                    design-id (int) -> fit-id (int)
+                dict DhpsDid
+                    helix-number (int), base-position (int), is_scaffold (bool)
+                    -> design-id (int)
+                dict color
+                    fit-segment-id (int) -> color (hex?)
+            """
+            def get_resid(segindex: int, resindex_local: int) -> int:
+                return self.fit.staples[segindex].residues[resindex_local].resindex
+
+            DidFid: Dict[int, int] = {}
+            DhpsDid: Dict[Tuple[int, int, bool], int] = {}
+            color: Dict[int, int] = {}
+
+            for i, staple in enumerate(self.design.staples):
+                seg_id = self.design.stapleorder[i]
+
+                Did = [base.id for base in staple]
+                Dhp = [(base.h, base.p, False) for base in staple]
+
+                Fid_local = [Did.index(base.id)for base in staple]
+                Fid_global = [get_resid(seg_id, resid) for resid in Fid_local]
+
+                icolor = self.design.design.strands[staple[0].strand].icolor
+                segidxforcolor = self.fit.staples[seg_id].segindex
+                color[segidxforcolor] = icolor
+
+                DidFid_add = dict(zip(Did, Fid_global))
+                DhpsDid_add = dict(zip(Dhp, Did))
+                DidFid = {**DidFid, **DidFid_add}
+                DhpsDid = {**DhpsDid, **DhpsDid_add}
+
+            return (DidFid, DhpsDid, color)
+
+        DidFid_sc, DhpsDid_sc = link_scaffold()
+        DidFid_st, DhpsDid_st, self.Dcolor = link_staples()
 
         self.DidFid = {**DidFid_sc, **DidFid_st}
         self.DhpsDid = {**DhpsDid_sc, **DhpsDid_st}
-        self.Fbp = self._link_bp()
-        return self.Linkage(Fbp=self.Fbp,
-                            DidFid=self.DidFid,
-                            DhpsDid=self.DhpsDid,
-                            Dcolor=self.Dcolor,
-                            Dskips=self.Dskips,
-                            )
+        return (self.DidFid, self.DhpsDid)
+
+    def _identify_bp(self) -> Dict[int, int]:
+        """ link basepairs by mapping indices according to json (cadnano).
+            basepairs are mapped from scaffold to staple, unique (invertable).
+        -------
+         Returns
+            -------
+            dict Fbp
+                fit-id (int) -> fit-id (int)
+        """
+        def Fid(Did: int) -> int:
+            return self.DidFid[Did]
+
+        self.Fbp = {Fid(base.id): Fid(base.across.id)
+                    for base in self.design.scaffold
+                    if base.across is not None
+                    }
+        return self.Fbp
 
     def _get_nextInHelix(self, h: int, p: int, is_scaf: bool, i: int
                          ) -> Tuple[int, int, bool]:
@@ -239,7 +240,7 @@ class Linker(object):
             Dhps = (h, p+i, is_scaf)
         return Dhps
 
-    def identify_crossover(self) -> Dict[int, Any]:
+    def _identify_crossover(self) -> Dict[int, Any]:
         """ for every base id that is involved in a crossover
             updates linker attribute of crossovers and returns it
         -------
@@ -349,7 +350,6 @@ class Linker(object):
         staples = [base for staple in self.design.staples for base in staple]
         allbases.extend(staples)
 
-        self.Fco = {}
         run_id = 0
         for base in allbases:
             base_Fid = self.DidFid[base.id]
@@ -362,7 +362,7 @@ class Linker(object):
         add_co_type()
         return self.Fco
 
-    def identify_nicks(self) -> Dict[int, int]:
+    def _identify_nicks(self) -> Dict[int, int]:
         """ for every nick, provide id of base accross nick, bidirectional
         -------
          Returns
@@ -398,7 +398,7 @@ class Linker(object):
                        }
         return self.Fnicks
 
-    def get_universe_tuple(self) -> Tuple[str, str]:
+    def _get_universe_tuple(self) -> Tuple[str, str]:
         infile = self.project.input / self.project.name
         top = infile.with_suffix(".psf")
         trj = infile.with_suffix(".dcd")
@@ -755,8 +755,8 @@ def main():
     linkage = linker.create_linkage()
 
     if not project.ENmodify:
-        print("output to ", project.output)
-        for n, link in attr.asdict(linkage).items():
+        print("linkage output to {}".format(project.output))
+        for n, link in vars(linkage).items():
             pickle_name = project.output / "{}__{}.p".format(project.name, n)
             pickle.dump(link, open(pickle_name, "wb"))
     else:
