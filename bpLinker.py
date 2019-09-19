@@ -50,9 +50,6 @@ class ENBond(object):
     r0 = attr.ib(type=float)
     btype = attr.ib(factory=Set[str])
 
-    def __repr__(self) -> str:
-        return "bond {} - {}".format(self.a1, self.a2)
-
     def __str__(self) -> str:
         return "bond {b.a1} {b.a2} {b.k} {b.r0}".format(b=self)
 
