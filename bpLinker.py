@@ -7,6 +7,7 @@ import numpy as np
 import pickle
 import contextlib
 import argparse
+import attr
 
 from pathlib import Path
 from itertools import chain
@@ -29,6 +30,7 @@ class UnexpectedCaseError(Exception):
     pass
 
 
+@attr.s(slots=True, cmp=False)
 class ENBond(object):
     """ Elatic Networt Bond class
         harmonic bond of the from k*(r(ab)-r0)**2
@@ -40,16 +42,13 @@ class ENBond(object):
                 a2 (int): atomnumber 2
                 k (int): force konstant []
                 r0 (int): equilibrium distance [A]
-                type (Set[str]): keywords that indicate topology
+                btype (Set[str]): keywords that indicate topology
     """
-    __slots__ = ["a1", "a2", "k", "r0", "type"]
-
-    def __init__(self, a1: int, a2: int, k: float, r0: float, btype: List[int]):
-        self.a1 = a1
-        self.a2 = a2
-        self.k = k
-        self.r0 = r0
-        self.type = btype
+    a1 = attr.ib(type=int)
+    a2 = attr.ib(type=int)
+    k = attr.ib(type=float)
+    r0 = attr.ib(type=float)
+    btype = attr.ib(factory=Set[str])
 
     def __repr__(self) -> str:
         return "bond {} - {}".format(self.a1, self.a2)
@@ -61,37 +60,18 @@ class ENBond(object):
 class ElaticNetwortModifier(object):
     """ Elatic Networt Modifier class
     """
+    @attr.s(slots=True)
     class Logic(object):
         """ Logic base class for elastic networks
         """
-        __slots__ = ["long",
-                     "strand",
-                     "Hbond",
-                     "crossstack",
-                     "nick",
-                     "co",
-                     "ssDNA",
-                     "dihedral",
-                     ]
-
-        def __init__(self,
-                     long=False,
-                     strand=False,
-                     Hbond=False,
-                     crossstack=False,
-                     nick=False,
-                     co=False,
-                     ssDNA=False,
-                     dihedral=False,
-                     ):
-            self.long = long
-            self.strand = strand
-            self.Hbond = Hbond
-            self.crossstack = crossstack
-            self.nick = nick
-            self.co = co
-            self.ssDNA = ssDNA
-            self.dihedral = dihedral
+        long = attr.ib(type=bool, default=False)
+        strand = attr.ib(type=bool, default=False)
+        Hbond = attr.ib(type=bool, default=False)
+        crossstack = attr.ib(type=bool, default=False)
+        nick = attr.ib(type=bool, default=False)
+        co = attr.ib(type=bool, default=False)
+        ssDNA = attr.ib(type=bool, default=False)
+        dihedral = attr.ib(type=bool, default=False)
 
     def __init__(self, Linker: object):
         self.linker = Linker
@@ -211,11 +191,11 @@ class ElaticNetwortModifier(object):
         self._change_modify_logic()
         if self.modify_logic.dihedral:
             _ = self._compute_dihedral()
-        logic = self.modify_logic._asdict()
+        logic = attr.asdict(self.modify_logic)
         exclude_type = {name for name, is_active in logic.items() if is_active}
 
         mod_network = {bond for bond in self.network
-                       if any(ex in exclude_type for ex in bond.type)
+                       if any(ex in exclude_type for ex in bond.btype)
                        }
         return mod_network
 
