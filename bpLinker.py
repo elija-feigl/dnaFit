@@ -2,17 +2,18 @@
 import sys
 import os
 
-import MDAnalysis as mda
+import MDAnalysis as mda  # type:ignore
 import numpy as np
 import pickle
 import contextlib
 import argparse
 import attr
+import nanodesign
 
 from pathlib import Path
 from itertools import chain
 from operator import attrgetter
-from typing import List, Set, Dict, Tuple, Optional
+from typing import List, Set, Dict, Tuple, Optional, Any, TextIO
 from collections import namedtuple
 from nanodesign.converters import Converter
 
@@ -30,209 +31,44 @@ class UnexpectedCaseError(Exception):
     pass
 
 
-@attr.s(slots=True, cmp=False)
-class ENBond(object):
-    """ Elatic Networt Bond class
-        harmonic bond of the from k*(r(ab)-r0)**2
-        http://www.ks.uiuc.edu/Research/namd/2.7/ug/node26.html
-        -------
-         Input
-            -------
-                a1 (int): atomnumber 1
-                a2 (int): atomnumber 2
-                k (int): force konstant []
-                r0 (int): equilibrium distance [A]
-                btype (Set[str]): keywords that indicate topology
-    """
-    a1 = attr.ib(type=int)
-    a2 = attr.ib(type=int)
-    k = attr.ib(type=float)
-    r0 = attr.ib(type=float)
-    btype = attr.ib(factory=Set[str])
-
-    def __str__(self) -> str:
-        return "bond {b.a1} {b.a2} {b.k} {b.r0}".format(b=self)
+@attr.s(slots=True)
+class Project(object):
+    input: Path = attr.ib()
+    output: Path = attr.ib()
+    name: str = attr.ib()
+    ENmodify: bool = attr.ib()
+    EN: str = attr.ib()
 
 
-class ElaticNetwortModifier(object):
-    """ Elatic Networt Modifier class
-    """
-    @attr.s(slots=True)
-    class Logic(object):
-        """ Logic base class for elastic networks
-        """
-        long = attr.ib(type=bool, default=False)
-        strand = attr.ib(type=bool, default=False)
-        Hbond = attr.ib(type=bool, default=False)
-        crossstack = attr.ib(type=bool, default=False)
-        nick = attr.ib(type=bool, default=False)
-        co = attr.ib(type=bool, default=False)
-        ssDNA = attr.ib(type=bool, default=False)
-        dihedral = attr.ib(type=bool, default=False)
-
-    def __init__(self, Linker: object):
-        self.linker = Linker
-        self.u = Linker.fit.u
-        self.Fbp_full = {**Linker.Fbp, **{v: k for k, v in Linker.Fbp.items()}}
-        self.network = self._get_network()
-
-    def _get_network(self) -> set:
-        infile = self.linker.project.input / self.linker.project.name
-        exb_filepath = infile.with_suffix(".exb")
-        if exb_filepath.exists():
-            with open(exb_filepath) as exb_file:
-                network = self._process_exb(exb_file)
-        else:
-            raise FileNotFoundError
-        return network
-
-    def _categorize_bond(self, a1: int, a2: int, r0: float) -> set:
-        def categorize_logic(a1: int, a2: int, r0: float) -> tuple:
-            bond_logic = self.Logic()
-            if r0 > 10.:
-                bond_logic.long = True
-            else:
-                base = [self.u.atoms[b].resindex for b in [a1, a2]]
-                pair = [self.Fbp_full.get(b, None) for b in base]
-                res = base + pair
-
-                is_neighbor = (abs(base[0]-base[1]) == 1)
-                bond_logic.crossstack = True if is_neighbor else False
-
-                is_ddDNA = all(bp is not None for bp in pair)
-                if is_ddDNA:
-                    is_crossstack = any(abs(b-p) == 1
-                                        for (b, p) in zip(base, reversed(pair))
-                                        )
-                    bond_logic.crossstack = True if is_crossstack else False
-                    is_Hbond = all(b == p
-                                   for (b, p) in zip(base, reversed(pair))
-                                   )
-                    bond_logic.Hbond = True if is_Hbond else False
-                    is_nick = any(resA == self.linker.Fnicks.get(resB, None)
-                                  for resA in res
-                                  for resB in res
-                                  )
-                    bond_logic.nick = True if is_nick else False
-                    is_co = any(b in self.linker.Fco for b in base)
-                    bond_logic.co = True if is_co else False
-                else:
-                    bond_logic.ssDNA = True
-            return bond_logic
-
-        bond_logic = categorize_logic(a1=a1, a2=a2, r0=r0)
-        bond_type = set()
-        if bond_logic.long:
-            bond_type.add("long")
-        else:
-            bond_type.add("short")
-            if bond_logic.strand:
-                bond_type.add("strand")
-            elif bond_logic.Hbond:
-                bond_type.add("Hbond")
-            elif bond_logic.crossstack:
-                bond_type.add("crossstack")
-            elif bond_logic.ssDNA:
-                bond_type.add("ssDNA")
-
-            if bond_logic.nick:
-                bond_type.add("nick")
-            if bond_logic.co:
-                bond_type.add("co")
-
-        return bond_type
-
-    def _process_exb(self, exb_file: str) -> set:
-        """ create elastic network from file
-        -------
-         Returns
-            -------
-            EN elastic_network
-        """
-        network = set()
-        for line in exb_file:
-            split_line = line.split()
-            if split_line[0] == "bond":
-                a1 = int(split_line[1])
-                a2 = int(split_line[2])
-                k = float(split_line[3])
-                r0 = float(split_line[4])
-                bond_type = self._categorize_bond(a1=a1, a2=a2, r0=r0)
-                network.add(ENBond(a1=a1, a2=a2, k=k, r0=r0, btype=bond_type))
-            elif split_line[0] == "dihedral":
-                raise NotImplementedError
-            else:
-                raise UnexpectedCaseError
-        return network
-
-    def _change_modify_logic(self) -> None:
-        logic_string = self.linker.project.EN
-        self.modify_logic = self.Logic(long=bool(logic_string[0]),
-                                       strand=bool(logic_string[1]),
-                                       Hbond=bool(logic_string[2]),
-                                       crossstack=bool(logic_string[3]),
-                                       nick=bool(logic_string[4]),
-                                       co=bool(logic_string[5]),
-                                       ssDNA=bool(logic_string[6]),
-                                       dihedral=bool(logic_string[7]),
-                                       )
-        return
-
-    def _modify_en(self) -> set:
-        """ create reduced elastic network according to boolean flags
-        -------
-         Returns
-            -------
-            EN reduced_elastic_network
-        """
-        self._change_modify_logic()
-        if self.modify_logic.dihedral:
-            _ = self._compute_dihedral()
-        logic = attr.asdict(self.modify_logic)
-        exclude_type = {name for name, is_active in logic.items() if is_active}
-
-        mod_network = {bond for bond in self.network
-                       if any(ex in exclude_type for ex in bond.btype)
-                       }
-        return mod_network
-
-    def write_en(self) -> None:
-        """ write the  modified (by logic) network to file
-        """
-        mod_network = self._modify_en()
-        outfile = self.linker.project.input / self.linker.project.name
-        exb_filepath = "{}_{}.exb".format(outfile, self.linker.project.EN)
-
-        with open(exb_filepath, mode="w+") as mod_exb_file:
-            for bond in mod_network:
-                mod_exb_file.write("{}\n".format(bond))
-        return
-
-    def _compute_dihedral(self) -> None:
-        """ compute restraints corresponding to backbone dihedral
-        -------
-         Returns
-            -------
-            EN dihedral_elastic_network
-        """
-        return NotImplementedError
-
-
+@attr.s
 class Linker(object):
     """ Linker class
     """
+    @attr.s(slots=True)
+    class Linkage(object):
+        Fbp: Dict[int, int] = attr.ib(factory=dict)
+        DidFid: Dict[int, int] = attr.ib(factory=dict)
+        DhpsDid: Dict[Tuple[int, int, bool], int] = attr.ib(factory=dict)
+        Dcolor: Dict[int, int] = attr.ib(factory=dict)
+        Dskips: List[Tuple[int, int, bool]] = attr.ib(factory=list)
+        Fnicks: Dict[int, int] = attr.ib(factory=dict)
+        FidSeq: Dict[int, str] = attr.ib(factory=dict)
+        Fco:  Dict[int, Any] = attr.ib(factory=dict)
+        universe: tuple = attr.ib(factory=tuple)
+
     # TODO: move categorize to linker?
-    def __init__(self, project: tuple):
-        self.project = project
-        self.fit = Fit(project)
-        self.design = Design(project)
-        self.Fbp = None
-        self.DidFid = None
-        self.DhpsDid = None
-        self.Fco = None
+    project: Project = attr.ib()
+    Fbp: Dict[int, int] = attr.ib(factory=dict)
+    DidFid: Dict[int, int] = attr.ib(factory=dict)
+    DhpsDid: Dict[Tuple[int, int, bool], int] = attr.ib(factory=dict)
+    Fnicks: Dict[int, int] = attr.ib(factory=list)
+    FidSeq: Dict[int, str] = attr.ib(factory=dict)
+    Fco:  Dict[int, Any] = attr.ib(factory=dict)
+
+    def __attrs_post_init__(self):
+        self.fit = Fit(self.project)
+        self.design = Design(self.project)
         self.Dskips = self._get_skips()
-        self.Fnicks = None
-        self.FidSeq = None
 
     def get_sequence(self) -> Dict[int, str]:
         FidSeq = {res.resindex: res.resname[0]
@@ -241,7 +77,7 @@ class Linker(object):
         self.FidSeq = FidSeq
         return FidSeq
 
-    def _is_del(self, base: object) -> bool:
+    def _is_del(self, base: "nanodesign.base") -> bool:
         return base.num_deletions != 0
 
     def _get_skips(self) -> List[Tuple[int, int, bool]]:
@@ -262,37 +98,26 @@ class Linker(object):
                   ]
         return Dskips
 
-    def create_linkage(self) -> tuple:
-        Linkage = namedtuple("Linkage", ["Fbp",
-                                         "DidFid",
-                                         "DhpsDid",
-                                         "Dcolor",
-                                         "Dskips",
-                                         "Fnicks",
-                                         "universe",
-                                         "Fco",
-                                         "FidSeq",
-                                         ]
-                             )
+    def create_linkage(self) -> Linkage:
         Link = self.link()
         Fco = self.identify_crossover()
         Fnicks = self.identify_nicks()
         FidSeq = self.get_sequence()
         universe = self.get_universe_tuple()
-        return Linkage(Fbp=Link.Fbp,
-                       DidFid=Link.DidFid,
-                       DhpsDid=Link.DhpsDid,
-                       Dcolor=Link.Dcolor,
-                       Dskips=Link.Dskips,
-                       Fco=Fco,
-                       Fnicks=Fnicks,
-                       FidSeq=FidSeq,
-                       universe=universe,
-                       )
+        return self.Linkage(Fbp=Link.Fbp,
+                            DidFid=Link.DidFid,
+                            DhpsDid=Link.DhpsDid,
+                            Dcolor=Link.Dcolor,
+                            Dskips=Link.Dskips,
+                            Fco=Fco,
+                            Fnicks=Fnicks,
+                            FidSeq=FidSeq,
+                            universe=universe,
+                            )
 
-    def _link_scaffold(self) -> (Dict[int, int],
-                                 Dict[Tuple[int, int, bool], int],
-                                 ):
+    def _link_scaffold(self) -> Tuple[Dict[int, int],
+                                      Dict[Tuple[int, int, bool], int],
+                                      ]:
         """ collect position in scaffold (0-x) by comparing to index in list
             of scaffold_design positions
         -------
@@ -314,10 +139,10 @@ class Linker(object):
         DhpsDid = dict(zip(Dhp, Did))
         return DidFid, DhpsDid
 
-    def _link_staples(self) -> (Dict[int, int],
-                                Dict[Tuple[int, int, bool], int],
-                                Dict[int, int],
-                                ):
+    def _link_staples(self) -> Tuple[Dict[int, int],
+                                     Dict[Tuple[int, int, bool], int],
+                                     Dict[int, int],
+                                     ]:
         """same procedure as scaffold for each
         -------
          Returns
@@ -333,9 +158,9 @@ class Linker(object):
         def get_resid(segindex: int, resindex_local: int) -> int:
             return self.fit.staples[segindex].residues[resindex_local].resindex
 
-        DidFid = {}
-        DhpsDid = {}
-        color = {}
+        DidFid: Dict[int, int] = {}
+        DhpsDid: Dict[Tuple[int, int, bool], int] = {}
+        color: Dict[int, int] = {}
 
         for i, staple in enumerate(self.design.staples):
             seg_id = self.design.stapleorder[i]
@@ -374,7 +199,7 @@ class Linker(object):
                 if base.across is not None
                 }
 
-    def link(self) -> tuple:
+    def link(self) -> Linkage:
         """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping
             of every base design-id to fit-id as well as the basepair mapping.
             basepairs are mapped from scaffold to staple, unique (invertable).
@@ -399,19 +224,12 @@ class Linker(object):
         self.DidFid = {**DidFid_sc, **DidFid_st}
         self.DhpsDid = {**DhpsDid_sc, **DhpsDid_st}
         self.Fbp = self._link_bp()
-        Link = namedtuple("Link", ["Fbp",
-                                   "DidFid",
-                                   "DhpsDid",
-                                   "Dcolor",
-                                   "Dskips",
-                                   ]
-                          )
-        return Link(Fbp=self.Fbp,
-                    DidFid=self.DidFid,
-                    DhpsDid=self.DhpsDid,
-                    Dcolor=self.Dcolor,
-                    Dskips=self.Dskips,
-                    )
+        return self.Linkage(Fbp=self.Fbp,
+                            DidFid=self.DidFid,
+                            DhpsDid=self.DhpsDid,
+                            Dcolor=self.Dcolor,
+                            Dskips=self.Dskips,
+                            )
 
     def _get_nextInHelix(self, h: int, p: int, is_scaf: bool, i: int
                          ) -> Tuple[int, int, bool]:
@@ -421,7 +239,7 @@ class Linker(object):
             Dhps = (h, p+i, is_scaf)
         return Dhps
 
-    def identify_crossover(self) -> dict:
+    def identify_crossover(self) -> Dict[int, Any]:
         """ for every base id that is involved in a crossover
             updates linker attribute of crossovers and returns it
         -------
@@ -475,7 +293,7 @@ class Linker(object):
                 co.pop("base")
             return
 
-        def get_co_leg_id(base: object, direct: str) -> int:
+        def get_co_leg_id(base: "nanodesign.base", direct: str) -> int:
             """determine leg base base and up/down (def: 2 bases away)"""
             l = base.down.p if direct == "up" else base.up.p
             i = (l - base.p) * 2.
@@ -483,7 +301,7 @@ class Linker(object):
             leg_Did = self.DhpsDid[Dhps]
             return self.DidFid[leg_Did]
 
-        def get_next(base: object, direct: str) -> object:
+        def get_next(base: "nanodesign.base", direct: str) -> "nanodesign.base":
             n = (base.up if direct == "up" else base.down)
             if n is None:
                 return None
@@ -496,7 +314,7 @@ class Linker(object):
                     n_position = (n.h, n.p, n.is_scaf)
                 return n
 
-        def is_co(base: object, neighbor: object, direct: str) -> bool:
+        def is_co(base: "nanodesign.base", neighbor: "nanodesign.base", direct: str) -> bool:
             if neighbor is None:
                 return False
             else:
@@ -504,8 +322,8 @@ class Linker(object):
                     neighbor = get_next(neighbor, direct)
                 return neighbor.h != base.h
 
-        def get_co(base: object, neighbor: object, direct: str, run_id: int
-                   ) -> (dict, int):
+        def get_co(base: "nanodesign.base", neighbor: "nanodesign.base", direct: str, run_id: int
+                   ) -> Tuple[dict, int]:
             co_id = self.DidFid[neighbor.id]
             leg_id = get_co_leg_id(base, direct)
             Dhps = (base.h, base.p, base.is_scaf)
@@ -549,7 +367,7 @@ class Linker(object):
             dict self.Fnicks
                 fit-id (int) -> fit_id (int)
         """
-        def is_nick(candidate: object, base: object) -> bool:
+        def is_nick(candidate: "nanodesign.base", base: "nanodesign.base") -> bool:
             is_onhelix = (candidate.h == base.h)
             is_neighbor = (abs(base.p - candidate.p) <= 2)  # skip = 2
             is_base = (candidate is base)
@@ -584,14 +402,207 @@ class Linker(object):
         return (str(top), str(trj))
 
 
-class Fit(object):
+@attr.s(slots=True, cmp=False, auto_attribs=True)
+class ENBond(object):
+    """ Elatic Networt Bond class
+        harmonic bond of the from k*(r(ab)-r0)**2
+        http://www.ks.uiuc.edu/Research/namd/2.7/ug/node26.html
+        -------
+         Input
+            -------
+                a1 (int): atomnumber 1
+                a2 (int): atomnumber 2
+                k (int): force konstant []
+                r0 (int): equilibrium distance [A]
+                btype (Set[str]): keywords that indicate topology
+    """
+    a1: int = 0
+    a2: int = 0
+    k: float = 0.
+    r0: float = 0.
+    btype: Set[str] = attr.Factory(set)
 
-    def __init__(self, project: tuple):
-        self.infile = project.input / project.name
+    def __str__(self) -> str:
+        return "bond {b.a1} {b.a2} {b.k} {b.r0}".format(b=self)
+
+
+@attr.s(slots=True, auto_attribs=True)
+class Logic(object):
+    """ Logic base class for elastic networks
+    """
+    long: bool = False
+    strand: bool = False
+    Hbond: bool = False
+    crossstack: bool = False
+    nick: bool = False
+    co: bool = False
+    ssDNA: bool = False
+    dihedral: bool = False
+
+
+@attr.s
+class ElaticNetwortModifier(object):
+    """ Elatic Networt Modifier class
+    """
+    linker: Linker = attr.ib()
+
+    def __attrs_post_init__(self):
+        self.u = self.linker.fit.u
+        self.Fbp_full = {**self.linker.Fbp, **{v: k for k, v in self.linker.Fbp.items()}}
+        self.network = self._get_network()
+
+    def _get_network(self) -> set:
+        infile = self.linker.project.input / self.linker.project.name
+        exb_filepath = infile.with_suffix(".exb")
+        if exb_filepath.exists():
+            with open(exb_filepath) as exb_file:
+                network = self._process_exb(exb_file)
+        else:
+            raise FileNotFoundError
+        return network
+
+    def _categorize_bond(self, a1: int, a2: int, r0: float) -> Set[str]:
+        def categorize_logic(a1: int, a2: int, r0: float) -> Logic:
+            bond_logic = Logic()
+            if r0 > 10.:
+                bond_logic.long = True
+            else:
+                base = [self.u.atoms[b].resindex for b in [a1, a2]]
+                pair = [self.Fbp_full.get(b, None) for b in base]
+                res = base + pair
+
+                is_neighbor = (abs(base[0]-base[1]) == 1)
+                bond_logic.crossstack = True if is_neighbor else False
+
+                is_ddDNA = all(bp is not None for bp in pair)
+                if is_ddDNA:
+                    is_crossstack = any(abs(b-p) == 1
+                                        for (b, p) in zip(base, reversed(pair))
+                                        )
+                    bond_logic.crossstack = True if is_crossstack else False
+                    is_Hbond = all(b == p
+                                   for (b, p) in zip(base, reversed(pair))
+                                   )
+                    bond_logic.Hbond = True if is_Hbond else False
+                    is_nick = any(resA == self.linker.Fnicks.get(resB, None)
+                                  for resA in res
+                                  for resB in res
+                                  )
+                    bond_logic.nick = True if is_nick else False
+                    is_co = any(b in self.linker.Fco for b in base)
+                    bond_logic.co = True if is_co else False
+                else:
+                    bond_logic.ssDNA = True
+            return bond_logic
+
+        bond_logic = categorize_logic(a1=a1, a2=a2, r0=r0)
+        bond_type = set()
+        if bond_logic.long:
+            bond_type.add("long")
+        else:
+            bond_type.add("short")
+            if bond_logic.strand:
+                bond_type.add("strand")
+            elif bond_logic.Hbond:
+                bond_type.add("Hbond")
+            elif bond_logic.crossstack:
+                bond_type.add("crossstack")
+            elif bond_logic.ssDNA:
+                bond_type.add("ssDNA")
+
+            if bond_logic.nick:
+                bond_type.add("nick")
+            if bond_logic.co:
+                bond_type.add("co")
+
+        return bond_type
+
+    def _process_exb(self, exb_file: TextIO) -> set:
+        """ create elastic network from file
+        -------
+         Returns
+            -------
+            EN elastic_network
+        """
+        network = set()
+        for line in exb_file:
+            split_line = line.split()
+            if split_line[0] == "bond":
+                a1 = int(split_line[1])
+                a2 = int(split_line[2])
+                k = float(split_line[3])
+                r0 = float(split_line[4])
+                bond_type = self._categorize_bond(a1=a1, a2=a2, r0=r0)
+                network.add(ENBond(a1=a1, a2=a2, k=k, r0=r0, btype=bond_type))
+            elif split_line[0] == "dihedral":
+                raise NotImplementedError
+            else:
+                raise UnexpectedCaseError
+        return network
+
+    def _change_modify_logic(self) -> None:
+        logic_string = self.linker.project.EN
+        self.modify_logic = Logic(long=bool(logic_string[0]),
+                                  strand=bool(logic_string[1]),
+                                  Hbond=bool(logic_string[2]),
+                                  crossstack=bool(logic_string[3]),
+                                  nick=bool(logic_string[4]),
+                                  co=bool(logic_string[5]),
+                                  ssDNA=bool(logic_string[6]),
+                                  dihedral=bool(logic_string[7]),
+                                  )
+        return
+
+    def _modify_en(self) -> set:
+        """ create reduced elastic network according to boolean flags
+        -------
+         Returns
+            -------
+            EN reduced_elastic_network
+        """
+        self._change_modify_logic()
+        if self.modify_logic.dihedral:
+            _ = self._compute_dihedral()
+        logic = attr.asdict(self.modify_logic)
+        exclude_type = {name for name, is_active in logic.items() if is_active}
+
+        mod_network = {bond for bond in self.network
+                       if any(ex in exclude_type for ex in bond.btype)
+                       }
+        return mod_network
+
+    def write_en(self) -> None:
+        """ write the  modified (by logic) network to file
+        """
+        mod_network = self._modify_en()
+        outfile = self.linker.project.input / self.linker.project.name
+        exb_filepath = "{}_{}.exb".format(outfile, self.linker.project.EN)
+
+        with open(exb_filepath, mode="w+") as mod_exb_file:
+            for bond in mod_network:
+                mod_exb_file.write("{}\n".format(bond))
+        return
+
+    def _compute_dihedral(self):
+        """ compute restraints corresponding to backbone dihedral
+        -------
+         Returns
+            -------
+            EN dihedral_elastic_network
+        """
+        return NotImplementedError
+
+
+@attr.s
+class Fit(object):
+    project: Project = attr.ib()
+
+    def __attrs_post_init__(self):
+        self.infile = self.project.input / self.project.name
         self.u = self._get_universe()
         self.scaffold, self.staples = self._split_strands()
 
-    def _get_universe(self) -> object:
+    def _get_universe(self) -> "nanodesign.universe":
         top = self.infile.with_suffix(".psf")
         trj = self.infile.with_suffix(".dcd")
         # TODO: -mid- if pdb, try invoke vmd animate write dcd
@@ -601,7 +612,7 @@ class Fit(object):
             raise FileNotFoundError
         return u
 
-    def _split_strands(self) -> (object, object):
+    def _split_strands(self) -> Tuple["nanodesign.segment", List["nanodesign.segment"]]:
         # TODO: -low- multiscaffold
         strands = self.u.segments
         scaffold = max(strands, key=attrgetter("residues.n_residues"))
@@ -610,10 +621,12 @@ class Fit(object):
         return scaffold, staples
 
 
+@attr.s
 class Design(object):
+    project: Project = attr.ib()
 
-    def __init__(self, project: tuple):
-        self.infile = project.input / project.name
+    def __attrs_post_init__(self):
+        self.infile = self.project.input / self.project.name
         self.design = self._get_design()
         self.strands = self.design.strands
         self.scaffold = self._clean_scaffold(self.strands)
@@ -622,17 +635,17 @@ class Design(object):
         self.helixorder = self._create_helix_order()
         self.stapleorder = self._create_staple_order()
 
-    def _is_del(self, base: object) -> bool:
+    def _is_del(self, base: "nanodesign.base") -> bool:
         return base.num_deletions != 0
 
-    def _clean_scaffold(self, strands: List[object]) -> List[object]:
+    def _clean_scaffold(self, strands: List["nanodesign.base"]) -> List["nanodesign.base"]:
         # TODO: -low- multiscaffold
         # TODO: -low- insertions
         scaffold = [s.tour for s in strands if s.is_scaffold][0]
         scaffold_clean = [b for b in scaffold if not self._is_del(b)]
         return scaffold_clean
 
-    def _clean_staple(self, strands: List[object]) -> List[object]:
+    def _clean_staple(self, strands: List["nanodesign.base"]) -> List[List["nanodesign.base"]]:
         # TODO: -low- insertions
         staples = [s.tour for s in strands if not s.is_scaffold]
         staples_clean = [[b for b in s if not self._is_del(b)]
@@ -640,7 +653,7 @@ class Design(object):
                          ]
         return staples_clean
 
-    def _get_design(self) -> object:
+    def _get_design(self) -> Any:
         fil = self.infile.with_suffix(".json")
         seq = self.infile.with_suffix(".seq")
         converter = Converter()
@@ -693,8 +706,7 @@ def get_description() -> str:
               stores dictionaries as pickles containg mapping for motifs,
               residue-id, lattice position and base-pairing."""
 
-
-def proc_input() -> tuple:
+def proc_input() -> Project:
     parser = argparse.ArgumentParser(
         description=get_description(),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -707,7 +719,7 @@ def proc_input() -> tuple:
     parser.add_argument("--name",
                         help="name of design and files",
                         type=str,
-                        required="True",
+                        required=True,
                         default=argparse.SUPPRESS,
                         )
     parser.add_argument("--ENmodify",
@@ -721,13 +733,6 @@ def proc_input() -> tuple:
                         default="11111110",
                         )
     args = parser.parse_args()
-    Project = namedtuple("Project", ["input",
-                                     "output",
-                                     "name",
-                                     "ENmodify",
-                                     "EN",
-                                     ]
-                         )
     project = Project(input=Path(args.folder),
                       output=Path(args.folder) / "analysis",
                       name=args.name,
@@ -747,7 +752,7 @@ def main():
 
     if not project.ENmodify:
         print("output to ", project.output)
-        for n, link in linkage._asdict().items():
+        for n, link in attr.asdict(linkage).items():
             pickle_name = project.output / "{}__{}.p".format(project.name, n)
             pickle.dump(link, open(pickle_name, "wb"))
     else:
