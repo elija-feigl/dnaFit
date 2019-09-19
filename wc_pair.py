@@ -686,8 +686,50 @@ class BDna(object):
         return
 
 
+def write_pdb(u, bDNA, PDBs):
+    u.add_TopologyAttr(
+        mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
+
+    u.atoms.tempfactors = -1.
+    for res in u.residues:
+        try:
+            res.atoms.tempfactors = bDNA.wc_quality[res.resindex]["C1'C1'"]
+        except KeyError:
+            pass
+    PDBs["qual"].write(u.atoms)
+
+    for cond in WC_PROPERTIES:
+        u.atoms.tempfactors = -1.
+        for res in u.residues:
+            try:
+                res.atoms.tempfactors = (
+                    bDNA.wc_geometry[res.resindex][cond]["center-C6C8"])
+            except KeyError:
+                pass
+        PDBs[cond].write(u.atoms)
+
+    for dh in DH_ATOMS.keys():
+        u.atoms.tempfactors = -1.
+        for res in u.residues:
+            try:
+                res.atoms.tempfactors = bDNA.dh_quality[res.resindex][dh]
+            except KeyError:
+                pass
+        PDBs[dh].write(u.atoms)
+
+    u.atoms.tempfactors = -1.
+    ing = 0.00
+    for resindex, resindex_wc in bDNA.d_Fbp.items():
+        u.residues[resindex].atoms.tempfactors = ing
+        u.residues[resindex_wc].atoms.tempfactors = ing
+        ing += 0.01
+    PDBs["bp"].write(u.atoms)
+
+    return
+
+
 def get_description():
-    return """initializes MDAnalysis universe and compoutes watson scric base pairs.
+    return """computes watson crick base pairs.
     they are returned as to dictionaries. this process is repeated for each
      Hbond-deviation criterion
     subsequently universe and dicts are stored into a pickle. each deviation
@@ -738,48 +780,6 @@ def proc_input():
     with ignored(FileExistsError):
         os.mkdir(project.output)
     return project
-
-
-def write_pdb(u, bDNA, PDBs):
-    u.add_TopologyAttr(
-        mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
-
-    u.atoms.tempfactors = -1.
-    for res in u.residues:
-        try:
-            res.atoms.tempfactors = bDNA.wc_quality[res.resindex]["C1'C1'"]
-        except KeyError:
-            pass
-    PDBs["qual"].write(u.atoms)
-
-    for cond in WC_PROPERTIES:
-        u.atoms.tempfactors = -1.
-        for res in u.residues:
-            try:
-                res.atoms.tempfactors = (
-                    bDNA.wc_geometry[res.resindex][cond]["center-C6C8"])
-            except KeyError:
-                pass
-        PDBs[cond].write(u.atoms)
-
-    for dh in DH_ATOMS.keys():
-        u.atoms.tempfactors = -1.
-        for res in u.residues:
-            try:
-                res.atoms.tempfactors = bDNA.dh_quality[res.resindex][dh]
-            except KeyError:
-                pass
-        PDBs[dh].write(u.atoms)
-
-    u.atoms.tempfactors = -1.
-    ing = 0.00
-    for resindex, resindex_wc in bDNA.d_Fbp.items():
-        u.residues[resindex].atoms.tempfactors = ing
-        u.residues[resindex_wc].atoms.tempfactors = ing
-        ing += 0.01
-    PDBs["bp"].write(u.atoms)
-
-    return
 
 
 def main():
