@@ -7,8 +7,6 @@ from pathlib import Path
 from typing import List, Set, Dict, Tuple, Optional, Any, TextIO
 
 
-
-
 def number_to_hybrid36_number(number: int, width: int) -> str:
     digits_upper = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     digits_lower = digits_upper.lower()
@@ -46,6 +44,7 @@ OCC = "9.99"
 BFAC = "1.00"
 HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.2.0\n"
 
+
 @attr.s(slots=True)
 class Project(object):
     input: Path = attr.ib()
@@ -72,7 +71,7 @@ class PDB_Corr(object):
         self.nomcla_base_rev = {' DC': 'CYT', ' DG': 'GUA', ' DT': 'THY',
                                 ' DA': 'ADE'}
 
-    def reshuffle_pdb(self, pdb_file):
+    def reshuffle_pdb(self, pdb_file: List[str]) -> List[str]:
         unshuff_file = []
         rem = []
         for line in pdb_file:
@@ -85,9 +84,16 @@ class PDB_Corr(object):
         newFile_list = (rem + unshuff_file)
         return newFile_list
 
-    def correct_pdb(self, pdb_file, add_header, nomenclature,
-                    molecule_chain, atom_number, occupancy, atomtype,
-                    remove_H):
+    def correct_pdb(self,
+                    pdb_file: List[str],
+                    add_header: bool,
+                    nomenclature: bool,
+                    molecule_chain: bool,
+                    atom_number: bool,
+                    occupancy: bool,
+                    atomtype: bool,
+                    remove_H: bool,
+                    ) -> str:
         reset_numbers = True
         # TODO: -low MODEL
         body = []
@@ -102,18 +108,18 @@ class PDB_Corr(object):
                 no_atom_check = line[13:15]
                 if not(no_atom_check == "  "):
                     if nomenclature:
-                        line = self.correct_nomenclature(line)
+                        line = self.correct_nomenclature(line=line)
                     if molecule_chain:
                         line, is_ter = self.correct_molecule_chain_and_number(
-                            line, reset_numbers)
+                            line=line, reset_numbers=reset_numbers)
                     if atom_number:
-                        line = self.correct_atom_number(line)
+                        line = self.correct_atom_number(line=line)
                     if occupancy:
-                        line = self.correct_occupancy(line)
+                        line = self.correct_occupancy(line=line)
                     if atomtype:
-                        line = self.correct_atomtype(line)
+                        line = self.correct_atomtype(line=line)
                     if remove_H:
-                        line = self.remove_H(line)
+                        line = self.remove_H(line=line)
                     if is_ter:
                         body.append("TER\n")
                     body.append(line)
@@ -122,14 +128,14 @@ class PDB_Corr(object):
         newFile = ''.join(body)
         return newFile
 
-    def correct_atom_number(self, line):
+    def correct_atom_number(self, line: str) -> str:
         atom_number_string = number_to_hybrid36_number(
             self.current["atom_number"], 5)
         newline = line[0:5] + " " + atom_number_string + line[11:]
         self.current["atom_number"] += 1
         return newline
 
-    def correct_nomenclature(self, line):
+    def correct_nomenclature(self, line: str) -> str:
         atom = line[12:16]
         if self.reverse:
             REPLACEMENT = self.nomcla_rev
@@ -146,12 +152,12 @@ class PDB_Corr(object):
         newline = line[0:12] + atom + ' ' + base + line[20:]
         return newline
 
-    def correct_occupancy(self, line):
+    def correct_occupancy(self, line: str) -> str:
         newline = line[:54] + "  " + BFAC + "  " + OCC + line[66:]
         return newline
 
-    def correct_molecule_chain_and_number(self, line, reset_numbers):
-        def increase_chain_id(current_chain_id):
+    def correct_molecule_chain_and_number(self, line: str, reset_numbers: bool) -> Tuple[str, bool]:
+        def increase_chain_id(current_chain_id: str) -> str:
             possible_chain_ids = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             pos = possible_chain_ids.find(current_chain_id)
             chlen = len(possible_chain_ids)
@@ -211,14 +217,14 @@ class PDB_Corr(object):
 
         return newline, is_ter
 
-    def remove_H(self, line):
+    def remove_H(self, line: str) -> str:
         atom = line[12:16]
         if "H" in atom:
             return ""
         else:
             return line
 
-    def correct_atomtype(self, line):
+    def correct_atomtype(self, line: str) -> str:
         atom = line[12:14]
         if atom[1] in "0123456789":
             atom = atom[0]
@@ -228,12 +234,12 @@ class PDB_Corr(object):
         return newline
 
 
-def get_description():
+def get_description() -> str:
     return """namd (enrgMD) PDB to chimera PDB.
            """
 
 
-def proc_input():
+def proc_input() -> Project:
     parser = argparse.ArgumentParser(
         description=get_description(),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -241,13 +247,13 @@ def proc_input():
     parser.add_argument("--input",
                         help="input file",
                         type=str,
-                        required="True",
+                        required=True,
                         default=argparse.SUPPRESS,
                         )
     parser.add_argument("--output",
                         help="output file",
                         type=str,
-                        required="True",
+                        required=True,
                         default=argparse.SUPPRESS,
                         )
     parser.add_argument("--reverse",
