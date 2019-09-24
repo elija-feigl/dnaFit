@@ -135,19 +135,16 @@ class PDB_Corr(object):
 
     def correct_nomenclature(self, line: str) -> str:
         atom = line[12:16]
-        default = " " * 4
-        if self.reverse:
-            REPLACEMENT = self.nomcla_rev
-            REPLACEMENT_BASES = self.nomcla_base_rev
-        else:
-            REPLACEMENT = self.nomcla
-            REPLACEMENT_BASES = self.nomcla_base
+        BLANK = " " * 4
+        REPLACEMENT = NOMCLA_REV if self.reverse else NOMCLA
+        REPLACEMENT_BASES = NOMCLA_BASE_REV if self.reverse else NOMCLA_BASE
 
         if atom in REPLACEMENT:
-            atom = REPLACEMENT.get(atom, default)
+            atom = REPLACEMENT.get(atom, BLANK)
         base = line[17:20]
         if base in REPLACEMENT_BASES:
-            base = REPLACEMENT_BASES.get(base, default)
+            base = REPLACEMENT_BASES.get(base, BLANK)
+
         return "".join([line[0:12], atom, " ", base, line[20:]])
 
     def correct_occupancy(self, line: str) -> str:
