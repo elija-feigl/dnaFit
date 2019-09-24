@@ -4,7 +4,7 @@ import argparse
 import attr
 
 from pathlib import Path
-from typing import List, Set, Dict, Tuple, Optional, Any, TextIO
+from typing import List, Tuple, Optional
 
 
 def number_to_hybrid36_number(number: int, width: int) -> str:
@@ -54,6 +54,19 @@ class Project(object):
     header: bool = attr.ib()
 
 
+@attr.s(slots=True, auto_attribs=True)
+class Logic(object):
+    """ Logic base class for PDB_Corr
+    """
+    header: bool = True
+    nomenclature: bool = True
+    molecule_chain: bool = True
+    atom_number: bool = True
+    occupancy: bool = True
+    atomtype: bool = True
+    remove_H: bool = True
+
+
 @attr.s
 class PDB_Corr(object):
     reverse: bool = attr.ib()
@@ -86,18 +99,11 @@ class PDB_Corr(object):
 
     def correct_pdb(self,
                     pdb_file: List[str],
-                    add_header: bool,
-                    nomenclature: bool,
-                    molecule_chain: bool,
-                    atom_number: bool,
-                    occupancy: bool,
-                    atomtype: bool,
-                    remove_H: bool,
+                    logic: Logic,
                     ) -> str:
         reset_numbers = True
-        # TODO: -low MODEL
         body = []
-        if add_header:
+        if logic.header:
             body.append(HEADER)
 
         for line in pdb_file:
@@ -107,18 +113,18 @@ class PDB_Corr(object):
             elif lineType == "ATOM  ":
                 no_atom_check = line[13:15]
                 if not(no_atom_check == "  "):
-                    if nomenclature:
+                    if logic.nomenclature:
                         line = self.correct_nomenclature(line=line)
-                    if molecule_chain:
+                    if logic.molecule_chain:
                         line, is_ter = self.correct_molecule_chain_and_number(
                             line=line, reset_numbers=reset_numbers)
-                    if atom_number:
+                    if logic.atom_number:
                         line = self.correct_atom_number(line=line)
-                    if occupancy:
+                    if logic.occupancy:
                         line = self.correct_occupancy(line=line)
-                    if atomtype:
+                    if logic.atomtype:
                         line = self.correct_atomtype(line=line)
-                    if remove_H:
+                    if logic.remove_H:
                         line = self.remove_H(line=line)
                     if is_ter:
                         body.append("TER\n")
@@ -156,7 +162,10 @@ class PDB_Corr(object):
         newline = line[:54] + "  " + BFAC + "  " + OCC + line[66:]
         return newline
 
-    def correct_molecule_chain_and_number(self, line: str, reset_numbers: bool) -> Tuple[str, bool]:
+    def correct_molecule_chain_and_number(self,
+                                          line: str,
+                                          reset_numbers: bool,
+                                          ) -> Tuple[str, bool]:
         def increase_chain_id(current_chain_id: str) -> str:
             possible_chain_ids = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             pos = possible_chain_ids.find(current_chain_id)
@@ -167,8 +176,6 @@ class PDB_Corr(object):
                 # Don't allow for A again (Scaffold) that's why 1 and not 0
                 return possible_chain_ids[1]
 
-        # chain_id = line[21:22]
-        # TODO: -low chainID only
         chain = line[72:76]
         is_ter = False
 
@@ -280,7 +287,9 @@ def proc_input() -> Project:
 
 def main():
     project = proc_input()
-
+    logic = Logic(header=project.header,
+                  remove_H=False,
+                  )
     print("start")
     pdb_Corr = PDB_Corr(reverse=project.reverse)
     with open(project.input, 'r') as file_init:
@@ -289,13 +298,7 @@ def main():
         else:
             file_list = file_init
         newFile = pdb_Corr.correct_pdb(pdb_file=file_list,
-                                       add_header=project.header,
-                                       nomenclature=True,
-                                       molecule_chain=True,
-                                       atom_number=True,
-                                       occupancy=True,
-                                       atomtype=True,
-                                       remove_H=False,
+                                       logic=logic,
                                        )
     with open(project.output, "w") as file_corr:
         file_corr.write(newFile)
