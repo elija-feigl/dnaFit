@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 
 import argparse
+import attr
 
-from collections import namedtuple
 from pathlib import Path
+from typing import List, Set, Dict, Tuple, Optional, Any, TextIO
 
 
-def number_to_hybrid36_number(number, width):
 
+
+def number_to_hybrid36_number(number: int, width: int) -> str:
     digits_upper = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    digits_lower = digits_upper.lower()
 
-    def encode_pure(digits, value):
+    def encode_pure(digits: str, value: int) -> str:
         "encodes value using the given digits"
         assert value >= 0
         if (value == 0):
@@ -24,7 +27,6 @@ def number_to_hybrid36_number(number, width):
         result.reverse()
         return "".join(result)
 
-    digits_lower = digits_upper.lower()
     if (number >= 1-10**(width-1)):
         if (number < 10**width):
             return '{:{width}d}'.format(number, width=width)
@@ -44,14 +46,23 @@ OCC = "9.99"
 BFAC = "1.00"
 HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.2.0\n"
 
+@attr.s(slots=True)
+class Project(object):
+    input: Path = attr.ib()
+    output: Path = attr.ib()
+    reverse: bool = attr.ib()
+    reshuffle: bool = attr.ib()
+    header: bool = attr.ib()
 
+
+@attr.s
 class PDB_Corr(object):
+    reverse: bool = attr.ib()
 
-    def __init__(self, reverse):
+    def __attrs_post_init__(self):
         self.current = {"atom_number": 1, "old_molecule_number": 1,
                         "last_molecule_number": 1, "chain_id": "A",
                         "chain_id_repeats": 1, "chain": None}
-        self.reverse = reverse
         self.nomcla = {' O1P': ' OP1', ' O2P': ' OP2', ' C5M': ' C7 '}
         self.nomcla_rev = {' OP1': ' O1P', ' OP2': ' O2P', ' C7 ': ' C5M'}
         self.nomcla_base = {'CYT': ' DC', 'GUA': ' DG', 'THY': ' DT',
@@ -252,13 +263,6 @@ def proc_input():
                         action="store_true"
                         )
     args = parser.parse_args()
-    Project = namedtuple("Project", ["input",
-                                     "output",
-                                     "reverse",
-                                     "reshuffle",
-                                     "header",
-                                     ]
-                         )
     project = Project(input=Path(args.input),
                       output=Path(args.output),
                       reverse=args.reverse,
