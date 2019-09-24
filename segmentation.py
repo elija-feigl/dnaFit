@@ -81,6 +81,40 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
     return
 
 
+def mrc_localres(atoms, path_in, path_out):
+    def get_localres(atoms, m_data, m_origin, m_spacing):
+        locres = 0.
+        for atom in atoms:
+            grid_position = np.rint(((atom.position-m_origin) / m_spacing)).astype(int)
+            locres += m_data[grid_position[0], grid_position[1], grid_position[2]]
+        locres /= len(atoms)
+        return locres
+
+    if not len(atoms):
+        print("EXIT - no atoms in this selection")
+        return
+
+    u = atoms.universe
+    u.trajectory[-1]
+
+    with mrcfile.open(path_in + ".mrc", mode='r') as mrc:
+        m_o = np.array(mrc.header["origin"])
+        m_origin = np.array([m_o["x"], m_o["y"], m_o["z"]])
+        m_c = np.array(mrc.header["cella"])
+        m_cell = np.array([m_c["x"], m_c["y"], m_c["z"]])
+        m_grid = np.array(
+            [mrc.header["nx"], mrc.header["ny"], mrc.header["nz"]])
+        m_spacing = m_cell/m_grid
+        m_data = np.swapaxes(mrc.data, 0, 2)
+
+    dict_localres = {}
+    for res in atoms.residues:
+        localres = get_localres(res.atoms, m_data, m_origin, m_spacing)
+        dict_localres[res.resindex] = localres
+
+    return dict_localres
+
+
 def _categorise_lists(topo, plus=3):
     # TODO. check: names set list etc
     dict_FidDid = {v: k for k, v in iter(topo["dict_idid"].items())}
@@ -202,20 +236,8 @@ def proc_input():
 
 def print_usage():
     print("""
-    initializes MDAnalysis universe and compoutes watson scric base pairs.
-    they are returned as to dictionaries. this process is repeated for each
-    Hbond-deviation criterion
-    subsequently universe and dicts are stored into a pickle. each deviation
-    criterion is stored in one pickle
-
-    usage: designname [range = 5] [context = 3]  ...
-
-    return: creates a pickle for each deviation: the pickle contains:
-            (top, trj), wc_pairs, wc_index_pairs
-            the tuple contains the absolute path of the files md-files
-            (universe cannot be pickled), second and third are the two
-            dictionaries
-        """)
+          usage: designname [range = 5] [context = 3]  ...
+          """)
 
 
 def main():
@@ -242,6 +264,14 @@ def main():
         path_analysis + name + "-masked",
         context=context,
     )
+
+    color_exists = os.path.isfile(path_in + name + "_localres.mrc")
+    if color_exists:
+        dict_localres = mrc_localres(atoms=u.atoms,
+                                     path_in=path_in + name,
+                                     path_out=path_analysis + name + "-localres",
+                                     )
+        pickle.dump(dict_localres, open(path_analysis + name + "-localres.p", "wb"))
 
     # crossovers
     motif_cat = {"co": id_coplus_lists, "nick": id_nickplus_list}
