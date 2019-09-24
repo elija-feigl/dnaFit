@@ -11,12 +11,12 @@ import ipywidgets as widgets
 
 # TODO: -low get dynamically from dicts
 DICTS = ["Fbp", "DidFid", "DhpsDid", "Fco", "Fnicks",
-         "Dskips", "FidSeq"]
+         "Dskips", "FidSeq", "localres"]
 CATEGORIES = ["co", "co_plus", "ss", "ds", "all", "clean", "nick", "A", "T",
               "G", "C"]
 CO_CATEGORIES = ["single", "double", "end", "all"]
 PROP_TYPE = ["wc_geometry", "wc_quality",
-             "dh_quality", "distances"]
+             "dh_quality", "distances","localres"]
 WCGEOMETRY = ["twist", "rise", "tilt", "roll", "shift", "slide"]
 DIST = ["C1'", "P"]
 DIHEDRALS = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "xi"]
@@ -37,9 +37,12 @@ class DataPrep(object):
     def _topology(self):
         topo = {}
         for pickle_name in DICTS:
-            topo[pickle_name] = pickle.load(
-                open(self.path + self.name + "__" + pickle_name + ".p", "rb"))
-
+            try:
+                topo[pickle_name] = pickle.load(
+                    open(self.path + self.name + "__" + pickle_name + ".p", "rb"))
+            except:
+                print("some pickles missing")
+                pass
         self.inv_dict_idid = {v: k for k, v in topo["DidFid"].items()}
         self.inv_dict_hpid = {v: k for k, v in topo["DhpsDid"].items()}
         self.inv_dict_bp = {v: k for k, v in topo["Fbp"].items()}
@@ -154,6 +157,14 @@ class DataPrep(object):
                             id_prop_dict[resindex].append(dist)
                             if (atom + "-" + loc) not in self.columns:
                                 self.columns.append(atom + "-" + loc)
+                elif prop == "localres":
+                    try:  # not all are basepaired
+                        localres = data[prop][resindex]
+                    except KeyError:
+                        localres = None
+                    id_prop_dict[resindex].append(localres)
+                    if prop not in self.columns:
+                        self.columns.append(prop)
         self.df = pd.DataFrame.from_dict(
             id_prop_dict, orient='index', columns=self.columns)
 
@@ -260,8 +271,7 @@ def main():
     path, name = proc_input()
     print("output to ", path)
     prep = DataPrep(path, name, plus=3)
-    df, df_co, ts = prep.create_df()
-    # import ipdb; ipdb.set_trace()
+    _, _, _ = prep.create_df()
 
 
 if __name__ == "__main__":
