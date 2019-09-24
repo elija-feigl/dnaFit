@@ -77,9 +77,13 @@ class PDB_Corr(object):
     reverse: bool = attr.ib()
 
     def __attrs_post_init__(self):
-        self.current = {"atom_number": 1, "old_molecule_number": 1,
-                        "last_molecule_number": 1, "chain_id": "A",
-                        "chain_id_repeats": 1, "chain": None}
+        self.current = {"atom_number": 1,
+                        "old_molecule_number": 1,
+                        "last_molecule_number": 1,
+                        "chain_id": "A",
+                        "chain_id_repeats": 1,
+                        "chain": None,
+                        }
 
     def reshuffle_pdb(self, pdb_file: List[str]) -> List[str]:
         unshuff_file = []
@@ -110,7 +114,8 @@ class PDB_Corr(object):
                         line = self.correct_nomenclature(line=line)
                     if logic.molecule_chain:
                         line, is_ter = self.correct_molecule_chain(
-                            line=line, reset_numbers=logic.reset_numbers
+                            line=line,
+                            reset_numbers=logic.reset_numbers,
                             )
                     if logic.atom_number:
                         line = self.correct_atom_number(line=line)
@@ -166,7 +171,6 @@ class PDB_Corr(object):
 
         chain = line[72:76]
         is_ter = False
-
         molecule_number_str = line[22:26]
         molecule_number = int(molecule_number_str.replace(" ", ""))
 
