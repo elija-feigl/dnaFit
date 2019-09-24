@@ -267,11 +267,19 @@ def main():
 
     color_exists = os.path.isfile(path_in + name + "_localres.mrc")
     if color_exists:
+        print("compute per residue resolution")
         dict_localres = mrc_localres(atoms=u.atoms,
-                                     path_in=path_in + name,
-                                     path_out=path_analysis + name + "-localres",
+                                     path_in=path_in + name+ "_localres",
+                                     path_out="",
                                      )
-        pickle.dump(dict_localres, open(path_analysis + name + "-localres.p", "wb"))
+        pickle.dump(dict_localres, open(path_analysis + name + "__localres.p", "wb"))
+
+        pdb = mda.Writer(path_analysis + name + "-localres.pdb", multiframe=True)
+        u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
+        u.atoms.tempfactors = -1.
+        for res in u.residues:
+                res.atoms.tempfactors = dict_localres[res.resindex]
+        pdb.write(u.atoms)
 
     # crossovers
     motif_cat = {"co": id_coplus_lists, "nick": id_nickplus_list}
