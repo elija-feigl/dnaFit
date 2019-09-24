@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import List, Tuple, Optional
 
 
+HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.3.0\n"
+
+
 def number_to_hybrid36_number(number: int, width: int) -> str:
     digits_upper = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     digits_lower = digits_upper.lower()
@@ -38,12 +41,6 @@ def number_to_hybrid36_number(number: int, width: int) -> str:
             return encode_pure(digits_lower, number)
     raise ValueError("value out of range.")
 
-# TODO: low- reset atom number, residuenumber, chain number
-
-OCC = "9.99"
-BFAC = "1.00"
-HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.2.0\n"
-
 
 @attr.s(slots=True)
 class Project(object):
@@ -65,6 +62,7 @@ class Logic(object):
     occupancy: bool = True
     atomtype: bool = True
     remove_H: bool = True
+    reset_numbers: bool = True
 
 
 @attr.s
@@ -97,11 +95,7 @@ class PDB_Corr(object):
         newFile_list = (rem + unshuff_file)
         return newFile_list
 
-    def correct_pdb(self,
-                    pdb_file: List[str],
-                    logic: Logic,
-                    ) -> str:
-        reset_numbers = True
+    def correct_pdb(self, pdb_file: List[str], logic: Logic) -> str:
         body = []
         if logic.header:
             body.append(HEADER)
@@ -116,8 +110,9 @@ class PDB_Corr(object):
                     if logic.nomenclature:
                         line = self.correct_nomenclature(line=line)
                     if logic.molecule_chain:
-                        line, is_ter = self.correct_molecule_chain_and_number(
-                            line=line, reset_numbers=reset_numbers)
+                        line, is_ter = self.correct_molecule_chain(
+                            line=line, reset_numbers=logic.reset_numbers
+                            )
                     if logic.atom_number:
                         line = self.correct_atom_number(line=line)
                     if logic.occupancy:
@@ -131,18 +126,17 @@ class PDB_Corr(object):
                     body.append(line)
 
         body.append("TER\nEND\n")
-        newFile = ''.join(body)
-        return newFile
+        return ''.join(body)
 
     def correct_atom_number(self, line: str) -> str:
         atom_number_string = number_to_hybrid36_number(
             self.current["atom_number"], 5)
-        newline = line[0:5] + " " + atom_number_string + line[11:]
         self.current["atom_number"] += 1
-        return newline
+        return "".join([line[0:5], " ", atom_number_string, line[11:]])
 
     def correct_nomenclature(self, line: str) -> str:
         atom = line[12:16]
+        default = " " * 4
         if self.reverse:
             REPLACEMENT = self.nomcla_rev
             REPLACEMENT_BASES = self.nomcla_base_rev
@@ -151,21 +145,20 @@ class PDB_Corr(object):
             REPLACEMENT_BASES = self.nomcla_base
 
         if atom in REPLACEMENT:
-            atom = REPLACEMENT.get(atom, '    ')
+            atom = REPLACEMENT.get(atom, default)
         base = line[17:20]
         if base in REPLACEMENT_BASES:
-            base = REPLACEMENT_BASES.get(base, '   ')
-        newline = line[0:12] + atom + ' ' + base + line[20:]
-        return newline
+            base = REPLACEMENT_BASES.get(base, default)
+        return "".join([line[0:12], atom, " ", base, line[20:]])
 
     def correct_occupancy(self, line: str) -> str:
-        newline = line[:54] + "  " + BFAC + "  " + OCC + line[66:]
-        return newline
+        return "{}  1.00  9.99{}".format(line[:54], line[66:])
 
-    def correct_molecule_chain_and_number(self,
-                                          line: str,
-                                          reset_numbers: bool,
-                                          ) -> Tuple[str, bool]:
+    def correct_molecule_chain(self,
+                               line: str,
+                               reset_numbers: bool,
+                               ) -> Tuple[str, bool]:
+
         def increase_chain_id(current_chain_id: str) -> str:
             possible_chain_ids = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             pos = possible_chain_ids.find(current_chain_id)
@@ -173,8 +166,7 @@ class PDB_Corr(object):
             if (pos + 1 < chlen):
                 return possible_chain_ids[pos+1]
             else:
-                # Don't allow for A again (Scaffold) that's why 1 and not 0
-                return possible_chain_ids[1]
+                return possible_chain_ids[1]  # A reserved for scaffold
 
         chain = line[72:76]
         is_ter = False
@@ -208,14 +200,21 @@ class PDB_Corr(object):
 
         new_chain_str = (str(new_chain_id) +
                          str(self.current["chain_id_repeats"]).rjust(3, "0"))
-        if reset_numbers is True:
+        if reset_numbers:
             new_molecule_number_str = number_to_hybrid36_number(
                 new_molecule_number, 4)
         else:
             new_molecule_number_str = number_to_hybrid36_number(
                 molecule_number, 4)
-        newline = (line[0:21] + new_chain_id + new_molecule_number_str +
-                   line[26:67] + "     " + new_chain_str + line[76:])
+
+        newline = "".join([line[0:21],
+                           new_chain_id,
+                           new_molecule_number_str,
+                           line[26:67],
+                           " " * 5,
+                           new_chain_str,
+                           line[76:],
+                           ])
 
         self.current["chain_id"] = new_chain_id
         self.current["chain"] = chain
@@ -237,13 +236,11 @@ class PDB_Corr(object):
             atom = atom[0]
 
         atom = atom.strip().rjust(2, " ")
-        newline = line[:76] + atom + line[78:]
-        return newline
+        return "{}{}{}".format(line[:76], atom, line[78:])
 
 
 def get_description() -> str:
-    return """namd (enrgMD) PDB to chimera PDB.
-           """
+    return "namd (enrgMD) PDB to chimera PDB."
 
 
 def proc_input() -> Project:
@@ -290,7 +287,6 @@ def main():
     logic = Logic(header=project.header,
                   remove_H=False,
                   )
-    print("start")
     pdb_Corr = PDB_Corr(reverse=project.reverse)
     with open(project.input, 'r') as file_init:
         if project.reshuffle:
@@ -302,8 +298,6 @@ def main():
                                        )
     with open(project.output, "w") as file_corr:
         file_corr.write(newFile)
-
-    print("done")
     return
 
 
