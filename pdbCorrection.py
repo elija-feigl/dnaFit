@@ -8,6 +8,13 @@ from typing import List, Tuple, Optional
 
 
 HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.3.0\n"
+NOMCLA = {" O1P": " OP1", " O2P": " OP2", " C5M": " C7 "}
+NOMCLA_REV = {" OP1": " O1P", " OP2": " O2P", " C7 ": " C5M"}
+NOMCLA_BASE = {"CYT": " DC", "GUA": " DG", "THY": " DT",
+               "ADE": " DA", "DA5": " DA", "DA3": " DA",
+               "DT5": " DT", "DT3": " DT", "DG5": " DG",
+               "DG3": " DG", "DC5": " DC", "DC3": " DC"}
+NOMCLA_BASE_REV = {" DC": "CYT", " DG": "GUA", " DT": "THY", " DA": "ADE"}
 
 
 def number_to_hybrid36_number(number: int, width: int) -> str:
@@ -30,7 +37,7 @@ def number_to_hybrid36_number(number: int, width: int) -> str:
 
     if (number >= 1-10**(width-1)):
         if (number < 10**width):
-            return '{:{width}d}'.format(number, width=width)
+            return "{:{width}d}".format(number, width=width)
         number -= 10**width
         if (number < 26*36**(width-1)):
             number += 10*36**(width-1)
@@ -73,14 +80,6 @@ class PDB_Corr(object):
         self.current = {"atom_number": 1, "old_molecule_number": 1,
                         "last_molecule_number": 1, "chain_id": "A",
                         "chain_id_repeats": 1, "chain": None}
-        self.nomcla = {' O1P': ' OP1', ' O2P': ' OP2', ' C5M': ' C7 '}
-        self.nomcla_rev = {' OP1': ' O1P', ' OP2': ' O2P', ' C7 ': ' C5M'}
-        self.nomcla_base = {'CYT': ' DC', 'GUA': ' DG', 'THY': ' DT',
-                            'ADE': ' DA', 'DA5': ' DA', 'DA3': ' DA',
-                            'DT5': ' DT', 'DT3': ' DT', 'DG5': ' DG',
-                            'DG3': ' DG', 'DC5': ' DC', 'DC3': ' DC'}
-        self.nomcla_base_rev = {' DC': 'CYT', ' DG': 'GUA', ' DT': 'THY',
-                                ' DA': 'ADE'}
 
     def reshuffle_pdb(self, pdb_file: List[str]) -> List[str]:
         unshuff_file = []
@@ -126,7 +125,7 @@ class PDB_Corr(object):
                     body.append(line)
 
         body.append("TER\nEND\n")
-        return ''.join(body)
+        return "".join(body)
 
     def correct_atom_number(self, line: str) -> str:
         atom_number_string = number_to_hybrid36_number(
@@ -172,7 +171,7 @@ class PDB_Corr(object):
         is_ter = False
 
         molecule_number_str = line[22:26]
-        molecule_number = int(molecule_number_str.replace(' ', ''))
+        molecule_number = int(molecule_number_str.replace(" ", ""))
 
         if self.current["chain"] is None:
             self.current["chain"] = chain
@@ -288,7 +287,7 @@ def main():
                   remove_H=False,
                   )
     pdb_Corr = PDB_Corr(reverse=project.reverse)
-    with open(project.input, 'r') as file_init:
+    with open(project.input, "r") as file_init:
         if project.reshuffle:
             file_list = pdb_Corr.reshuffle_pdb(file_init)
         else:
