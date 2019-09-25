@@ -10,6 +10,28 @@ import ipdb
 
 def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
 
+    def remove_padding(data):
+        idx_data = np.nonzero(data)
+
+        pos_min = np.min(idx_data, axis=1)
+        pos_max = np.max(idx_data, axis=1)
+        max_pos_diff = np.max(pos_max-pos_min)
+        pad = 0.5 * (max_pos_diff + pos_min - pos_max)
+        pos_low = []
+        for p in pad:
+            pos_low.append(int(p) if (p % 1.) == 0. else int(p) + 1)
+
+        data_small = np.zeros((max_pos_diff,  max_pos_diff, max_pos_diff), dtype=np.float32)
+        data_small[pos_low[0]: -int(pad[0]) or None,
+                   pos_low[1]: -int(pad[1]) or None,
+                   pos_low[2]: -int(pad[2]) or None
+                   ] = data[pos_min[0]: pos_max[0],
+                            pos_min[1]: pos_max[1],
+                            pos_min[2]: pos_max[2]
+                            ]
+        cell = pos_min - pos_low
+        return data_small, cell
+
     if not len(atoms_selection):
         print("EXIT - no atoms in this selection")
         return
@@ -25,59 +47,38 @@ def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
         m_grid = np.array(
             [mrc.header["nx"], mrc.header["ny"], mrc.header["nz"]])
         m_spacing = m_cell/m_grid
-        m_data = np.swapaxes(mrc.data, 0, 2)
-        # TODO: -low- faster withoutswap
+        m_data = np.swapaxes(mrc.data, 0, 2)  # TODO: -low- faster withoutswap
 
     data_mask = np.zeros(m_grid, dtype=np.float32)
 
     grid_positions = np.rint(
         ((atoms_selection.positions-m_origin) / m_spacing)).astype(int)
-    for pos in grid_positions:
-        x, y, z = pos[0], pos[1], pos[2]
-        data_mask[x-context:x+context, y-context:y+context, z-context:z +
-                  context] = 1.
+    for (x, y, z) in grid_positions:
+        data_mask[(x - context):(x + context),
+                  (y - context):(y + context),
+                  (z - context):(z + context)
+                  ] = 1.
 
     data = m_data * data_mask
+    data,  cell = remove_padding(data=data)
 
-    # get rid of zero-padding
-    idx_data = np.nonzero(data)
-
-    x_min, x_max = np.min(idx_data[0]),  np.max(idx_data[0])
-    y_min, y_max = np.min(idx_data[1]),  np.max(idx_data[1])
-    z_min, z_max = np.min(idx_data[2]),  np.max(idx_data[2])
-
-    xyz_diff = max(x_max - x_min, y_max - y_min, z_max - z_min)
-    x_pad = 0.5 * (xyz_diff + x_min - x_max)
-    y_pad = 0.5 * (xyz_diff + y_min - y_max)
-    z_pad = 0.5 * (xyz_diff + z_min - z_max)
-    x_low = int(x_pad) if (x_pad % 1.) == 0. else int(x_pad) + 1
-    y_low = int(y_pad) if (y_pad % 1.) == 0. else int(y_pad) + 1
-    z_low = int(z_pad) if (z_pad % 1.) == 0. else int(z_pad) + 1
-
-    data_small = np.zeros((xyz_diff,  xyz_diff, xyz_diff), dtype=np.float32)
-    data_small[x_low: -int(x_pad) or None, y_low: -int(y_pad) or None, z_low: -
-               int(z_pad) or None] = data[x_min: x_max, y_min: y_max,
-                                          z_min: z_max]
-
-    grid = np.shape(data_small)
-    origin = m_origin + ((x_min - x_low) * m_spacing[0], (y_min - y_low) *
-                         m_spacing[1], (z_min - z_low) * m_spacing[2])
+    grid = np.shape(data)
+    origin = m_origin + cell * m_spacing
     cell = grid * m_spacing
     center = np.divide(grid, 2).astype(int)
 
     with mrcfile.new(path_out + ".mrc", overwrite=True) as mrc_out:
-        mrc_out.set_data(np.swapaxes(data_small, 0, 2))
+        mrc_out.set_data(np.swapaxes(data, 0, 2))  # TODO
         mrc_out._set_voxel_size(*(cell/grid))
         mrc_out.header["origin"] = tuple(origin)
 
     path_out_split = path_out.split("/")
     path_star = "Tomograms/seg-co/" + path_out_split[-1]
     with open(path_out + ".star", mode="w") as star_out:
-        star_out.write(
-            "data_\n\nloop_\n_rlnMicrographName #1\n_rlnCoordinateX #2\n" +
-            "_rlnCoordinateY #3\n _rlnCoordinateZ #4\n")
-        star_out.write(path_star + ".star " + str(center[0]) + " " +
-                       str(center[1]) + " " + str(center[2]))
+        star_out.write("data_\n\nloop_\n_rlnMicrographName #1\n")
+        star_out.write("_rlnCoordinateX #2\n_rlnCoordinateY #3\n")
+        star_out.write("_rlnCoordinateZ #4\n")
+        star_out.write("{}.star {} {} {}".format(path_star, *center))
     return
 
 
@@ -280,7 +281,6 @@ def main():
         for res in u.residues:
                 res.atoms.tempfactors = dict_localres[res.resindex]
         pdb.write(u.atoms)
-
     # crossovers
     motif_cat = {"co": id_coplus_lists, "nick": id_nickplus_list}
 
