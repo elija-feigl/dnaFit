@@ -8,77 +8,80 @@ import os
 import ipdb
 
 
-def mrc_segment(atoms_selection, path_in, path_out, context=2, clipping=0.):
+def mrc_segment(atoms, path_in, path_out, context=3, clipping=0.):
 
     def remove_padding(data):
         idx_data = np.nonzero(data)
 
         pos_min = np.min(idx_data, axis=1)
         pos_max = np.max(idx_data, axis=1)
-        max_pos_diff = np.max(pos_max-pos_min)
-        pad = 0.5 * (max_pos_diff + pos_min - pos_max)
-        pos_low = []
-        for p in pad:
-            pos_low.append(int(p) if (p % 1.) == 0. else int(p) + 1)
+        s_cell = np.max(pos_max-pos_min)
+        pad = 0.5 * (s_cell + pos_min - pos_max)
+        pos_low = [int(p) if (p % 1.) == 0. else int(p) + 1 for p in pad]
+        pos_high = -pad.astype(int)
 
-        data_small = np.zeros((max_pos_diff,  max_pos_diff, max_pos_diff), dtype=np.float32)
-        data_small[pos_low[0]: -int(pad[0]) or None,
-                   pos_low[1]: -int(pad[1]) or None,
-                   pos_low[2]: -int(pad[2]) or None
+        data_small = np.zeros(np.full(3, s_cell), dtype=np.float32)
+        data_small[pos_low[0]: pos_high[0] or None,
+                   pos_low[1]: pos_high[1] or None,
+                   pos_low[2]: pos_high[2] or None
                    ] = data[pos_min[0]: pos_max[0],
                             pos_min[1]: pos_max[1],
                             pos_min[2]: pos_max[2]
                             ]
-        cell = pos_min - pos_low
-        return data_small, cell
+        v_origin_small = pos_min - pos_low
+        return data_small, v_origin_small
 
-    if not len(atoms_selection):
+    if not len(atoms):
         print("EXIT - no atoms in this selection")
         return
-
-    u = atoms_selection.universe
+    u = atoms.universe
     u.trajectory[-1]
 
     with mrcfile.open(path_in + ".mrc", mode='r') as mrc:
-        m_o = np.array(mrc.header["origin"])
-        m_origin = np.array([m_o["x"], m_o["y"], m_o["z"]])
-        m_c = np.array(mrc.header["cella"])
-        m_cell = np.array([m_c["x"], m_c["y"], m_c["z"]])
-        m_grid = np.array(
-            [mrc.header["nx"], mrc.header["ny"], mrc.header["nz"]])
-        m_spacing = m_cell/m_grid
-        m_data = np.swapaxes(mrc.data, 0, 2)  # TODO: -low- faster withoutswap
+        o = np.array(mrc.header["origin"])
+        origin = np.array([o["x"], o["y"], o["z"]])
+        c = np.array(mrc.header["cella"])
+        cellA = np.array([c["x"], c["y"], c["z"]])
+        shape = np.array([mrc.header["nx"],
+                          mrc.header["ny"],
+                          mrc.header["nz"]
+                          ])
+        voxel_size = cellA / shape
+        vcontext = np.full(3, context / voxel_size).astype(int) + 1
+        data_all = np.swapaxes(mrc.data, 0, 2)  # TODO: -low- faster wtht swap
 
-    data_mask = np.zeros(m_grid, dtype=np.float32)
+    data_mask = np.zeros(shape, dtype=np.float32)
+    atoms_voxel = np.rint((atoms.positions - origin) / voxel_size)
+    for voxel in atoms_voxel.astype(int):
+        low = voxel - vcontext
+        high = voxel + vcontext
+        data_mask[low[0]:high[0], low[1]:high[1], low[2]:high[2]] = 1.
 
-    grid_positions = np.rint(
-        ((atoms_selection.positions-m_origin) / m_spacing)).astype(int)
-    for (x, y, z) in grid_positions:
-        data_mask[(x - context):(x + context),
-                  (y - context):(y + context),
-                  (z - context):(z + context)
-                  ] = 1.
+    data = data_all * data_mask
+    data_small, v_origin_small = remove_padding(data=data)
 
-    data = m_data * data_mask
-    data,  cell = remove_padding(data=data)
-
-    grid = np.shape(data)
-    origin = m_origin + cell * m_spacing
-    cell = grid * m_spacing
-    center = np.divide(grid, 2).astype(int)
+    shape_small = np.shape(data_small)
+    origin_small = origin + (v_origin_small * voxel_size)
+    center_small = np.divide(shape_small, 2).astype(int)
 
     with mrcfile.new(path_out + ".mrc", overwrite=True) as mrc_out:
-        mrc_out.set_data(np.swapaxes(data, 0, 2))  # TODO
-        mrc_out._set_voxel_size(*(cell/grid))
-        mrc_out.header["origin"] = tuple(origin)
+        mrc_out.set_data(np.swapaxes(data_small, 0, 2))  # TODO
+        mrc_out._set_voxel_size(*(voxel_size))
+        mrc_out.header["origin"] = tuple(origin_small)
 
     path_out_split = path_out.split("/")
     path_star = "Tomograms/seg-co/" + path_out_split[-1]
+    star_header = """data_
+
+                     loop_
+                     _rlnMicrographName #1
+                     _rlnCoordinateX #2
+                     _rlnCoordinateY #3
+                     _rlnCoordinateZ #4
+                     """.replace(" ", "")
     with open(path_out + ".star", mode="w") as star_out:
-        star_out.write("data_\n\nloop_\n_rlnMicrographName #1\n")
-        star_out.write("_rlnCoordinateX #2\n_rlnCoordinateY #3\n")
-        star_out.write("_rlnCoordinateZ #4\n")
-        star_out.write("{}.star {} {} {}".format(path_star, *center))
+        star_out.write(star_header)
+        star_out.write("{}.star {} {} {}".format(path_star, *center_small))
     return
 
 
@@ -86,7 +89,7 @@ def mrc_localres(atoms, path_in, path_out):
     def get_localres(atoms, m_data, m_origin, m_spacing):
         locres = 0.
         for atom in atoms:
-            grid_position = np.rint(((atom.position-m_origin) / m_spacing)).astype(int)
+            grid_position = np.rint(((atom.position - m_origin) / m_spacing)).astype(int)
             locres += m_data[grid_position[0], grid_position[1], grid_position[2]]
         locres /= len(atoms)
         return locres
@@ -225,7 +228,7 @@ def proc_input():
     if len(sys.argv) > 2:
         rang = int(sys.argv[2])
     else:
-        rang = 5
+        rang = 10
 
     if len(sys.argv) > 3:
         context = int(sys.argv[3])
@@ -237,7 +240,7 @@ def proc_input():
 
 def print_usage():
     print("""
-          usage: designname [range = 5] [context = 3]  ...
+          usage: designname [range = 10] [context = 3]  ...
           """)
 
 
@@ -270,7 +273,7 @@ def main():
     if color_exists:
         print("compute per residue resolution")
         dict_localres = mrc_localres(atoms=u.atoms,
-                                     path_in=path_in + name+ "_localres",
+                                     path_in=path_in + name + "_localres",
                                      path_out="",
                                      )
         pickle.dump(dict_localres, open(path_analysis + name + "__localres.p", "wb"))
