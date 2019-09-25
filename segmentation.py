@@ -8,7 +8,7 @@ import os
 import ipdb
 
 
-def mrc_segment(atoms, path_in, path_out, context=3, clipping=0.):
+def mrc_segment(atoms, path_in, path_out, context=3, star= True):
 
     def remove_padding(data):
         idx_data = np.nonzero(data)
@@ -68,20 +68,20 @@ def mrc_segment(atoms, path_in, path_out, context=3, clipping=0.):
         mrc_out.set_data(np.swapaxes(data_small, 0, 2))  # TODO
         mrc_out._set_voxel_size(*(voxel_size))
         mrc_out.header["origin"] = tuple(origin_small)
-
-    path_out_split = path_out.split("/")
-    path_star = "Tomograms/seg-co/" + path_out_split[-1]
-    star_header = """data_
-
-                     loop_
-                     _rlnMicrographName #1
-                     _rlnCoordinateX #2
-                     _rlnCoordinateY #3
-                     _rlnCoordinateZ #4
-                     """.replace(" ", "")
-    with open(path_out + ".star", mode="w") as star_out:
-        star_out.write(star_header)
-        star_out.write("{}.star {} {} {}".format(path_star, *center_small))
+        
+    if star:
+        path_out_split = path_out.split("/")
+        path_star = "Tomograms/seg-co/" + path_out_split[-1]
+        star_header = """data_\n
+                        loop_
+                        _rlnMicrographName #1
+                        _rlnCoordinateX #2
+                        _rlnCoordinateY #3
+                        _rlnCoordinateZ #4
+                        """.replace(" ", "")
+        with open(path_out + ".star", mode="w") as star_out:
+            star_out.write(star_header)
+            star_out.write("{}.star {} {} {}".format(path_star, *center_small))
     return
 
 
@@ -228,19 +228,19 @@ def proc_input():
     if len(sys.argv) > 2:
         rang = int(sys.argv[2])
     else:
-        rang = 10
+        rang = 15
 
     if len(sys.argv) > 3:
         context = int(sys.argv[3])
     else:
-        context = 3
+        context = 5
 
     return path, name, rang, context
 
 
 def print_usage():
     print("""
-          usage: designname [range = 10] [context = 3]  ...
+          usage: designname [range = 15] [context = 5]  ...
           """)
 
 
