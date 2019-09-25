@@ -47,14 +47,14 @@ def mrc_segment(atoms, path_in, path_out, context=3, clipping=0.):
                           mrc.header["nz"]
                           ])
         voxel_size = cellA / shape
-        vcontext = np.full(3, context / voxel_size).astype(int) + 1
+        v_context = np.full(3, context / voxel_size).astype(int) + 1
         data_all = np.swapaxes(mrc.data, 0, 2)  # TODO: -low- faster wtht swap
 
     data_mask = np.zeros(shape, dtype=np.float32)
     atoms_voxel = np.rint((atoms.positions - origin) / voxel_size)
     for voxel in atoms_voxel.astype(int):
-        low = voxel - vcontext
-        high = voxel + vcontext
+        low = voxel - v_context
+        high = voxel + v_context
         data_mask[low[0]:high[0], low[1]:high[1], low[2]:high[2]] = 1.
 
     data = data_all * data_mask
