@@ -378,37 +378,22 @@ def main():
                 for base_id in co_select_typ:
                     atoms_select += u.residues[base_id].atoms
 
-            path_in = project.input / "{}.mrc".format(project.name)
-            path_out = path_motif / "{}__{}{}{}.mrc".format(project.name,
-                                                               typ,
-                                                               motif,
-                                                               index,
-                                                               )
-            mrc_segment(atoms=atoms_select,
-                        path_in=path_in,
-                        path_out=path_out,
-                        context=project.context,
-                        star=project.star,
-                        )
             if project.halfmap:
-                path_out = path_motif / "{}__h1-{}{}{}.mrc".format(project.name,
-                                                               typ,
-                                                               motif,
-                                                               index,
-                                                               )
+                specs = {"": "", "_unfil_half1": "h1-", "_unfil_half2": "h2-"}
+            else:
+                specs = {"": ""}
+            for inp, out in specs.items():
+                path_in = project.input / "{}{}.mrc".format(project.name,
+                                                            inp,
+                                                            )
+                path_out = path_motif / "{}__{}{}{}{}.mrc".format(project.name,
+                                                                    out,
+                                                                    typ,
+                                                                    motif,
+                                                                    index,
+                                                                    )
                 mrc_segment(atoms=atoms_select,
-                            path_in=path_h1,
-                            path_out=path_out,
-                            context=project.context,
-                            star=project.star,
-                            )
-                path_out = path_motif / "{}__h2-{}{}{}.mrc".format(project.name,
-                                                               typ,
-                                                               motif,
-                                                               index,
-                                                               )
-                mrc_segment(atoms=atoms_select,
-                            path_in=path_h2,
+                            path_in=path_in,
                             path_out=path_out,
                             context=project.context,
                             star=project.star,
