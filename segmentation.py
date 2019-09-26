@@ -1,16 +1,36 @@
 #!/usr/bin/env python
-import mrcfile
+import mrcfile as mrc
 import numpy as np
 import MDAnalysis as mda
-import sys
 import pickle
+import argparse
+import attr
 import os
-import ipdb
+
+from pathlib import Path
+from typing import List, Set, Dict, Tuple
 
 
-def mrc_segment(atoms, path_in, path_out, context=3, star= True):
+@attr.s(slots=True)
+class Project(object):
+    input: Path = attr.ib()
+    output: Path = attr.ib()
+    name: str = attr.ib()
+    context: int = attr.ib()
+    range: int = attr.ib()
+    halfmap: bool = attr.ib()
+    localres: bool = attr.ib()
+    star: bool = attr.ib()
 
-    def remove_padding(data):
+
+def mrc_segment(atoms: "mda.atomgroup",
+                path_in: str,
+                path_out: str,
+                context: int=3,
+                star: bool= False,
+                ) -> None:
+
+    def remove_padding(data: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         idx_data = np.nonzero(data)
 
         pos_min = np.min(idx_data, axis=1)
@@ -37,18 +57,18 @@ def mrc_segment(atoms, path_in, path_out, context=3, star= True):
     u = atoms.universe
     u.trajectory[-1]
 
-    with mrcfile.open(path_in + ".mrc", mode='r') as mrc:
-        o = np.array(mrc.header["origin"])
+    with mrc.open(path_in, mode='r') as mrc_in:
+        o = np.array(mrc_in.header["origin"])
         origin = np.array([o["x"], o["y"], o["z"]])
-        c = np.array(mrc.header["cella"])
+        c = np.array(mrc_in.header["cella"])
         cellA = np.array([c["x"], c["y"], c["z"]])
-        shape = np.array([mrc.header["nx"],
-                          mrc.header["ny"],
-                          mrc.header["nz"]
+        shape = np.array([mrc_in.header["nx"],
+                          mrc_in.header["ny"],
+                          mrc_in.header["nz"]
                           ])
         voxel_size = cellA / shape
         v_context = np.full(3, context / voxel_size).astype(int) + 1
-        data_all = np.swapaxes(mrc.data, 0, 2)  # TODO: -low- faster wtht swap
+        data_all = np.swapaxes(mrc_in.data, 0, 2)  # TODO: -low- faster wtht swap
 
     data_mask = np.zeros(shape, dtype=np.float32)
     atoms_voxel = np.rint((atoms.positions - origin) / voxel_size)
@@ -64,11 +84,11 @@ def mrc_segment(atoms, path_in, path_out, context=3, star= True):
     origin_small = origin + (v_origin_small * voxel_size)
     center_small = np.divide(shape_small, 2).astype(int)
 
-    with mrcfile.new(path_out + ".mrc", overwrite=True) as mrc_out:
+    with mrc.new(path_out, overwrite=True) as mrc_out:
         mrc_out.set_data(np.swapaxes(data_small, 0, 2))  # TODO
         mrc_out._set_voxel_size(*(voxel_size))
         mrc_out.header["origin"] = tuple(origin_small)
-        
+
     if star:
         path_out_split = path_out.split("/")
         path_star = "Tomograms/seg-co/" + path_out_split[-1]
@@ -85,12 +105,16 @@ def mrc_segment(atoms, path_in, path_out, context=3, star= True):
     return
 
 
-def mrc_localres(atoms, path_in, path_out):
-    def get_localres(atoms, m_data, m_origin, m_spacing):
+def _mrc_localres(atoms: "mda.atomgroup", path_in: str) -> dict:
+    def get_localres(atoms: "mda.atomgroup",
+                     data: np.ndarray,
+                     origin: np.ndarray,
+                     voxel_size: np.ndarray,
+                     ) -> None:
         locres = 0.
         for atom in atoms:
-            grid_position = np.rint(((atom.position - m_origin) / m_spacing)).astype(int)
-            locres += m_data[grid_position[0], grid_position[1], grid_position[2]]
+            atom_voxel = np.rint((atom.position - origin) / voxel_size)
+            locres += data[tuple(atom_voxel.astype(int))]
         locres /= len(atoms)
         return locres
 
@@ -101,19 +125,21 @@ def mrc_localres(atoms, path_in, path_out):
     u = atoms.universe
     u.trajectory[-1]
 
-    with mrcfile.open(path_in + ".mrc", mode='r') as mrc:
-        m_o = np.array(mrc.header["origin"])
-        m_origin = np.array([m_o["x"], m_o["y"], m_o["z"]])
-        m_c = np.array(mrc.header["cella"])
-        m_cell = np.array([m_c["x"], m_c["y"], m_c["z"]])
-        m_grid = np.array(
-            [mrc.header["nx"], mrc.header["ny"], mrc.header["nz"]])
-        m_spacing = m_cell/m_grid
-        m_data = np.swapaxes(mrc.data, 0, 2)
+    with mrc.open(path_in, mode='r') as mrc_in:
+        o = np.array(mrc_in.header["origin"])
+        origin = np.array([o["x"], o["y"], o["z"]])
+        c = np.array(mrc_in.header["cella"])
+        cellA = np.array([c["x"], c["y"], c["z"]])
+        shape = np.array([mrc_in.header["nx"],
+                          mrc_in.header["ny"],
+                          mrc_in.header["nz"]
+                          ])
+        voxel_size = cellA / shape
+        data = np.swapaxes(mrc_in.data, 0, 2)
 
     dict_localres = {}
     for res in atoms.residues:
-        localres = get_localres(res.atoms, m_data, m_origin, m_spacing)
+        localres = get_localres(res.atoms, data, origin, voxel_size)
         dict_localres[res.resindex] = localres
 
     return dict_localres
@@ -206,100 +232,137 @@ def _categorise_lists(topo, plus=3):
     return id_co, id_coplus, id_nick, id_nick_plus
 
 
-def _topology(name, path):
+def _topology(project: Project) -> dict:
     DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_color",
              "dict_coid", "dict_nicks", "list_skips", "universe"]
-    # read general info
     topo = {}
-    for pickle_name in DICTS:
-        topo[pickle_name] = pickle.load(
-            open(path + name + "__" + pickle_name + ".p", "rb"))
+    for dic in DICTS:
+        pickle_file = project.output / "{}__{}.p".format(project.name, dic)
+        topo[dic] = pickle.load(open(pickle_file, "rb"))
 
     return topo
 
 
-def proc_input():
-    if len(sys.argv) < 2:
-        print_usage()
-    name = sys.argv[1]
-    cwd = os.getcwd()
-    path = cwd + "/"
-
-    if len(sys.argv) > 2:
-        rang = int(sys.argv[2])
-    else:
-        rang = 15
-
-    if len(sys.argv) > 3:
-        context = int(sys.argv[3])
-    else:
-        context = 5
-
-    return path, name, rang, context
+def get_description() -> str:
+    return """cut subset from map according to atoms belongign to sepcific
+              motif. Also produces minimal box map. can also segment halfmaps
+              and evaluate local-resolution per residue -> dict and pdb
+              """
 
 
-def print_usage():
-    print("""
-          usage: designname [range = 15] [context = 5]  ...
-          """)
+def proc_input() -> Project:
+    parser = argparse.ArgumentParser(
+        description=get_description(),
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument("--folder",
+                        help="input folder",
+                        type=str,
+                        default="./",
+                        )
+    parser.add_argument("--name",
+                        help="name of design and files",
+                        type=str,
+                        required=True,
+                        default=argparse.SUPPRESS,
+                        )
+    parser.add_argument("--context",
+                        help="context aroud atom in Angstrom",
+                        type=int,
+                        default=5,
+                        )
+    parser.add_argument("--range",
+                        help="number of addit. basepairs in helix of motif",
+                        type=int,
+                        default=10,
+                        )
+    parser.add_argument("--halfmap",
+                        help="also segment halfmaps",
+                        action="store_true"
+                        )
+    parser.add_argument("--localres",
+                        help="compute localres per molecule",
+                        action="store_true"
+                        )
+    parser.add_argument("--star",
+                        help="create starfile",
+                        action="store_true"
+                        )
+    args = parser.parse_args()
+    project = Project(input=Path(args.folder),
+                      output=Path(args.folder) / "analysis",
+                      name=args.name,
+                      context=args.context,
+                      range=args.range,
+                      halfmap=args.halfmap,
+                      localres=args.localres,
+                      star=args.star,
+                      )
+    return project
+
+
+def mask_minimal_box(u, project):
+    path_in = project.input / "{}.mrc".format(project.name)
+    path_out = project.output / "{}-masked.mrc".format(project.name)
+    mrc_segment(atoms=u.atoms,
+                path_in=path_in,
+                path_out=path_out,
+                context=project.context,
+                )
+    return
+
+
+def local_res(u, path_color, project):
+    dict_localres = _mrc_localres(atoms=u.atoms,
+                                  path_in=path_color,
+                                  )
+    path_colorpickle = project.output / "{}__localres.p".format(project.name)
+    pickle.dump(dict_localres, open(path_colorpickle, "wb"))
+    path_colorpdb = project.output / "{}_localres.pdb".format(project.name)
+    pdb = mda.Writer(path_colorpdb, multiframe=True)
+    u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
+    u.atoms.tempfactors = -1.
+    for res in u.residues:
+            res.atoms.tempfactors = dict_localres[res.resindex]
+    pdb.write(u.atoms)
+    return
 
 
 def main():
-
-    path_in, name, rang, context = proc_input()
-    print("input from ", path_in)
-
-    path_analysis = path_in + "/analysis/"
-
-    topo = _topology(name, path_analysis)
+    project = proc_input()
+    print("input from ", project.input)
+    topo = _topology(project=project)
     _, id_coplus_lists, _, id_nickplus_list = _categorise_lists(
         topo,
-        plus=rang,
+        plus=project.range,
     )
-
     # initialize universe and select final frame
     u = mda.Universe(*topo["universe"])
     u.trajectory[-1]
 
-    # full map masked
-    mrc_segment(
-        u.atoms,
-        path_in + name,
-        path_analysis + name + "-masked",
-        context=context,
-    )
+    print("mask minimal box")
+    mask_minimal_box(u, project)
 
-    color_exists = os.path.isfile(path_in + name + "_localres.mrc")
-    if color_exists:
+    path_color = project.input / "{}_localres.mrc".format(project.name)
+    if os.path.isfile(path_color):
         print("compute per residue resolution")
-        dict_localres = mrc_localres(atoms=u.atoms,
-                                     path_in=path_in + name + "_localres",
-                                     path_out="",
-                                     )
-        pickle.dump(dict_localres, open(path_analysis + name + "__localres.p", "wb"))
+        local_res(u, path_color, project)
 
-        pdb = mda.Writer(path_analysis + name + "-localres.pdb", multiframe=True)
-        u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
-        u.atoms.tempfactors = -1.
-        for res in u.residues:
-                res.atoms.tempfactors = dict_localres[res.resindex]
-        pdb.write(u.atoms)
-    # crossovers
     motif_cat = {"co": id_coplus_lists, "nick": id_nickplus_list}
-
     for motif in ["nick", "co"]:
-        path_out = path_analysis + motif + "/"
-        print("output to ", path_out)
+        path_motif = project.output / motif
+        print("output to ", path_motif)
         try:
-            os.mkdir(path_out)
+            os.mkdir(path_motif)
         except FileExistsError:
             pass
 
-        h1_exists = os.path.isfile(path_in + name + "_unfil_half1.mrc")
-        h2_exists = os.path.isfile(path_in + name + "_unfil_half2.mrc")
-        calculate_halfmaps = True if h1_exists and h2_exists else False
-        if calculate_halfmaps:
+        if project.halfmap:
+            path_h1 = project.input / "{}_unfil_half1.mrc".format(project.name)
+            path_h2 = project.input / "{}_unfil_half2.mrc".format(project.name)
+            # path_half = [path_h1, path_h2]
             print("segmenting halfmaps")
+
         for index, co_select_typ in enumerate(motif_cat[motif]):
             if motif == "co":
                 co_select = co_select_typ[:-2]
@@ -315,16 +378,42 @@ def main():
                 for base_id in co_select_typ:
                     atoms_select += u.residues[base_id].atoms
 
-            mrc_segment(atoms_select, path_in + name, path_out +
-                        name + "__" + typ + motif + str(index),
-                        context=context)
-            if calculate_halfmaps:
-                mrc_segment(atoms_select, path_in + name + "_unfil_half1",
-                            path_out + name + "__h1-" + typ + motif +
-                            str(index), context=context)
-                mrc_segment(atoms_select, path_in + name + "_unfil_half2",
-                            path_out + name + "__h2-" + typ + motif +
-                            str(index), context=context)
+            path_in = project.input / "{}.mrc".format(project.name)
+            path_out = path_motif / "{}__{}{}{}.mrc".format(project.name,
+                                                               typ,
+                                                               motif,
+                                                               index,
+                                                               )
+            mrc_segment(atoms=atoms_select,
+                        path_in=path_in,
+                        path_out=path_out,
+                        context=project.context,
+                        star=project.star,
+                        )
+            if project.halfmap:
+                path_out = path_motif / "{}__h1-{}{}{}.mrc".format(project.name,
+                                                               typ,
+                                                               motif,
+                                                               index,
+                                                               )
+                mrc_segment(atoms=atoms_select,
+                            path_in=path_h1,
+                            path_out=path_out,
+                            context=project.context,
+                            star=project.star,
+                            )
+                path_out = path_motif / "{}__h2-{}{}{}.mrc".format(project.name,
+                                                               typ,
+                                                               motif,
+                                                               index,
+                                                               )
+                mrc_segment(atoms=atoms_select,
+                            path_in=path_h2,
+                            path_out=path_out,
+                            context=project.context,
+                            star=project.star,
+                            )
+    return
 
 
 if __name__ == "__main__":
