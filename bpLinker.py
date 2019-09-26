@@ -68,8 +68,8 @@ class Linker(object):
     Fco:  Dict[int, Any] = {}
 
     def __attrs_post_init__(self):
-        self.fit = Fit(self.project)
-        self.design = Design(self.project)
+        self.fit: Fit = Fit(self.project)
+        self.design: Design = Design(self.project)
         self._eval_skips()
         self._eval_sequence()
 
@@ -80,11 +80,8 @@ class Linker(object):
         return self.FidSeq
 
     def _eval_skips(self) -> Set[Tuple[int, int, bool]]:
-        """ collect position of skips in design
-        -------
-            Returns
+        """ Returns
             -------
-            set Dskips
                 (base.h, base.p, base.is_scaf) of all skips
         """
         design_allbases = [base
@@ -109,15 +106,14 @@ class Linker(object):
         -------
          Returns
             -------
-            dict self.Fbp
-                fit-id (int) -> fit-id (int)
-            dict self.DidFid
-                design-id (int) -> fit-id (int)
-            dict self.DhpsDid
-                helix-number (int), base-position (int), is_scaffold (bool)
-                -> design-id (int)
-            dict self.color
-                fit-segment-id (int) -> color (hex?)
+            self.Fbp
+                fit-id  -> fit-id
+            self.DidFid
+                design-id -> fit-id
+            self.DhpsDid
+                helix-number, base-position, is_scaffold -> design-id
+            self.color
+                fit-segment-id -> color
         """
 
         self._link()
@@ -148,11 +144,10 @@ class Linker(object):
             -------
                 Returns
                 -------
-                dict DidFid
-                    design-id (int) -> fit-id (int)
-                dict DhpsDid
-                    helix-number (int), base-position (int), is_scaffold (bool)
-                    -> design-id (int)
+                DidFid
+                    design-id -> fit-id
+                DhpsDid
+                    helix-number, base-position, is_scaffold -> design-id
             """
             Dscaffold = self.design.scaffold
             Did = [base.id for base in Dscaffold]
@@ -172,13 +167,12 @@ class Linker(object):
             -------
             Returns
                 -------
-                dict DidFid
-                    design-id (int) -> fit-id (int)
-                dict DhpsDid
-                    helix-number (int), base-position (int), is_scaffold (bool)
-                    -> design-id (int)
+                DidFid
+                    design-id -> fit-id
+                DhpsDid
+                    helix-number, base-position, is_scaffold -> design-id
                 dict color
-                    fit-segment-id (int) -> color (hex?)
+                    fit-segment-id -> color
             """
             def get_resid(segindex: int, resindex_local: int) -> int:
                 return self.fit.staples[segindex].residues[resindex_local].resindex
@@ -220,8 +214,8 @@ class Linker(object):
         -------
          Returns
             -------
-            dict Fbp
-                fit-id (int) -> fit-id (int)
+            self.Fbp
+                fit-id -> fit-id
         """
         def Fid(Did: int) -> int:
             return self.DidFid[Did]
@@ -246,16 +240,16 @@ class Linker(object):
         -------
          Returns
             -------
-            dict self.Fco
-                fit-id (int) ->
-                "co_index": co_index (int), "co": co_id (int),
-                "leg": leg_id (int),
-                "is_scaffold": is_scaf (bool),
-                "position": (h, p, is_scaf) /(int,int, bool),
+            self.Fco
+                fit-id ->
+                "co_index": co_index, "co": co_id,
+                "leg": leg_id,
+                "is_scaffold": is_scaf,
+                "position": (h, p, is_scaf)
                 if end, single, dpouble
                     "type": ("end", None)
-                    "type": ("single", single, single_leg) /(str, int, int)
-                    "type": ("double", double) /(str, int)
+                    "type": ("single", single, single_leg) 
+                    "type": ("double", double)
         """
         def add_co_type() -> None:
 
@@ -367,8 +361,8 @@ class Linker(object):
         -------
          Returns
             -------
-            dict self.Fnicks
-                fit-id (int) -> fit_id (int)
+            self.Fnicks
+                fit-id -> fit_id
         """
         def is_nick(candidate: "nd.base", base: "nd.base") -> bool:
             is_onhelix = (candidate.h == base.h)
@@ -413,11 +407,11 @@ class ENBond(object):
         -------
          Input
             -------
-                a1 (int): atomnumber 1
-                a2 (int): atomnumber 2
-                k (int): force konstant []
-                r0 (int): equilibrium distance [A]
-                btype (Set[str]): keywords that indicate topology
+                a1: atomnumber 1
+                a2: atomnumber 2
+                k: force konstant
+                r0: equilibrium distance [A]
+                btype: keywords that indicate topology
     """
     a1: int = 0
     a2: int = 0
@@ -450,9 +444,9 @@ class ElaticNetwortModifier(object):
     linker: Linker = attr.ib()
 
     def __attrs_post_init__(self):
-        self.u = self.linker.fit.u
-        self.Fbp_full = {**self.linker.Fbp, **{v: k for k, v in self.linker.Fbp.items()}}
-        self.network = self._get_network()
+        self.u: "mda.universe" = self.linker.fit.u
+        self.Fbp_full: Dict[int, int] = {**self.linker.Fbp, **{v: k for k, v in self.linker.Fbp.items()}}
+        self.network: set = self._get_network()
 
     def _get_network(self) -> set:
         infile = self.linker.project.input / self.linker.project.name
@@ -525,7 +519,7 @@ class ElaticNetwortModifier(object):
         -------
          Returns
             -------
-            EN elastic_network
+            elastic_network
         """
         network = set()
         for line in exb_file:
@@ -561,7 +555,7 @@ class ElaticNetwortModifier(object):
         -------
          Returns
             -------
-            EN reduced_elastic_network
+            reduced_elastic_network
         """
         self._change_modify_logic()
         if self.modify_logic.dihedral:
@@ -591,7 +585,7 @@ class ElaticNetwortModifier(object):
         -------
          Returns
             -------
-            EN dihedral_elastic_network
+            dihedral_elastic_network
         """
         return NotImplementedError
 
@@ -675,8 +669,7 @@ class Design(object):
         -------
             Returns
             -------
-            dict helixorder
-                (int) -> (int)
+            helixorder
         """
         helices_dict = self.design.structure_helices_map
         helixorder = {i: h.load_order for (i, h) in iter(helices_dict.items())}
@@ -689,8 +682,8 @@ class Design(object):
         -------
             Returns
             -------
-            dict stapleorder
-                (int) -> (int)
+            stapleorder
+                nanodesign -> enrgMD
         """
         Dhps = [(self.helixorder[s[0].h], s[0].p)
                 for s in self.staples
