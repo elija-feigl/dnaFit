@@ -357,12 +357,6 @@ def main():
         except FileExistsError:
             pass
 
-        if project.halfmap:
-            path_h1 = project.input / "{}_unfil_half1.mrc".format(project.name)
-            path_h2 = project.input / "{}_unfil_half2.mrc".format(project.name)
-            # path_half = [path_h1, path_h2]
-            print("segmenting halfmaps")
-
         for index, co_select_typ in enumerate(motif_cat[motif]):
             if motif == "co":
                 co_select = co_select_typ[:-2]
@@ -379,6 +373,7 @@ def main():
                     atoms_select += u.residues[base_id].atoms
 
             if project.halfmap:
+                print("segmenting halfmaps")
                 specs = {"": "", "_unfil_half1": "h1-", "_unfil_half2": "h2-"}
             else:
                 specs = {"": ""}
@@ -387,11 +382,11 @@ def main():
                                                             inp,
                                                             )
                 path_out = path_motif / "{}__{}{}{}{}.mrc".format(project.name,
-                                                                    out,
-                                                                    typ,
-                                                                    motif,
-                                                                    index,
-                                                                    )
+                                                                  out,
+                                                                  typ,
+                                                                  motif,
+                                                                  index,
+                                                                  )
                 mrc_segment(atoms=atoms_select,
                             path_in=path_in,
                             path_out=path_out,
