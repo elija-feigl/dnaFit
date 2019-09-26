@@ -312,6 +312,22 @@ def mask_minimal_box(u, project):
     return
 
 
+def local_res(u, path_color, project):
+    dict_localres = _mrc_localres(atoms=u.atoms,
+                                  path_in=path_color,
+                                  )
+    path_colorpickle = project.output / "{}__localres.p".format(project.name)
+    pickle.dump(dict_localres, open(path_colorpickle, "wb"))
+    path_colorpdb = project.output / "{}_localres.pdb".format(project.name)
+    pdb = mda.Writer(path_colorpdb, multiframe=True)
+    u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
+    u.atoms.tempfactors = -1.
+    for res in u.residues:
+            res.atoms.tempfactors = dict_localres[res.resindex]
+    pdb.write(u.atoms)
+    return
+
+
 def main():
     project = proc_input()
     print("input from ", project.input)
