@@ -8,7 +8,7 @@ import attr
 import os
 
 from pathlib import Path
-from typing import List, Set, Dict, Tuple
+from typing import List, Set, Dict, Tuple, Any
 
 
 @attr.s(slots=True)
@@ -21,6 +21,19 @@ class Project(object):
     halfmap: bool = attr.ib()
     localres: bool = attr.ib()
     star: bool = attr.ib()
+
+
+@attr.s(auto_attribs=True)
+class Linkage(object):
+    Fbp: Dict[int, int] = {}
+    DidFid: Dict[int, int] = {}
+    DhpsDid: Dict[Tuple[int, int, bool], int] = {}
+    Dcolor: Dict[int, int] = {}
+    Dskips: Set[Tuple[int, int, bool]] = set()
+    Fnicks: Dict[int, int] = {}
+    FidSeq: Dict[int, str] = {}
+    Fco: Dict[int, Any] = {}
+    universe: Tuple[str, str] = ("", "")
 
 
 def mrc_segment(atoms: "mda.atomgroup",
@@ -105,7 +118,7 @@ def mrc_segment(atoms: "mda.atomgroup",
     return
 
 
-def _mrc_localres(atoms: "mda.atomgroup", path_in: str) -> dict:
+def _mrc_localres(atoms: "mda.atomgroup", path_in: str) -> Dict[int, float]:
     def get_localres(atoms: "mda.atomgroup",
                      data: np.ndarray,
                      origin: np.ndarray,
@@ -145,44 +158,43 @@ def _mrc_localres(atoms: "mda.atomgroup", path_in: str) -> dict:
     return dict_localres
 
 
-def _categorise_lists(topo, plus=3):
-    # TODO. check: names set list etc
-    dict_FidDid = {v: k for k, v in iter(topo["dict_idid"].items())}
-    dict_DidDhps = {v: k for k, v in iter(topo["dict_hpid"].items())}
-    dict_bpFULL = {**topo["dict_bp"], **{v: k for k, v in iter(topo["dict_bp"].items())}}
+def _categorise_lists(link: Linkage, plus: int=3):
+    FidDid = {v: k for k, v in iter(link.DidFid.items())}
+    DidDhps = {v: k for k, v in iter(link.DhpsDid.items())}
+    FbpFULL = {**link.Fbp, **{v: k for k, v in iter(link.Fbp.items())}}
 
     id_ds = set()
     id_coplus = set()
 
-    for wc_id1, wc_id2 in iter(topo["dict_bp"].items()):
+    for wc_id1, wc_id2 in iter(link.Fbp.items()):
         id_ds.add(wc_id1)
         id_ds.add(wc_id2)
-    id_ss = set(topo["dict_idid"].values()) - id_ds
+    id_ss = set(link.DidFid.values()) - id_ds
 
     id_co = set()
-    id_co_init = {id_design for id_design in topo["dict_coid"].keys()
+    id_co_init = {id_design for id_design in link.Fco.keys()
                   if id_design not in id_ss}
     allready_done = set()
     for base in id_co_init:
-        typ = topo["dict_coid"][base]["type"][0]
-        co_index = topo["dict_coid"][base]["co_index"]
+        typ = link.Fco[base]["type"][0]
+        co_index = link.Fco[base]["co_index"]
 
         if base not in allready_done:
             allready_done.add(base)
-            co = topo["dict_coid"][base]["co"]
+            co = link.Fco[base]["co"]
             allready_done.add(co)
 
-            co_bp = dict_bpFULL[co]
-            bp = dict_bpFULL[base]
+            co_bp = FbpFULL[co]
+            bp = FbpFULL[base]
 
-            if topo["dict_coid"][base]["type"][0] == "double":
-                dou = topo["dict_coid"][base]["type"][1]
+            if link.Fco[base]["type"][0] == "double":
+                dou = link.Fco[base]["type"][1]
                 allready_done.add(dou)
-                dou_co = topo["dict_coid"][dou]["co"]
+                dou_co = link.Fco[dou]["co"]
                 allready_done.add(dou_co)
 
-                dou_co_bp = dict_bpFULL[dou_co]
-                dou_bp = dict_bpFULL[dou]
+                dou_co_bp = FbpFULL[dou_co]
+                dou_bp = FbpFULL[dou]
 
                 tup = (base, bp, co, co_bp, dou,
                        dou_bp, dou_co, dou_co_bp, co_index, typ)
@@ -191,13 +203,12 @@ def _categorise_lists(topo, plus=3):
 
             tup_plus = []
             for x in tup[:-2]:
-                h, p, is_scaf = dict_DidDhps[dict_FidDid[x]]
+                h, p, is_scaf = DidDhps[FidDid[x]]
                 for i in range(-plus, plus):
                     try:
-                        tup_plus.append(
-                            topo["dict_idid"][topo["dict_hpid"][(h,
-                                                                 p+i,
-                                                                 is_scaf)]])
+                        tup_plus.append(link.DidFid[link.DhpsDid[(h,
+                                                                  p+i,
+                                                                  is_scaf)]])
                     except KeyError:
                         pass  # helix end
 
@@ -208,39 +219,37 @@ def _categorise_lists(topo, plus=3):
 
     nick_allready_done = set()
     id_nick = set()
-    for id1, id2 in iter(topo["dict_nicks"].items()):
+    for id1, id2 in iter(link.Fnicks.items()):
         if id1 not in nick_allready_done:
             nick_allready_done.add(id1)
             nick_allready_done.add(id2)
-            tup = (id1, id2, dict_bpFULL[id1], dict_bpFULL[id2])
+            tup = (id1, id2, FbpFULL[id1], FbpFULL[id2])
             id_nick.add(tup)
 
     id_nick_plus = []
     for nick in id_nick:
         tup_plus = []
         for x in nick:
-            h, p, is_scaf = dict_DidDhps[dict_FidDid[x]]
+            h, p, is_scaf = DidDhps[FidDid[x]]
             for i in range(-plus, plus):
                 try:
-                    tup_plus.append(
-                        topo["dict_idid"][topo["dict_hpid"][(h,
-                                                             p+i,
-                                                             is_scaf)]])
+                    tup_plus.append(link.DidFid[link.DhpsDid[(h,
+                                                              p+i,
+                                                              is_scaf)]])
                 except KeyError:
                     pass  # helix end
         id_nick_plus.append(tup_plus)
     return id_co, id_coplus, id_nick, id_nick_plus
 
 
-def _topology(project: Project) -> dict:
-    DICTS = ["dict_bp", "dict_idid", "dict_hpid", "dict_color",
-             "dict_coid", "dict_nicks", "list_skips", "universe"]
-    topo = {}
-    for dic in DICTS:
-        pickle_file = project.output / "{}__{}.p".format(project.name, dic)
-        topo[dic] = pickle.load(open(pickle_file, "rb"))
+def _load_linkage(project: Project) -> Linkage:
+    linkage = Linkage()
 
-    return topo
+    for name in vars(linkage).keys():
+        pickle_name = project.output / "{}__{}.p".format(project.name, name)
+        value = pickle.load(open(pickle_name, "rb"))
+        setattr(linkage, name, value)
+    return linkage
 
 
 def get_description() -> str:
@@ -320,7 +329,8 @@ def local_res(u, path_color, project):
     pickle.dump(dict_localres, open(path_colorpickle, "wb"))
     path_colorpdb = project.output / "{}_localres.pdb".format(project.name)
     pdb = mda.Writer(path_colorpdb, multiframe=True)
-    u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
+    empty_TopologyAttr = np.zeros(len(u.atoms))
+    u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(empty_TopologyAttr))
     u.atoms.tempfactors = -1.
     for res in u.residues:
             res.atoms.tempfactors = dict_localres[res.resindex]
@@ -331,13 +341,13 @@ def local_res(u, path_color, project):
 def main():
     project = proc_input()
     print("input from ", project.input)
-    topo = _topology(project=project)
+    linkage = _load_linkage(project=project)
     _, id_coplus_lists, _, id_nickplus_list = _categorise_lists(
-        topo,
-        plus=project.range,
-    )
+                                                        link=linkage,
+                                                        plus=project.range,
+                                                    )
     # initialize universe and select final frame
-    u = mda.Universe(*topo["universe"])
+    u = mda.Universe(*linkage.universe)
     u.trajectory[-1]
 
     print("mask minimal box")
@@ -394,7 +404,6 @@ def main():
                             star=project.star,
                             )
     return
-
 
 if __name__ == "__main__":
     main()
