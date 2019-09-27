@@ -10,15 +10,18 @@ import os
 from pathlib import Path
 from typing import List, Set, Dict, Tuple, Any
 
+
 class UnexpectedCaseError(Exception):
     """Raised when a case occurs that makes no sense in the programs context"""
     pass
+
 
 @attr.s(slots=True)
 class Project(object):
     input: Path = attr.ib()
     output: Path = attr.ib()
     name: str = attr.ib()
+    # specific
     context: int = attr.ib()
     range: int = attr.ib()
     halfmap: bool = attr.ib()
@@ -37,6 +40,19 @@ class Linkage(object):
     FidSeq: Dict[int, str] = {}
     Fco: Dict[int, Any] = {}
     universe: Tuple[str, str] = ("", "")
+
+    def dump_linkage(self, project: Project) -> None:
+        for name, link in vars(self).items():
+            output = project.output / "{}__{}.p".format(project.name, name)
+            pickle.dump(link, open(output, "wb"))
+        return
+
+    def load_linkage(self, project: Project) -> None:
+        for name in vars(self).keys():
+            input = project.output / "{}__{}.p".format(project.name, name)
+            value = pickle.load(open(input, "rb"))
+            setattr(self, name, value)
+        return
 
 
 def mrc_segment(atoms: "mda.atomgroup",
@@ -69,7 +85,7 @@ def mrc_segment(atoms: "mda.atomgroup",
 
     if not len(atoms):
         raise UnexpectedCaseError("no atoms in this selection")
-    
+
     u = atoms.universe
     u.trajectory[-1]
 
@@ -247,16 +263,6 @@ def _categorise_lists(link: Linkage, plus: int=3) -> Tuple[Set[int],
     return id_co, id_coplus, id_nick, id_nick_plus
 
 
-def _load_linkage(project: Project) -> Linkage:
-    linkage = Linkage()
-
-    for name in vars(linkage).keys():
-        pickle_name = project.output / "{}__{}.p".format(project.name, name)
-        value = pickle.load(open(pickle_name, "rb"))
-        setattr(linkage, name, value)
-    return linkage
-
-
 def get_description() -> str:
     return """cut subset from map according to atoms belongign to sepcific
               motif. Also produces minimal box map. can also segment halfmaps
@@ -346,7 +352,8 @@ def local_res(u, path_color, project):
 def main():
     project = proc_input()
     print("input from ", project.input)
-    linkage = _load_linkage(project=project)
+    linkage = Linkage()
+    linkage.load_linkage(project=project)
     _, id_coplus_lists, _, id_nickplus_list = _categorise_lists(
                                                         link=linkage,
                                                         plus=project.range,
