@@ -354,6 +354,8 @@ def main():
     print("input from ", project.input)
     linkage = Linkage()
     linkage.load_linkage(project=project)
+
+    # TODO: cleanup categorize
     _, id_coplus_lists, _, id_nickplus_list = _categorise_lists(
                                                         link=linkage,
                                                         plus=project.range,
