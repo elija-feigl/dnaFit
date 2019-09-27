@@ -9,7 +9,8 @@ import os
 import contextlib
 
 from pathlib import Path
-from typing import List, Set, Dict, Tuple, Any
+from typing import List, Set, Dict, Tuple, Any, FrozenSet
+from itertools import chain
 
 
 class UnexpectedCaseError(Exception):
@@ -61,6 +62,16 @@ class Linkage(object):
             input = project.output / "{}__{}.p".format(project.name, name)
             value = pickle.load(open(input, "rb"))
             setattr(self, name, value)
+        return
+
+    def reverse(self) -> None:
+        def reverse_d(dict: dict) -> dict:
+            return {v: k for k, v in iter(dict.items())}
+
+        self.FidDid = reverse_d(self.DidFid)
+        self.DidDhps = reverse_d(self.DhpsDid)
+        self.Fbp_rev = reverse_d(self.Fbp)
+        self.Fbp_full = {**self.Fbp, **self.Fbp_rev}
         return
 
 
@@ -185,87 +196,85 @@ def _mrc_localres(atoms: "mda.atomgroup", path_in: str) -> Dict[int, float]:
     return dict_localres
 
 
-def _categorise_lists(link: Linkage, plus: int=3) -> Tuple[Set[int],
-                                                           Set[int],
-                                                           Set[int],
-                                                           Set[int]]:
-    FidDid = {v: k for k, v in iter(link.DidFid.items())}
-    DidDhps = {v: k for k, v in iter(link.DhpsDid.items())}
-    FbpFULL = {**link.Fbp, **{v: k for k, v in iter(link.Fbp.items())}}
+def categorise(link: Linkage,
+               plus: int=3
+               ) -> Tuple[Set[Tuple[FrozenSet[int], int, str]],
+                          Set[FrozenSet[int]]
+                          ]:
 
-    id_ds = set()
-    id_coplus = set()
+    def _get_co(res: int, link: Linkage) -> List[int]:
+        ser = link.Fco[res]["co"]
+        res_bp = link.Fbp_full[res]
+        ser_bp = link.Fbp_full[ser]
+        return [res, ser, res_bp, ser_bp]
 
-    for wc_id1, wc_id2 in iter(link.Fbp.items()):
-        id_ds.add(wc_id1)
-        id_ds.add(wc_id2)
-    id_ss = set(link.DidFid.values()) - id_ds
+    def _expand_co(co: Tuple[List[int], int, str],
+                   link: Linkage,
+                   ) -> Tuple[FrozenSet[int], int, str]:
+        bases = co[0][:len(co)]
+        co_plus = _expand_selection(selection=bases, link=link)
+        return (frozenset(co_plus), co[1], co[2])
 
-    id_co = set()
-    id_co_init = {id_design for id_design in link.Fco.keys()
-                  if id_design not in id_ss}
-    allready_done: Set[int] = set()
-    for base in id_co_init:
-        typ = link.Fco[base]["type"][0]
-        co_index = link.Fco[base]["co_index"]
+    def _expand_nick(n: Tuple[int, int, int, int],
+                     link: Linkage,
+                     rev: Linkage
+                     ) -> FrozenSet[int]:
+        n_plus = _expand_selection(selection=list(n), link=link)
+        return frozenset(n_plus)
 
-        if base not in allready_done:
-            allready_done.add(base)
-            co = link.Fco[base]["co"]
-            allready_done.add(co)
-
-            co_bp = FbpFULL[co]
-            bp = FbpFULL[base]
-
-            if link.Fco[base]["type"][0] == "double":
-                dou = link.Fco[base]["type"][1]
-                allready_done.add(dou)
-                dou_co = link.Fco[dou]["co"]
-                allready_done.add(dou_co)
-
-                dou_co_bp = FbpFULL[dou_co]
-                dou_bp = FbpFULL[dou]
-
-                tup = (base, bp, co, co_bp, dou,
-                       dou_bp, dou_co, dou_co_bp, co_index, typ)
-            else:
-                tup = (base, bp, co, co_bp, co_index, typ)
-
-            tup_plus = []
-            for x in tup[:-2]:
-                h, p, is_scaf = DidDhps[FidDid[x]]
-                for i in range(-plus, plus):
-                    with ignored(KeyError):
-                        tup_plus.append(link.DidFid[link.DhpsDid[(h,
-                                                                  p+i,
-                                                                  is_scaf)]])
-
-            tup_plus.append(co_index)
-            tup_plus.append(typ)
-            id_co.add(tup)
-            id_coplus.add(tuple(tup_plus))
-
-    nick_allready_done: Set[int] = set()
-    id_nick = set()
-    for id1, id2 in iter(link.Fnicks.items()):
-        if id1 not in nick_allready_done:
-            nick_allready_done.add(id1)
-            nick_allready_done.add(id2)
-            tup = (id1, id2, FbpFULL[id1], FbpFULL[id2])
-            id_nick.add(tup)
-
-    id_nick_plus = []
-    for nick in id_nick:
-        tup_plus = []
-        for x in nick:
-            h, p, is_scaf = DidDhps[FidDid[x]]
+    def _expand_selection(selection: List[int], link: Linkage) -> Set[int]:
+        expand = set()
+        for resindex in selection:
+            h, p, is_scaf = link.DidDhps[link.FidDid[resindex]]
             for i in range(-plus, plus):
+                position = (h, p+i, is_scaf)
                 with ignored(KeyError):
-                    tup_plus.append(link.DidFid[link.DhpsDid[(h,
-                                                              p+i,
-                                                              is_scaf)]])
-        id_nick_plus.append(tup_plus)
-    return id_coplus, id_nick_plus
+                    expand.add(link.DidFid[link.DhpsDid[position]])
+        return expand
+
+    rev = link.reverse()
+    ds = set(chain.from_iterable((a, b) for a, b in iter(link.Fbp.items())))
+    ss = set(link.DidFid.values()) - ds
+
+    co = set()
+    co_plus = set()
+    co_done = set()
+    co_init = set(resid for resid in link.Fco.keys() if resid not in ss)
+    for res in co_init:
+        if res in co_done:
+            continue
+
+        typ = link.Fco[res]["type"][0]
+        co_index = link.Fco[res]["co_index"]
+
+        half = _get_co(res=res, link=link)
+
+        if typ == "double":
+            f_res = link.Fco[res]["type"][1]
+            flah = _get_co(res=f_res, link=link)
+            full = half[:2] + flah[:2] + half[2:] + flah[2:]
+            crossover = (frozenset(full), co_index, typ)
+            co_done.update(full[:4])
+        else:
+            crossover = (frozenset(half), co_index, typ)
+            co_done.update(half[:2])
+        co.add(crossover)
+        co_plus.add(_expand_co(co=(half, co_index, typ), link=link))
+
+    nick = set()
+    nick_plus = set()
+    nick_done = set()
+    for res, ser in iter(link.Fnicks.items()):
+        if res in nick_done:
+            continue
+        nick_done.update([res, ser])
+        res_bp = link.Fbp_full[res]
+        ser_bp = link.Fbp_full[ser]
+        n = (res, ser, res_bp, ser_bp)
+        nick.add(frozenset(n))
+        nick_plus.add(_expand_nick(n=n, link=link, rev=rev))
+
+    return co_plus, nick_plus
 
 
 def get_description() -> str:
@@ -360,7 +369,7 @@ def main():
     print("input from ", project.input)
     linkage = Linkage()
     linkage.load_linkage(project=project)
-    co, nick = _categorise_lists(link=linkage, plus=project.range)
+    co, nick = categorise(link=linkage, plus=project.range)
     u = mda.Universe(*linkage.universe)
     u.trajectory[-1]
 
@@ -385,6 +394,7 @@ def main():
                 typ = co_select_typ[-1]
                 index = co_select_typ[-2]
                 atoms_select = mda.AtomGroup([], u)
+                import ipdb; ipdb.set_trace()
                 for base_id in co_select:
                     atoms_select += u.residues[base_id].atoms
             elif motif_name == "nick":
