@@ -6,6 +6,7 @@ import pickle
 import argparse
 import attr
 import os
+import contextlib
 
 from pathlib import Path
 from typing import List, Set, Dict, Tuple, Any
@@ -14,6 +15,14 @@ from typing import List, Set, Dict, Tuple, Any
 class UnexpectedCaseError(Exception):
     """Raised when a case occurs that makes no sense in the programs context"""
     pass
+
+
+@contextlib.contextmanager
+def ignored(*exceptions):
+    try:
+        yield
+    except exceptions:
+        pass
 
 
 @attr.s(slots=True)
@@ -226,12 +235,10 @@ def _categorise_lists(link: Linkage, plus: int=3) -> Tuple[Set[int],
             for x in tup[:-2]:
                 h, p, is_scaf = DidDhps[FidDid[x]]
                 for i in range(-plus, plus):
-                    try:
+                    with ignored(KeyError):
                         tup_plus.append(link.DidFid[link.DhpsDid[(h,
                                                                   p+i,
                                                                   is_scaf)]])
-                    except KeyError:
-                        pass  # helix end
 
             tup_plus.append(co_index)
             tup_plus.append(typ)
@@ -253,14 +260,12 @@ def _categorise_lists(link: Linkage, plus: int=3) -> Tuple[Set[int],
         for x in nick:
             h, p, is_scaf = DidDhps[FidDid[x]]
             for i in range(-plus, plus):
-                try:
+                with ignored(KeyError):
                     tup_plus.append(link.DidFid[link.DhpsDid[(h,
                                                               p+i,
                                                               is_scaf)]])
-                except KeyError:
-                    pass  # helix end
         id_nick_plus.append(tup_plus)
-    return id_co, id_coplus, id_nick, id_nick_plus
+    return id_coplus, id_nick_plus
 
 
 def get_description() -> str:
@@ -351,16 +356,11 @@ def local_res(u, path_color, project):
 
 def main():
     project = proc_input()
+
     print("input from ", project.input)
     linkage = Linkage()
     linkage.load_linkage(project=project)
-
-    # TODO: cleanup categorize
-    _, id_coplus_lists, _, id_nickplus_list = _categorise_lists(
-                                                        link=linkage,
-                                                        plus=project.range,
-                                                    )
-    # initialize universe and select final frame
+    co, nick = _categorise_lists(link=linkage, plus=project.range)
     u = mda.Universe(*linkage.universe)
     u.trajectory[-1]
 
@@ -372,25 +372,22 @@ def main():
         print("compute per residue resolution")
         local_res(u, path_color, project)
 
-    motif_cat = {"co": id_coplus_lists, "nick": id_nickplus_list}
-    for motif in ["nick", "co"]:
-        path_motif = project.output / motif
+    motifs = {"co": co, "nick": nick}
+    for motif_name, motif in motifs.items():
+        path_motif = project.output / motif_name
         print("output to ", path_motif)
-        try:
+        with ignored(FileExistsError):
             os.mkdir(path_motif)
-        except FileExistsError:
-            pass
 
-        for index, co_select_typ in enumerate(motif_cat[motif]):
-            if motif == "co":
+        for index, co_select_typ in enumerate(motif):
+            if motif_name == "co":
                 co_select = co_select_typ[:-2]
                 typ = co_select_typ[-1]
                 index = co_select_typ[-2]
                 atoms_select = mda.AtomGroup([], u)
                 for base_id in co_select:
                     atoms_select += u.residues[base_id].atoms
-
-            elif motif == "nick":
+            elif motif_name == "nick":
                 typ = ""
                 atoms_select = mda.AtomGroup([], u)
                 for base_id in co_select_typ:
