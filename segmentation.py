@@ -10,6 +10,9 @@ import os
 from pathlib import Path
 from typing import List, Set, Dict, Tuple, Any
 
+class UnexpectedCaseError(Exception):
+    """Raised when a case occurs that makes no sense in the programs context"""
+    pass
 
 @attr.s(slots=True)
 class Project(object):
@@ -81,7 +84,7 @@ def mrc_segment(atoms: "mda.atomgroup",
                           ])
         voxel_size = cellA / shape
         v_context = np.full(3, context / voxel_size).astype(int) + 1
-        data_all = np.swapaxes(mrc_in.data, 0, 2)  # TODO: -low- faster wtht swap
+        data_all = np.swapaxes(mrc_in.data, 0, 2)  # TODO: -low- faster wo swap
 
     data_mask = np.zeros(shape, dtype=np.float32)
     atoms_voxel = np.rint((atoms.positions - origin) / voxel_size)
@@ -123,7 +126,7 @@ def _mrc_localres(atoms: "mda.atomgroup", path_in: str) -> Dict[int, float]:
                      data: np.ndarray,
                      origin: np.ndarray,
                      voxel_size: np.ndarray,
-                     ) -> None:
+                     ) -> float:
         locres = 0.
         for atom in atoms:
             atom_voxel = np.rint((atom.position - origin) / voxel_size)
@@ -132,8 +135,7 @@ def _mrc_localres(atoms: "mda.atomgroup", path_in: str) -> Dict[int, float]:
         return locres
 
     if not len(atoms):
-        print("EXIT - no atoms in this selection")
-        return
+        raise UnexpectedCaseError("no atoms in this selection")
 
     u = atoms.universe
     u.trajectory[-1]
@@ -174,7 +176,7 @@ def _categorise_lists(link: Linkage, plus: int=3):
     id_co = set()
     id_co_init = {id_design for id_design in link.Fco.keys()
                   if id_design not in id_ss}
-    allready_done = set()
+    allready_done: Set[int] = set()
     for base in id_co_init:
         typ = link.Fco[base]["type"][0]
         co_index = link.Fco[base]["co_index"]
@@ -217,7 +219,7 @@ def _categorise_lists(link: Linkage, plus: int=3):
             id_co.add(tup)
             id_coplus.add(tuple(tup_plus))
 
-    nick_allready_done = set()
+    nick_allready_done: Set[int] = set()
     id_nick = set()
     for id1, id2 in iter(link.Fnicks.items()):
         if id1 not in nick_allready_done:
