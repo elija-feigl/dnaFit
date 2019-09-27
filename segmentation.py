@@ -216,8 +216,7 @@ def categorise(link: Linkage,
         return (frozenset(co_plus), co[1], co[2])
 
     def _expand_nick(n: Tuple[int, int, int, int],
-                     link: Linkage,
-                     rev: Linkage
+                     link: Linkage
                      ) -> FrozenSet[int]:
         n_plus = _expand_selection(selection=list(n), link=link)
         return frozenset(n_plus)
@@ -232,13 +231,13 @@ def categorise(link: Linkage,
                     expand.add(link.DidFid[link.DhpsDid[position]])
         return expand
 
-    rev = link.reverse()
+    link.reverse()
     ds = set(chain.from_iterable((a, b) for a, b in iter(link.Fbp.items())))
     ss = set(link.DidFid.values()) - ds
 
     co = set()
     co_plus = set()
-    co_done = set()
+    co_done: Set[int] = set()
     co_init = set(resid for resid in link.Fco.keys() if resid not in ss)
     for res in co_init:
         if res in co_done:
@@ -263,7 +262,7 @@ def categorise(link: Linkage,
 
     nick = set()
     nick_plus = set()
-    nick_done = set()
+    nick_done: Set[int] = set()
     for res, ser in iter(link.Fnicks.items()):
         if res in nick_done:
             continue
@@ -272,7 +271,7 @@ def categorise(link: Linkage,
         ser_bp = link.Fbp_full[ser]
         n = (res, ser, res_bp, ser_bp)
         nick.add(frozenset(n))
-        nick_plus.add(_expand_nick(n=n, link=link, rev=rev))
+        nick_plus.add(_expand_nick(n=n, link=link))
 
     return co_plus, nick_plus
 
@@ -394,7 +393,6 @@ def main():
                 typ = co_select_typ[-1]
                 index = co_select_typ[-2]
                 atoms_select = mda.AtomGroup([], u)
-                import ipdb; ipdb.set_trace()
                 for base_id in co_select:
                     atoms_select += u.residues[base_id].atoms
             elif motif_name == "nick":
