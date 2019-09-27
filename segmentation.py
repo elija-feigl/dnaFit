@@ -68,8 +68,8 @@ def mrc_segment(atoms: "mda.atomgroup",
         return data_small, v_origin_small
 
     if not len(atoms):
-        print("EXIT - no atoms in this selection")
-        return
+        raise UnexpectedCaseError("no atoms in this selection")
+    
     u = atoms.universe
     u.trajectory[-1]
 
@@ -160,7 +160,10 @@ def _mrc_localres(atoms: "mda.atomgroup", path_in: str) -> Dict[int, float]:
     return dict_localres
 
 
-def _categorise_lists(link: Linkage, plus: int=3):
+def _categorise_lists(link: Linkage, plus: int=3) -> Tuple[Set[int],
+                                                           Set[int],
+                                                           Set[int],
+                                                           Set[int]]:
     FidDid = {v: k for k, v in iter(link.DidFid.items())}
     DidDhps = {v: k for k, v in iter(link.DhpsDid.items())}
     FbpFULL = {**link.Fbp, **{v: k for k, v in iter(link.Fbp.items())}}
