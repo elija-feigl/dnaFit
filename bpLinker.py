@@ -36,6 +36,7 @@ class Project(object):
     input: Path = attr.ib()
     output: Path = attr.ib()
     name: str = attr.ib()
+    # specific
     ENmodify: bool = attr.ib()
     EN: str = attr.ib()
 
@@ -51,6 +52,19 @@ class Linkage(object):
     FidSeq: Dict[int, str] = {}
     Fco: Dict[int, Any] = {}
     universe: Tuple[str, str] = ("", "")
+
+    def dump_linkage(self, project: Project) -> None:
+        for name, link in vars(self).items():
+            output = project.output / "{}__{}.p".format(project.name, name)
+            pickle.dump(link, open(output, "wb"))
+        return
+
+    def load_linkage(self, project: Project) -> None:
+        for name in vars(self).keys():
+            input = project.output / "{}__{}.p".format(project.name, name)
+            value = pickle.load(open(input, "rb"))
+            setattr(self, name, value)
+        return
 
 
 @attr.s
@@ -248,9 +262,10 @@ class Linker(object):
                 "position": (h, p, is_scaf)
                 if end, single, dpouble
                     "type": ("end", None)
-                    "type": ("single", single, single_leg) 
+                    "type": ("single", single, single_leg)
                     "type": ("double", double)
         """
+        #TODO: double, single -> full, half
         def add_co_type() -> None:
 
             def get_co_leg_p(n_Dhps: Tuple[int, int, bool], i: int) -> int:
@@ -749,9 +764,8 @@ def main():
 
     if not project.ENmodify:
         print("linkage output to {}".format(project.output))
-        for n, link in vars(linkage).items():
-            pickle_name = project.output / "{}__{}.p".format(project.name, n)
-            pickle.dump(link, open(pickle_name, "wb"))
+        linkage.dump_linkage(project=project)
+
     else:
         print("modifying extrabonds")
         en = ElaticNetwortModifier(linker)
