@@ -390,9 +390,8 @@ def main():
             os.mkdir(path_motif)
 
         for index, subset in enumerate(motif):
-            # TOdO: co-index
             if motif_name == "co":
-                base_selection, index, typ = subset
+                base_selection, index, typ = subset # TOdO: co-index
                 atoms_select = mda.AtomGroup([], u)
                 for resindex in base_selection:
                     atoms_select += u.residues[resindex].atoms
