@@ -375,34 +375,34 @@ def main():
     print("mask minimal box")
     mask_minimal_box(u, project)
 
-    path_color = project.input / "{}_localres.mrc".format(project.name)
-    if os.path.isfile(path_color):
+    if project.localres:
         print("compute per residue resolution")
+        path_color = project.input / "{}_localres.mrc".format(project.name)
         local_res(u, path_color, project)
 
     motifs = {"co": co, "nick": nick}
+    if project.halfmap:
+        print("segmenting halfmaps")
     for motif_name, motif in motifs.items():
         path_motif = project.output / motif_name
         print("output to ", path_motif)
         with ignored(FileExistsError):
             os.mkdir(path_motif)
 
-        for index, co_select_typ in enumerate(motif):
+        for index, subset in enumerate(motif):
+            # TOdO: co-index
             if motif_name == "co":
-                co_select = co_select_typ[:-2]
-                typ = co_select_typ[-1]
-                index = co_select_typ[-2]
+                base_selection, index, typ = subset
                 atoms_select = mda.AtomGroup([], u)
-                for base_id in co_select:
-                    atoms_select += u.residues[base_id].atoms
+                for resindex in base_selection:
+                    atoms_select += u.residues[resindex].atoms
             elif motif_name == "nick":
                 typ = ""
                 atoms_select = mda.AtomGroup([], u)
-                for base_id in co_select_typ:
+                for base_id in subset:
                     atoms_select += u.residues[base_id].atoms
 
             if project.halfmap:
-                print("segmenting halfmaps")
                 specs = {"": "", "_unfil_half1": "h1-", "_unfil_half2": "h2-"}
             else:
                 specs = {"": ""}
@@ -413,7 +413,7 @@ def main():
                 path_out = path_motif / "{}__{}{}{}{}.mrc".format(project.name,
                                                                   out,
                                                                   typ,
-                                                                  motif,
+                                                                  motif_name,
                                                                   index,
                                                                   )
                 mrc_segment(atoms=atoms_select,
