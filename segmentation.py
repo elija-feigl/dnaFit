@@ -363,6 +363,10 @@ def local_res(u, path_color, project):
 
 
 def main():
+    # TODO: include in argparse?
+    H1 = "_unfil_half1"
+    H2 = "_unfil_half2"
+    LOCRES = "_localres"
     project = proc_input()
 
     print("input from ", project.input)
@@ -377,7 +381,7 @@ def main():
 
     if project.localres:
         print("compute per residue resolution")
-        path_color = project.input / "{}_localres.mrc".format(project.name)
+        path_color = project.input / "{}{}.mrc".format(project.name, LOCRES)
         local_res(u, path_color, project)
 
     motifs = {"co": co, "nick": nick}
@@ -402,7 +406,7 @@ def main():
                     atoms_select += u.residues[base_id].atoms
 
             if project.halfmap:
-                specs = {"": "", "_unfil_half1": "h1-", "_unfil_half2": "h2-"}
+                specs = {"": "", H1: "h1-", H2: "h2-"}
             else:
                 specs = {"": ""}
             for inp, out in specs.items():
