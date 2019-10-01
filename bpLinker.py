@@ -94,14 +94,14 @@ class Linker(object):
     def __attrs_post_init__(self):
         self.fit: Fit = Fit(self.project)
         self.design: Design = Design(self.project)
-        self._eval_skips()
-        self._eval_sequence()
+        self.Dskips = self._eval_skips()
+        self.FidSeq = self._eval_sequence()
 
     def _eval_sequence(self) -> Dict[int, str]:
-        self.FidSeq = {res.resindex: res.resname[0]
-                       for res in self.fit.u.residues
-                       }
-        return self.FidSeq
+        FidSeq = {res.resindex: res.resname[0]
+                  for res in self.fit.u.residues
+                  }
+        return FidSeq
 
     def _eval_skips(self) -> Set[Tuple[int, int, bool]]:
         """ Returns
@@ -112,11 +112,11 @@ class Linker(object):
                            for strand in self.design.strands
                            for base in strand.tour
                            ]
-        self.Dskips = set((base.h, base.p, base.is_scaf)
-                          for base in design_allbases
-                          if self._is_del(base)
-                          )
-        return self.Dskips
+        Dskips = set((base.h, base.p, base.is_scaf)
+                     for base in design_allbases
+                     if self._is_del(base)
+                     )
+        return Dskips
 
     def _is_del(self, base: "nd.base") -> bool:
         return base.num_deletions != 0
@@ -130,14 +130,7 @@ class Linker(object):
         -------
          Returns
             -------
-            self.Fbp
-                fit-id  -> fit-id
-            self.DidFid
-                design-id -> fit-id
-            self.DhpsDid
-                helix-number, base-position, is_scaffold -> design-id
-            self.color
-                fit-segment-id -> color
+                Linkage
         """
 
         self._link()
@@ -184,9 +177,9 @@ class Linker(object):
             return (DidFid, DhpsDid)
 
         def link_staples() -> Tuple[Dict[int, int],
-                                        Dict[Tuple[int, int, bool], int],
-                                        Dict[int, int],
-                                        ]:
+                                    Dict[Tuple[int, int, bool], int],
+                                    Dict[int, int],
+                                    ]:
             """same procedure as scaffold for each
             -------
             Returns
@@ -199,7 +192,8 @@ class Linker(object):
                     fit-segment-id -> color
             """
             def get_resid(segindex: int, resindex_local: int) -> int:
-                return self.fit.staples[segindex].residues[resindex_local].resindex
+                segment = self.fit.staples[segindex]
+                return segment.residues[resindex_local].resindex
 
             DidFid: Dict[int, int] = {}
             DhpsDid: Dict[Tuple[int, int, bool], int] = {}
@@ -275,7 +269,7 @@ class Linker(object):
                     "type": ("single", single, single_leg)
                     "type": ("double", double)
         """
-        #TODO: double, single -> full, half
+        # TODO: double, single -> full, half
         def add_co_type() -> None:
 
             def get_co_leg_p(n_Dhps: Tuple[int, int, bool], i: int) -> int:
