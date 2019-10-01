@@ -66,6 +66,16 @@ class Linkage(object):
             setattr(self, name, value)
         return
 
+    def reverse(self) -> None:
+        def reverse_d(dict: dict) -> dict:
+            return {v: k for k, v in iter(dict.items())}
+
+        self.FidDid = reverse_d(self.DidFid)
+        self.DidDhps = reverse_d(self.DhpsDid)
+        self.Fbp_rev = reverse_d(self.Fbp)
+        self.Fbp_full = {**self.Fbp, **self.Fbp_rev}
+        return
+
 
 @attr.s
 class Linker(object):
