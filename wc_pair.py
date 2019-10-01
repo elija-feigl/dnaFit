@@ -149,16 +149,16 @@ class BDna(object):
         h, p, is_scaffold = self.d_DidDhps[self.d_FidDid[resindex]]
         n_skips = 0
         # check if we passed skips
-        for n in range(1, steps+np.sign(steps), np.sign(steps)):
-            if (h, p+n, is_scaffold) in self.l_Dskips:
+        for n in range(1, steps + np.sign(steps), np.sign(steps)):
+            if (h, p + n, is_scaffold) in self.l_Dskips:
                 n_skips += np.sign(steps)
         # check if land on skip
-        while (h, p+steps+n_skips, is_scaffold) in self.l_Dskips:
+        while (h, p + steps + n_skips, is_scaffold) in self.l_Dskips:
             n_skips += np.sign(steps)
 
         try:
             n_resindex = self.d_DidFid[
-                self.d_DhpsDid[(h, p+steps+n_skips, is_scaffold)]]
+                self.d_DhpsDid[(h, p + steps + n_skips, is_scaffold)]]
         except KeyError:
             n_resindex = None
         try:
@@ -205,7 +205,7 @@ class BDna(object):
 
         c1p_dist = mdamath.norm(c1p1.position - c1p2.position)
         bond = "C1'C1'"
-        c1p_dev = abs(c1p_dist - C1P_BASEDIST)/C1P_BASEDIST
+        c1p_dev = abs(c1p_dist - C1P_BASEDIST) / C1P_BASEDIST
         quality[bond] = c1p_dev
 
         # H-bond distances
@@ -217,7 +217,7 @@ class BDna(object):
         for idx, a1 in enumerate(atoms1):
             hbond_dist = mdamath.norm(atoms2[idx].position - a1.position)
             hbond_should = WC_HBONDS_DIST[res1.resname][idx]
-            hbond_dev = abs(hbond_dist - hbond_should)/hbond_should
+            hbond_dev = abs(hbond_dist - hbond_should) / hbond_should
             bond = WC_HBONDS[res1.resname][idx] + WC_HBONDS[res2.resname][idx]
             quality[bond] = (hbond_dev if hbond_dist > hbond_should
                              else -hbond_dev)
@@ -234,7 +234,7 @@ class BDna(object):
                 v2 = n_basepair[direct]
                 twist.append(np.rad2deg(np.arccos(_proj(v1, v2))))
 
-            return {"C1p": twist[0], "diazine": twist[1],  "C6C8": twist[2]}
+            return {"C1p": twist[0], "diazine": twist[1], "C6C8": twist[2]}
 
         def _get_rise(basepair, n_basepair):
             rise = []
@@ -322,17 +322,17 @@ class BDna(object):
         for i in [0, 2]:
             basepairs.append(
                 {"center-C1p": ((bases[i]["C1p"] +
-                                 bases[i+1]["C1p"]) * 0.5),
-                 "dir-C1p": (bases[i]["C1p"] - bases[i+1]["C1p"]),
+                                 bases[i + 1]["C1p"]) * 0.5),
+                 "dir-C1p": (bases[i]["C1p"] - bases[i + 1]["C1p"]),
                  "center-diazine": ((bases[i]["diazine"] +
-                                     bases[i+1]["diazine"]) * 0.5),
+                                     bases[i + 1]["diazine"]) * 0.5),
                  "dir-diazine": (bases[i]["diazine"] -
-                                 bases[i+1]["diazine"]),
+                                 bases[i + 1]["diazine"]),
                  "center-C6C8": ((bases[i]["C6C8"] +
-                                  bases[i+1]["C6C8"]) * 0.5),
+                                  bases[i + 1]["C6C8"]) * 0.5),
                  "dir-C6C8": (bases[i]["C6C8"] -
-                              bases[i+1]["C6C8"]),
-                 "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5)})
+                              bases[i + 1]["C6C8"]),
+                 "n0": ((bases[i]["n0"] + bases[i + 1]["n0"]) * 0.5)})
 
         geometry = {"rise": _get_rise(*basepairs),
                     "slide": _get_slide(*basepairs),
@@ -349,7 +349,7 @@ class BDna(object):
             A = res.atoms.select_atoms("name " + atom_name)[0]
             atom.append(A.position)
 
-        n0 = _norm(np.cross((atom[1]-atom[0]), (atom[2]-atom[1])))
+        n0 = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[1])))
         diazine_center = sum(atom[:-1]) / 3.
         if res.resname in ["ADE", "GUA"]:
             ref = res.atoms.select_atoms("name C8")[0].position
@@ -505,7 +505,7 @@ class BDna(object):
             except KeyError:
                 resindex_wc = None
 
-            for i in range(-n, n+1):
+            for i in range(-n, n + 1):
                 resindex_x, resindex_x_wc = self._get_next_wc(resindex,
                                                               resindex_wc, i)
 
@@ -562,17 +562,17 @@ class BDna(object):
             for i in [0, 2, 4, 6]:
                 bp_planes.append(
                     {"center-C1p": ((bases[i]["C1p"] +
-                                     bases[i+1]["C1p"]) * 0.5),
-                     "dir-C1p": (bases[i]["C1p"] - bases[i+1]["C1p"]),
+                                     bases[i + 1]["C1p"]) * 0.5),
+                     "dir-C1p": (bases[i]["C1p"] - bases[i + 1]["C1p"]),
                      "center-diazine": ((bases[i]["diazine"] +
-                                         bases[i+1]["diazine"]) * 0.5),
+                                         bases[i + 1]["diazine"]) * 0.5),
                      "dir-diazine": (bases[i]["diazine"] -
-                                     bases[i+1]["diazine"]),
+                                     bases[i + 1]["diazine"]),
                      "center-C6C8": ((bases[i]["C6C8"] +
-                                      bases[i+1]["C6C8"]) * 0.5),
+                                      bases[i + 1]["C6C8"]) * 0.5),
                      "dir-C6C8": (bases[i]["C6C8"] -
-                                  bases[i+1]["C6C8"]),
-                     "n0": ((bases[i]["n0"] + bases[i+1]["n0"]) * 0.5)})
+                                  bases[i + 1]["C6C8"]),
+                     "n0": ((bases[i]["n0"] + bases[i + 1]["n0"]) * 0.5)})
             return bp_planes
 
         def get_co_angles_end(bpplanes):  # TODO: -low- cleanup
@@ -701,7 +701,7 @@ class BDna(object):
                         double_coleg_index)
                     co_data = get_co_angles_full(
                         bpplanes, double_bpplanes)  # ac bd
-                    crossover_ids = (res_index,  double_res_index,
+                    crossover_ids = (res_index, double_res_index,
                                      co_index, double_co_index)
                 elif (co_type == "single" and
                         self.d_Fco[co_index]["type"][0] != "end"):
@@ -716,7 +716,7 @@ class BDna(object):
                         single_coleg_index)
                     co_data = get_co_angles_full(
                         bpplanes, single_bpplanes)  # ac bd
-                    crossover_ids = (res_index,  single_res_index,
+                    crossover_ids = (res_index, single_res_index,
                                      co_index, single_co_index)
                 else:
                     co_data = get_co_angles_end(bpplanes)
@@ -784,7 +784,7 @@ def proc_input():
     parser = argparse.ArgumentParser(
         description=get_description(),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
-        )
+    )
     parser.add_argument("--folder",
                         help="input folder",
                         type=str,
@@ -831,7 +831,7 @@ def main():
         frames = [-1]
     else:
         frames_step = int(len(u.trajectory) / project.frames)
-        frames = list(range(len(u.trajectory)-1, 0, -frames_step))
+        frames = list((range(len(u.trajectory) - 1), 0, -frames_step))
 
     properties = []
     traj_out = project.output / "frames"
