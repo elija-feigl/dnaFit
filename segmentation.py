@@ -78,8 +78,8 @@ class Linkage(object):
 def mrc_segment(atoms: "mda.atomgroup",
                 path_in: str,
                 path_out: str,
-                context: int=3,
-                star: bool= False,
+                context: int = 3,
+                star: bool = False,
                 ) -> None:
 
     def remove_padding(data: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -87,7 +87,7 @@ def mrc_segment(atoms: "mda.atomgroup",
 
         pos_min = np.min(idx_data, axis=1)
         pos_max = np.max(idx_data, axis=1)
-        s_cell = np.max(pos_max-pos_min)
+        s_cell = np.max(pos_max - pos_min)
         pad = 0.5 * (s_cell + pos_min - pos_max)
         pos_low = [int(p) if (p % 1.) == 0. else int(p) + 1 for p in pad]
         pos_high = -pad.astype(int)
@@ -197,7 +197,7 @@ def _mrc_localres(atoms: "mda.atomgroup", path_in: str) -> Dict[int, float]:
 
 
 def categorise(link: Linkage,
-               plus: int=3
+               plus: int = 3
                ) -> Tuple[Set[Tuple[FrozenSet[int], int, str]],
                           Set[FrozenSet[int]]
                           ]:
@@ -226,7 +226,7 @@ def categorise(link: Linkage,
         for resindex in selection:
             h, p, is_scaf = link.DidDhps[link.FidDid[resindex]]
             for i in range(-plus, plus):
-                position = (h, p+i, is_scaf)
+                position = (h, p + i, is_scaf)
                 with ignored(KeyError):
                     expand.add(link.DidFid[link.DhpsDid[position]])
         return expand
@@ -287,7 +287,7 @@ def proc_input() -> Project:
     parser = argparse.ArgumentParser(
         description=get_description(),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
-        )
+    )
     parser.add_argument("--folder",
                         help="input folder",
                         type=str,
@@ -357,7 +357,7 @@ def local_res(u, path_color, project):
     u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(empty_TopologyAttr))
     u.atoms.tempfactors = -1.
     for res in u.residues:
-            res.atoms.tempfactors = dict_localres[res.resindex]
+        res.atoms.tempfactors = dict_localres[res.resindex]
     pdb.write(u.atoms)
     return
 
@@ -426,6 +426,7 @@ def main():
                             star=project.star,
                             )
     return
+
 
 if __name__ == "__main__":
     main()
