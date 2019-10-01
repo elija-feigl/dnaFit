@@ -16,7 +16,7 @@ CATEGORIES = ["co", "co_plus", "ss", "ds", "all", "clean", "nick", "A", "T",
               "G", "C"]
 CO_CATEGORIES = ["single", "double", "end", "all"]
 PROP_TYPE = ["wc_geometry", "wc_quality",
-             "dh_quality", "distances","localres"]
+             "dh_quality", "distances", "localres"]
 WCGEOMETRY = ["twist", "rise", "tilt", "roll", "shift", "slide"]
 DIST = ["C1'", "P"]
 DIHEDRALS = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "xi"]
