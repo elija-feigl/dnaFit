@@ -87,7 +87,7 @@ class Linker(object):
     Fnicks: Dict[int, int] = {}
     FidSeq: Dict[int, str] = {}
     Dskips: Set[Tuple[int, int, bool]] = set()
-    Fco:  Dict[int, Any] = {}
+    Fco: Dict[int, Any] = {}
 
     def __attrs_post_init__(self):
         self.fit: Fit = Fit(self.project)
@@ -244,10 +244,10 @@ class Linker(object):
 
     def _get_nextInHelix(self, h: int, p: int, is_scaf: bool, i: int
                          ) -> Tuple[int, int, bool]:
-        Dhps = (h, p+i, is_scaf)
+        Dhps = (h, p + i, is_scaf)
         while Dhps in self.Dskips:
             i += np.sign(i)
-            Dhps = (h, p+i, is_scaf)
+            Dhps = (h, p + i, is_scaf)
         return Dhps
 
     def _identify_crossover(self) -> Dict[int, Any]:
@@ -489,12 +489,12 @@ class ElaticNetwortModifier(object):
                 pair = [self.Fbp_full.get(b, None) for b in base]
                 res = base + pair
 
-                is_neighbor = (abs(base[0]-base[1]) == 1)
+                is_neighbor = (abs(base[0] - base[1]) == 1)
                 bond_logic.crossstack = True if is_neighbor else False
 
                 is_ddDNA = all(bp is not None for bp in pair)
                 if is_ddDNA:
-                    is_crossstack = any(abs(b-p) == 1
+                    is_crossstack = any(abs(b - p) == 1
                                         for (b, p) in zip(base, reversed(pair))
                                         )
                     bond_logic.crossstack = True if is_crossstack else False
@@ -728,7 +728,7 @@ def proc_input() -> Project:
     parser = argparse.ArgumentParser(
         description=get_description(),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
-        )
+    )
     parser.add_argument("--folder",
                         help="input folder",
                         type=str,
