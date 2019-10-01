@@ -2,9 +2,9 @@
 import sys
 import os
 
-import numpy as np
 import pandas as pd
 import pickle
+
 from statistics import mean
 
 import ipywidgets as widgets
@@ -38,9 +38,12 @@ class DataPrep(object):
         topo = {}
         for pickle_name in DICTS:
             try:
-                topo[pickle_name] = pickle.load(
-                    open(self.path + self.name + "__" + pickle_name + ".p", "rb"))
-            except:
+                file_name = "{}{}__{}.p".format(self.path,
+                                                self.name,
+                                                pickle_name
+                                                )
+                topo[pickle_name] = pickle.load(open(file_name), "rb")
+            except FileNotFoundError:
                 print("some pickles missing")
                 pass
         self.inv_dict_idid = {v: k for k, v in topo["DidFid"].items()}
@@ -87,7 +90,7 @@ class DataPrep(object):
         for resindex in id_co:  # TODO: fix quick and dirty
             id_co_plus.add(resindex)
             for i in range(-plus, plus):
-                id_co_plus.add(resindex+i)
+                id_co_plus.add(resindex + i)
 
         id_all = id_ss | id_ds | id_co_plus
         id_clean = id_all - (id_co | id_co_plus | id_ss)
@@ -103,7 +106,7 @@ class DataPrep(object):
         data, ts = self._traj_frame(frame)
         max_res = max(self.categories["all"])
         id_prop_dict = {}
-        for resindex in range(0, max_res+1):
+        for resindex in range(0, max_res + 1):
             position = self.inv_dict_hpid[self.inv_dict_idid[resindex]]
             categories = [
                 cat for cat in CATEGORIES if resindex in self.categories[cat]]
@@ -141,16 +144,16 @@ class DataPrep(object):
                     for atom in DIST:
                         dist_dicts = data[prop][resindex][atom]
                         for loc, dist_list in dist_dicts.items():
-                            idx_self = int(len(dist_list)*0.5)
+                            idx_self = int(len(dist_list) * 0.5)
                             if loc == "strand":
-                                if (dist_list[idx_self+1] is not None and
-                                        dist_list[idx_self-1] is not None):
-                                    dist = 0.5 * (dist_list[idx_self-1] +
-                                                  dist_list[idx_self+1])
-                                elif dist_list[idx_self+1] is not None:
-                                    dist = dist_list[idx_self+1]
+                                if (dist_list[idx_self + 1] is not None and
+                                        dist_list[idx_self - 1] is not None):
+                                    dist = 0.5 * (dist_list[idx_self - 1] +
+                                                  dist_list[idx_self + 1])
+                                elif dist_list[idx_self + 1] is not None:
+                                    dist = dist_list[idx_self + 1]
                                 else:
-                                    dist = dist_list[idx_self-1]
+                                    dist = dist_list[idx_self - 1]
                             else:
                                 dist = dist_list[idx_self]
 
@@ -170,7 +173,7 @@ class DataPrep(object):
 
         max_co = max(data["co_angles"].keys())
         id_co_dict = {}
-        for co_id in range(1, max_co+1):
+        for co_id in range(1, max_co + 1):
             try:
                 co_type = data["co_angles"][co_id]["type"]
             except KeyError:
