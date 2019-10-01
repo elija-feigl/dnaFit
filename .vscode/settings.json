@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "/Users/elija/.pyenv/versions/a-iv_3.6.7/bin/python",
+    "python.pythonPath": "/Users/elija/.pyenv/versions/a-v_3.6.7/bin/python",
     "editor.formatOnSave": true,
     "python.formatting.provider": "autopep8",
 }
