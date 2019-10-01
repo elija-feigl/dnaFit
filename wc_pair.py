@@ -10,11 +10,12 @@ import pickle
 import bpLinker
 import contextlib
 import argparse
+import attr
 
 from pathlib import Path
 from itertools import chain
 from operator import attrgetter
-from typing import List, Set, Dict, Tuple, Optional
+from typing import List, Set, Dict, Tuple, Optional, Any
 from collections import namedtuple
 
 
@@ -24,6 +25,53 @@ def ignored(*exceptions):
         yield
     except exceptions:
         pass
+
+
+@attr.s(slots=True)
+class Project(object):
+    input: Path = attr.ib()
+    output: Path = attr.ib()
+    name: str = attr.ib()
+    # specific
+    frames: int = attr.ib()
+    dev: float = attr.ib()
+
+
+@attr.s(auto_attribs=True)
+class Linkage(object):
+    Fbp: Dict[int, int] = {}
+    DidFid: Dict[int, int] = {}
+    DhpsDid: Dict[Tuple[int, int, bool], int] = {}
+    Dcolor: Dict[int, int] = {}
+    Dskips: Set[Tuple[int, int, bool]] = set()
+    Fnicks: Dict[int, int] = {}
+    FidSeq: Dict[int, str] = {}
+    Fco: Dict[int, Any] = {}
+    universe: Tuple[str, str] = ("", "")
+
+    def dump_linkage(self, project: Project) -> None:
+        for name, link in vars(self).items():
+            output = project.output / "{}__{}.p".format(project.name, name)
+            pickle.dump(link, open(output, "wb"))
+        return
+
+    def load_linkage(self, project: Project) -> None:
+        for name in vars(self).keys():
+            input = project.output / "{}__{}.p".format(project.name, name)
+            value = pickle.load(open(input, "rb"))
+            setattr(self, name, value)
+        return
+
+    def reverse(self) -> None:
+        def reverse_d(dict: dict) -> dict:
+            return {v: k for k, v in iter(dict.items())}
+
+        self.FidDid = reverse_d(self.DidFid)
+        self.DidDhps = reverse_d(self.DhpsDid)
+        self.Fbp_rev = reverse_d(self.Fbp)
+        self.Fbp_full = {**self.Fbp, **self.Fbp_rev}
+        return
+
 
 # TODO: -mid- DOC
 # TODO: -mid- move CONSTANTS
@@ -763,20 +811,13 @@ def proc_input():
                         default=0.1,
                         )
     args = parser.parse_args()
-
-    Project = namedtuple("Project", ["input",
-                                     "output",
-                                     "name",
-                                     "frames",
-                                     "dev"
-                                     ]
-                         )
     project = Project(input=Path(args.folder),
                       output=Path(args.folder) / "analysis",
                       name=args.name,
                       frames=args.frames,
                       dev=args.dev,
                       )
+
     with ignored(FileExistsError):
         os.mkdir(project.output)
     return project
@@ -787,6 +828,8 @@ def main():
 
     linker = bpLinker.Linker(project)
     linkage = linker.create_linkage()
+    linkage.dump_linkage(project)
+
     u = mda.Universe(*linkage.universe)
     if project.frames == 1:
         frames = [-1]
@@ -794,16 +837,10 @@ def main():
         frames_step = int(len(u.trajectory) / project.frames)
         frames = list(range(len(u.trajectory)-1, 0, -frames_step))
 
-    for name, link in vars(linkage).items():
-        pickle_name = project.output / "{}__{}.p".format(project.name, name)
-        pickle.dump(link, open(pickle_name, "wb"))
-
     properties = []
     traj_out = project.output / "frames"
-    try:
+    with ignored(FileExistsError):
         os.mkdir(traj_out)
-    except FileExistsError:
-        pass
 
     # open PDB files
     PDBs = {}
