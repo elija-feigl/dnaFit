@@ -4,7 +4,7 @@ import argparse
 import attr
 
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 
 
 HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.3.0\n"
@@ -35,16 +35,16 @@ def number_to_hybrid36_number(number: int, width: int) -> str:
         result.reverse()
         return "".join(result)
 
-    if (number >= 1-10**(width-1)):
+    if (number >= 1 - 10**(width - 1)):
         if (number < 10**width):
             return "{:{width}d}".format(number, width=width)
         number -= 10**width
-        if (number < 26*36**(width-1)):
-            number += 10*36**(width-1)
+        if (number < 26 * 36**(width - 1)):
+            number += 10 * 36**(width - 1)
             return encode_pure(digits_upper, number)
-        number -= 26*36**(width-1)
-        if (number < 26*36**(width-1)):
-            number += 10*36**(width-1)
+        number -= 26 * 36**(width - 1)
+        if (number < 26 * 36**(width - 1)):
+            number += 10 * 36**(width - 1)
             return encode_pure(digits_lower, number)
     raise ValueError("value out of range.")
 
@@ -116,7 +116,7 @@ class PDB_Corr(object):
                         line, is_ter = self.correct_molecule_chain(
                             line=line,
                             reset_numbers=logic.reset_numbers,
-                            )
+                        )
                     if logic.atom_number:
                         line = self.correct_atom_number(line=line)
                     if logic.occupancy:
@@ -165,7 +165,7 @@ class PDB_Corr(object):
             pos = possible_chain_ids.find(current_chain_id)
             chlen = len(possible_chain_ids)
             if (pos + 1 < chlen):
-                return possible_chain_ids[pos+1]
+                return possible_chain_ids[pos + 1]
             else:
                 return possible_chain_ids[1]  # A reserved for scaffold
 
@@ -247,7 +247,7 @@ def proc_input() -> Project:
     parser = argparse.ArgumentParser(
         description=get_description(),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
-        )
+    )
     parser.add_argument("--input",
                         help="input file",
                         type=str,
