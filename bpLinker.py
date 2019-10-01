@@ -464,7 +464,11 @@ class ElaticNetwortModifier(object):
 
     def __attrs_post_init__(self):
         self.u: "mda.universe" = self.linker.fit.u
-        self.Fbp_full: Dict[int, int] = {**self.linker.Fbp, **{v: k for k, v in self.linker.Fbp.items()}}
+        self.Fbp_full: Dict[int, int] = {**self.linker.Fbp,
+                                         **{v: k for k, v
+                                            in self.linker.Fbp.items()
+                                            }
+                                         }
         self.network: set = self._get_network()
 
     def _get_network(self) -> set:
