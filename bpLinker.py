@@ -1,5 +1,4 @@
 #!/usr/bin/env python3#
-import sys
 import os
 
 import MDAnalysis as mda  # type:ignore
@@ -13,8 +12,7 @@ import nanodesign as nd
 from pathlib import Path
 from itertools import chain
 from operator import attrgetter
-from typing import List, Set, Dict, Tuple, Optional, Any, TextIO
-from collections import namedtuple
+from typing import List, Set, Dict, Tuple, Any, TextIO
 from nanodesign.converters import Converter
 
 
@@ -309,8 +307,8 @@ class Linker(object):
 
         def get_co_leg_id(base: "nd.base", direct: str) -> int:
             """determine leg base base and up/down (def: 2 bases away)"""
-            l = base.down.p if direct == "up" else base.up.p
-            i = (l - base.p) * 2.
+            m = base.down.p if direct == "up" else base.up.p
+            i = (m - base.p) * 2.
             Dhps = self._get_nextInHelix(base.h, base.p, base.is_scaf, i)
             leg_Did = self.DhpsDid[Dhps]
             return self.DidFid[leg_Did]
@@ -778,6 +776,7 @@ def main():
         print("modifying extrabonds")
         en = ElaticNetwortModifier(linker)
         en.write_en()
+
 
 if __name__ == "__main__":
     main()
