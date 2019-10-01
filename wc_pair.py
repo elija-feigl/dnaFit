@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import MDAnalysis as mda
 import numpy as np
-import sys
 import os
 
 from MDAnalysis.lib import mdamath
@@ -13,10 +12,7 @@ import argparse
 import attr
 
 from pathlib import Path
-from itertools import chain
-from operator import attrgetter
-from typing import List, Set, Dict, Tuple, Optional, Any
-from collections import namedtuple
+from typing import Set, Dict, Tuple, Any
 
 
 @contextlib.contextmanager
