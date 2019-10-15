@@ -12,8 +12,7 @@ import ipywidgets as widgets
 # TODO: -low get dynamically from dicts
 DICTS = ["Fbp", "DidFid", "DhpsDid", "Fco", "Fnicks",
          "Dskips", "FidSeq", "localres"]
-CATEGORIES = ["co", "co_plus", "ss", "ds", "all", "clean", "nick", "A", "T",
-              "G", "C"]
+CATEGORIES = ["co", "co_plus", "ss", "ds", "clean", "nick"]
 CO_CATEGORIES = ["single", "double", "end", "all"]
 PROP_TYPE = ["wc_geometry", "wc_quality",
              "dh_quality", "distances", "localres"]
@@ -42,9 +41,9 @@ class DataPrep(object):
                                                 self.name,
                                                 pickle_name
                                                 )
-                topo[pickle_name] = pickle.load(open(file_name), "rb")
+                topo[pickle_name] = pickle.load(open(file_name, "rb"))
             except FileNotFoundError:
-                print("some pickles missing")
+                print("pickle {} missing".format(file_name))
                 pass
         self.inv_dict_idid = {v: k for k, v in topo["DidFid"].items()}
         self.inv_dict_hpid = {v: k for k, v in topo["DhpsDid"].items()}
@@ -56,9 +55,16 @@ class DataPrep(object):
         traj_path = self.path + "frames/"
         data = {}
         for pickle_name in PROP_TYPE + ["co_angles"]:
-            nnn = (traj_path + self.name + "__bDNA-" +
-                   pickle_name + "-" + str(frame) + ".p")
-            ts, prop = pickle.load(open(nnn, "rb"))
+            if pickle_name == "localres":
+                nnn = "{}{}__{}.p".format(self.path, self.name, pickle_name)
+                prop = pickle.load(open(nnn, "rb"))
+            else:
+                nnn = "{}{}__bDNA-{}-{}.p".format(traj_path,
+                                                  self.name,
+                                                  pickle_name,
+                                                  frame
+                                                  )
+                ts, prop = pickle.load(open(nnn, "rb"))
             data[pickle_name] = prop
         return data, ts
 
@@ -92,7 +98,7 @@ class DataPrep(object):
             for i in range(-plus, plus):
                 id_co_plus.add(resindex + i)
 
-        id_all = id_ss | id_ds | id_co_plus
+        id_all = id_ss | id_ds
         id_clean = id_all - (id_co | id_co_plus | id_ss)
         id_nick = (list(self.topo["Fnicks"].values()) +
                    list(self.topo["Fnicks"].keys()))
@@ -112,7 +118,27 @@ class DataPrep(object):
                 cat for cat in CATEGORIES if resindex in self.categories[cat]]
             strand_type = "scaffold" if position[2] else "staple"
             categories.append(strand_type)
-            id_prop_dict[resindex] = [categories, position]
+            id_prop_dict[resindex] = [tuple(categories), position]
+
+            if "sequence" not in self.columns:
+                self.columns.append("sequence")
+            id_prop_dict[resindex].append(self.topo["FidSeq"][resindex])
+
+            if "strand" not in self.columns:
+                self.columns.append("strand")
+            id_prop_dict[resindex].append(strand_type)
+
+            if "motif" not in self.columns:
+                self.columns.append("motif")
+            if resindex in self.categories["co"]:
+                motif = "co"
+            elif resindex in self.categories["nick"]:
+                motif = "nick"
+            elif resindex in self.categories["ds"]:
+                motif = "ds"
+            else:
+                motif = "ss"
+            id_prop_dict[resindex].append(motif)
 
             for prop in PROP_TYPE:
                 if prop == "wc_quality":
@@ -183,6 +209,13 @@ class DataPrep(object):
                            else "staple")
             id_co_dict[co_id] = [[co_type, strand_type]]
 
+            co_resids = data["co_angles"][co_id]['ids(abcd)']
+            locres = 0.
+            for resid in co_resids:
+                locres += (data["localres"][resid] / len(co_resids))
+
+            id_co_dict[co_id].append(locres)
+
             for name in COANGLES:
                 try:
                     angle = data["co_angles"][co_id]["angles"][name]
@@ -191,7 +224,9 @@ class DataPrep(object):
                 id_co_dict[co_id].append(angle)
 
         self.df_co = pd.DataFrame.from_dict(
-            id_co_dict, orient='index', columns=(["type"] + COANGLES))
+            id_co_dict, orient='index',
+            columns=(["type", "localres"] + COANGLES)
+        )
         return self.df, self.df_co, ts
 
 
