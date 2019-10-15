@@ -145,13 +145,7 @@ def main():
     # loop over selected frames
     for i, ts in enumerate([u.trajectory[i] for i in frames]):
         print(ts)
-        bDNA = BDna(u,
-                    linkage.Fbp,
-                    linkage.DidFid,
-                    linkage.DhpsDid,
-                    linkage.Fco,
-                    linkage.Dskips
-                    )
+        bDNA = BDna(u, linkage)
 
         # perform analyis
         print("eval_wc", project.name)
