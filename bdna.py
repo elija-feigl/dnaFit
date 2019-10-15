@@ -1,36 +1,33 @@
 #!/usr/bin/env python3
 import numpy as np
+import MDAnalysis as mda
 from MDAnalysis.lib import mdamath
 
-# import attr
-# from typing import Set, Dict, Tuple, Any
+import attr
+from typing import Dict, Tuple, Any, Optional
 
+from linker import Linkage
 from utils import (C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, TOL, BB_ATOMS,
                    PUR_ATOMS, PYR_ATOMS, DH_ATOMS,
                    _proj, _norm, _v_proj
                    )
 
 
+@attr.s
 class BDna(object):
+    u: "mda.universe" = attr.ib()
+    link: Linkage = attr.ib()
 
-    def __init__(self, universe, d_Fbp, d_DidFid, d_DhpsDid, d_Fco, l_Dskips):
-        self.u = universe
-        self.d_DidFid = d_DidFid
-        self.d_FidDid = {v: k for k, v in d_DidFid.items()}
-        self.d_Fbp = d_Fbp
-        self.d_Fbp_full = {**d_Fbp, **{v: k for k, v in d_Fbp.items()}}
-        self.d_DhpsDid = d_DhpsDid
-        self.d_DidDhps = {v: k for k, v in d_DhpsDid.items()}
-        self.d_Fco = d_Fco
-        self.l_Dskips = l_Dskips
+    def __attrs_post_init__(self):
+        self.link.reverse()
+        self.wc_quality: Dict[int, Any] = None
+        self.wc_geometry: Dict[int, Any] = None
+        self.dh_quality: Dict[int, Any] = None
+        self.distances: Dict[int, Any] = None
+        self.co_angles: Dict[int, Any] = None
 
-        self.wc_quality = None
-        self.wc_geometry = None
-        self.dh_quality = None
-        self.distances = None
-        self.co_angles = None
-
-    def _get_next_wc(self, resindex, resindex_wc, steps=1):
+    def _get_next_wc(self, resindex: int, resindex_wc: int, steps: int = 1
+                     ) -> Optional[Tuple[int, int], None]:
         """ get next residue and its complemt wc pair whithin a helix
             check if next exists.
             check has bp (ony scaffold residues apply here)
@@ -40,25 +37,25 @@ class BDna(object):
             return resindex, resindex_wc
 
         n_resindex = resindex + steps
-        h, p, is_scaffold = self.d_DidDhps[self.d_FidDid[resindex]]
+        h, p, is_scaffold = self.link.DidDhps[self.link.FidDid[resindex]]
         n_skips = 0
         # check if we passed skips
         for n in range(1, steps + np.sign(steps), np.sign(steps)):
-            if (h, p + n, is_scaffold) in self.l_Dskips:
+            if (h, p + n, is_scaffold) in self.link.Dskips:
                 n_skips += np.sign(steps)
         # check if land on skip
-        while (h, p + steps + n_skips, is_scaffold) in self.l_Dskips:
+        while (h, p + steps + n_skips, is_scaffold) in self.link.Dskips:
             n_skips += np.sign(steps)
 
         try:
-            n_resindex = self.d_DidFid[
-                self.d_DhpsDid[(h, p + steps + n_skips, is_scaffold)]]
+            n_resindex = self.link.DidFid[
+                self.link.DhpsDid[(h, p + steps + n_skips, is_scaffold)]]
         except KeyError:
             n_resindex = None
         try:
             self.u.residues[n_resindex]
             try:
-                n_resindex_wc = self.d_Fbp_full[n_resindex]
+                n_resindex_wc = self.link.Fbp_full[n_resindex]
             except KeyError:
                 n_resindex_wc = None
         except IndexError:
@@ -72,7 +69,7 @@ class BDna(object):
         """
         self.wc_quality = {}
         self.wc_geometry = {}
-        for resindex, resindex_wc in self.d_Fbp.items():
+        for resindex, resindex_wc in self.link.Fbp.items():
             res = self.u.residues[resindex]
             res_wc = self.u.residues[resindex_wc]
 
@@ -395,7 +392,7 @@ class BDna(object):
             dist_strand = []
             dist_compl = []
             try:
-                resindex_wc = self.d_Fbp_full[resindex]
+                resindex_wc = self.link.Fbp_full[resindex]
             except KeyError:
                 resindex_wc = None
 
@@ -446,7 +443,7 @@ class BDna(object):
             bases = []
             for r in [res_index, leg_index, co_index, coleg_index]:
                 try:
-                    wc_r = self.d_Fbp_full[r]
+                    wc_r = self.link.Fbp_full[r]
                     bases.append(self._get_base_plane(self.u.residues[r]))
                     bases.append(self._get_base_plane(self.u.residues[wc_r]))
                 except KeyError:
@@ -571,11 +568,11 @@ class BDna(object):
         self.co_angles = {}
 
         co_done = set()
-        for res_index, co in self.d_Fco.items():
+        for res_index, co in self.link.Fco.items():
             if res_index not in co_done:
                 leg_index = co["leg"]
                 co_index = co["co"]
-                coleg_index = self.d_Fco[co_index]["leg"]
+                coleg_index = self.link.Fco[co_index]["leg"]
 
                 co_done.update([res_index, co_index])
                 # res -> a, co -> c
@@ -585,9 +582,9 @@ class BDna(object):
                 co_type = co["type"][0]
                 if co_type == "double":
                     double_res_index = co["type"][1]
-                    double_leg_index = self.d_Fco[double_res_index]["leg"]
-                    double_co_index = self.d_Fco[double_res_index]["co"]
-                    double_coleg_index = self.d_Fco[double_co_index]["leg"]
+                    double_leg_index = self.link.Fco[double_res_index]["leg"]
+                    double_co_index = self.link.Fco[double_res_index]["co"]
+                    double_coleg_index = self.link.Fco[double_co_index]["leg"]
                     co_done.update([double_res_index, double_co_index])
                     # double -> b, d_co -> d
                     double_bpplanes = get_co_baseplanes(
@@ -598,11 +595,11 @@ class BDna(object):
                     crossover_ids = (res_index, double_res_index,
                                      co_index, double_co_index)
                 elif (co_type == "single" and
-                        self.d_Fco[co_index]["type"][0] != "end"):
+                        self.link.Fco[co_index]["type"][0] != "end"):
                     single_res_index = co["type"][1]
                     single_leg_index = co["type"][2]
-                    single_co_index = self.d_Fco[co_index]["type"][1]
-                    single_coleg_index = self.d_Fco[co_index]["type"][2]
+                    single_co_index = self.link.Fco[co_index]["type"][1]
+                    single_coleg_index = self.link.Fco[co_index]["type"][2]
                     co_done.update([single_res_index, single_co_index])
                     # single -> b, s_co -> d
                     single_bpplanes = get_co_baseplanes(
