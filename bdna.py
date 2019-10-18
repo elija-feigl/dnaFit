@@ -178,38 +178,35 @@ class BDna(object):
         """
         def _get_twist(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
             twist = dict()
-            for key, a, n_a in zip(bp.plane.a.items(), n_bp.plane.a.values()):
+            for key, a in bp.plane.a.items():
+                n_a = n_bp.plane.a[key]
                 twist[key] = np.rad2deg(np.arccos(_proj(a, n_a)))
             return twist
 
         def _get_rise(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
             rise = dict()
             n0 = bp.plane.n0
-            for key, P, n_P in zip(bp.plane.P.items(), n_bp.plane.P.values()):
+            for key, P in bp.plane.P.items():
+                n_P = n_bp.plane.P[key]
                 rise[key] = np.abs(np.inner((n_P - P), n0))
             return rise
 
         def _get_shift(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
             shift = dict()
             n0 = bp.plane.n0
-            tupl = zip(bp.plane.P.items(),
-                       bp.plane.a.values(),
-                       n_bp.plane.P.values(),
-                       )
-            for key, P, a, n_P in tupl:
+            for key, P, in bp.plane.P.items():
+                a = bp.plane.a[key]
+                n_P = n_bp.plane.P[key]
                 m0 = _norm(np.cross(n0, a))
                 shift[key] = np.inner((n_P - P), m0)
             return shift
 
         def _get_slide(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
             slide = dict()
-            tupl = zip(bp.plane.P.items(),
-                       bp.plane.a.values(),
-                       n_bp.plane.P.values(),
-                       )
-            for key, P, a, n_P in tupl:
+            for key, P in bp.plane.P.items():
+                a = bp.plane.a[key]
+                n_P = n_bp.plane.P[key]
                 slide[key] = np.inner((n_P - P), _norm(a))
-
             return slide
 
         def _get_tilt(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
@@ -231,13 +228,13 @@ class BDna(object):
                     tilt[key] = np.rad2deg(- np.arccos(abs(dist)))
 
             # TODO: does it really affect?
-            import ipdb
-            ipdb.set_trace()
+
             for value in tilt.values():
                 if value > 90.:
+                    import ipdb
+                    ipdb.set_trace()
                     value - 180.
 
-            ipdb.set_trace()
             return tilt
 
         def _get_roll(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
