@@ -9,7 +9,7 @@ from typing import Dict, Tuple, Any, Optional
 from linker import Linkage
 from utils import (C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, TOL, BB_ATOMS,
                    PUR_ATOMS, PYR_ATOMS, DH_ATOMS,
-                   _proj, _norm, _v_proj
+                   _proj, _norm, _v_proj, _save_arccos_deg
                    )
 
 
@@ -213,47 +213,23 @@ class BDna(object):
             tilt = dict()
             n0 = bp.plane.n0
             n_n0 = n_bp.plane.n0
-
             for key, a in bp.plane.a.items():
                 rot_axis = np.cross(a, n0)
                 projn0 = n0 - _v_proj(n0, rot_axis)
                 projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
-
-                dist = _proj(projn0, projn_n0)
-                if 1.0 < abs(dist) < 1.0 + TOL:
-                    dist = np.sign(dist)
-                if dist > 0:
-                    tilt[key] = np.rad2deg(np.arccos(dist))
-                else:
-                    tilt[key] = np.rad2deg(- np.arccos(abs(dist)))
-
-            # TODO: does it really affect?
-
-            for value in tilt.values():
-                if value > 90.:
-                    import ipdb
-                    ipdb.set_trace()
-                    value - 180.
-
+                proj = _proj(projn0, projn_n0)
+                tilt[key] = _save_arccos_deg(proj)
             return tilt
 
         def _get_roll(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
             roll = dict()
             n0 = bp.plane.n0
             n_n0 = n_bp.plane.n0
-
             for key, rot_axis in bp.plane.a.items():
                 projn0 = n0 - _v_proj(n0, rot_axis)
                 projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
-
-                dist = _proj(projn0, projn_n0)
-                if 1.0 < abs(dist) < 1.0 + TOL:
-                    dist = np.sign(dist)
-                if dist > 0:
-                    roll[key] = np.rad2deg(np.arccos(dist))
-                else:
-                    roll[key] = np.rad2deg(- np.arccos(abs(dist)))
-
+                proj = _proj(projn0, projn_n0)
+                roll[key] = _save_arccos_deg(proj)
             return roll
 
         geometry = {"rise": _get_rise(bp=bp, n_bp=n_bp),
