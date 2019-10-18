@@ -5,7 +5,7 @@ import attr
 from pathlib import Path
 
 
-@attr.s(slots=True)
+@attr.s(slots=True, frozen=True)
 class Project(object):
     input: Path = attr.ib()
     output: Path = attr.ib()
