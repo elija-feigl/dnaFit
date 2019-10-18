@@ -28,18 +28,26 @@ class BasePlane(object):
 
 @attr.s
 class BasePair(object):
+    """ every square of the JSON can be represented as BP
+    """
     sc: "mda.Residue" = attr.ib()
     st: "mda.Residue" = attr.ib()
 
     def __attrs_post_init__(self):
-        self.seq = self.sc.resname[0]
-        self.sc_plane = self._get_base_plane(self.sc)
-        self.st_plane = self._get_base_plane(self.st)
-        self.plane = self._get_bp_plane(sc=self.sc_plane, st=self.st_plane)
+        if self.sc is None or self.st is None:
+            self.is_ds = False
+        else:
+            self.is_ds = True
+        self.seq = self.sc.resname[0] if self.is_ds else None
+        self.sc_plane = (self._get_base_plane(self.sc)
+                         if self.sc is not None else None)
+        self.st_plane = (self._get_base_plane(self.st)
+                         if self.st is not None else None)
+        self.plane = (self._get_bp_plane(sc=self.sc_plane, st=self.st_plane)
+                      if self.is_ds else None)
 
     def _get_base_plane(self, res: "mda.Residue") -> BasePlane:
-        P = {}
-
+        P = dict()
         atom = []
         for atom_name in ["C2", "C4", "C6"]:
             A = res.atoms.select_atoms("name " + atom_name)[0]
@@ -105,18 +113,19 @@ class BDna(object):
             n_skips += 1
             n_pos = (pos[0], (pos[1] + steps + n_skips), pos[2])
 
-        try:
+        if n_pos in self.link.DhpsDid:
             n_sc_resindex = self.link.DidFid[self.link.DhpsDid[n_pos]]
-        except KeyError:
-            return None
+            n_sc = self.u.residues[n_sc_resindex]
+        else:
+            n_sc_resindex = None
+            n_sc = None
 
-        try:
+        if n_sc_resindex in self.link.Fbp:
             n_st_resindex = self.link.Fbp[n_sc_resindex]
-        except KeyError:
-            return None
+            n_st = self.u.residues[n_st_resindex]
+        else:
+            n_st = None
 
-        n_sc = self.u.residues[n_sc_resindex]
-        n_st = self.u.residues[n_st_resindex]
         return BasePair(sc=n_sc, st=n_st)
 
     def eval_bp(self):
@@ -135,7 +144,7 @@ class BDna(object):
                 self.bp_quality[resindex] = bp_qual
 
             n_bp = self._get_n_bp(bp=bp)
-            if n_bp is not None:
+            if n_bp.is_ds:
                 bp_geom = self._get_bp_geometry(bp=bp, n_bp=n_bp)
                 for resindex in [bp.sc.resindex, bp.st.resindex]:
                     self.bp_geometry[resindex] = bp_geom
@@ -241,6 +250,7 @@ class BDna(object):
                     }
         return geometry
 
+    # TODO delete
     def _get_base_plane(self, res):
 
         atom = []
@@ -261,7 +271,9 @@ class BDna(object):
         return plane
 
     def eval_dh(self):
-        """  dict of dihedrals for each residue (key= resid)
+        """ Affects
+            -------
+                dh_quality
         """
         self.dh_quality = {}
         for res in self.u.residues:
@@ -381,57 +393,99 @@ class BDna(object):
         return angle
 
     def eval_distances(self):
-        """  dict of twist for each wc-pair (key= resid-scaffold)
+        """ Affects
+            -------
+                distances
         """
-        self.distances = {}
-        dist_C1p = self._get_A_distance("C1'")
-        dist_P = self._get_A_distance("P")
-        for resindex in range(self.u.residues.n_residues):
-            self.distances[resindex] = {
-                "C1'": dist_C1p[resindex], "P": dist_P[resindex]}
+        dist = dict()
+        for n in ["C1'", "P"]:
+            dist[n] = self._get_distance(atomname=n)
 
+        for resindex in self.u.residues.resindices:
+            self.distances[resindex] = dist[resindex]
+
+        import ipdb; ipdb.set_trace()
         return
 
-    def _get_A_distance(self, atomname, n=2):
-        d_c = {}
-        for res in self.u.residues:
-            resindex = res.resindex
-            A = res.atoms.select_atoms("name " + atomname)
-            dist_strand = []
-            dist_compl = []
-            try:
-                resindex_wc = self.link.Fbp_full[resindex]
-            except KeyError:
-                resindex_wc = None
+    def _get_distance(self, atomname, n=2):
+        distances_residue = dict()
+        # TODO: reuse bp from bp_quality could speedup
+        for sc_resindex, st_resindex in self.link.Fbp_full.items():
+            sc = self.u.residues[sc_resindex]
+            st = self.u.residues[st_resindex]
+            bp = BasePair(sc=sc, st=st)
+
+        # TODO:  both directions at once
+            dist = dict()
+            N_bps = dict()
+            options = {"sc": "st", "st": "sc"}
+            neighbor_range = range(-n, n + 1)
+            for i in neighbor_range:
+                N_bps[i] = self._get_n_bp(bp, i)
+
+            for opt in options.keys():
+                dist[opt] = {}
+                for i in neighbor_range:
+                    res = getattr(bp, opt)
+                    n_res = getattr(N_bps[i], opt)
+                    n_compl = getattr(N_bps[i], options[opt])
+
+                    typ = {"strand": n_res, "compl": n_compl}
+
+                    if res is None:
+                        dist[opt]["strand"] = None
+                        dist[opt]["compl"] = None
+                        continue
+                    A = res.atoms.select_atoms("name " + atomname)[0]
+                    B = dict()
+
+                    for ty, side in typ.items():
+                        if side is None:
+                            dist[opt][ty] = None
+                        else:
+                            B[ty] = side.atoms.select_atoms("name " + atomname)[0]
+
+                        if None not in [A, B[typ]]:
+                            dist[opt][ty] = np.linalg.norm(A.position - B[ty].position)
+                        else:
+                            dist[opt][ty] = None
+
+                resindex = sc_resindex if opt == "sc" else st_resindex
+                distances_residue[resindex] = dist[opt]
+################
+            dist["sc"] = {}
+            dist["st"] = {}
 
             for i in range(-n, n + 1):
-                resindex_x, resindex_x_wc = self._get_n_bp(resindex,
-                                                              resindex_wc, i)
+                n_bp = self._get_n_bp(bp, i)
 
-                if resindex_x is not None:
-                    res_x = self.u.residues[resindex_x]
-                    B = res_x.atoms.select_atoms("name " + atomname)
-                    if len(A) + len(B) == 2:  # TODO use  try atomselect[0]
-                        strand = np.linalg.norm(A.positions - B.positions)
+                for opt, top in [("sc", "st"), ("st", "sc")]:
+                    res = getattr(bp, opt)
+                    n_res = getattr(n_bp, opt)
+                    n_ser = getattr(n_bp, top)
+
+                    if None not in [res, n_res]:
+                        A = res.atoms.select_atoms("name " + atomname)[0]
+                        B = n_res.atoms.select_atoms("name " + atomname)[0]
+                        C = n_ser.atoms.select_atoms("name " + atomname)[0]
+                        if None not in [A, B]:
+                            strand = np.linalg.norm(A.position - B.position)
+                        else:
+                            strand = None
+                        if None not in [A, C]:
+                            compl = np.linalg.norm(A.position - C.position)
+                        else:
+                            compl = None
                     else:
                         strand = None
-                else:
-                    strand = None
-                dist_strand.append(strand)
-
-                if resindex_x_wc is not None:
-                    res_x_wc = self.u.residues[resindex_x_wc]
-                    C = res_x_wc.atoms.select_atoms("name " + atomname)
-                    if len(A) + len(C) == 2:
-                        compl = np.linalg.norm(A.positions - C.positions)
-                    else:
                         compl = None
-                else:
-                    compl = None
-                dist_compl.append(compl)
+                    dist[opt]["strand"] = strand
+                    dist[opt]["compl"] = compl
 
-            d_c[resindex] = {"strand": dist_strand, "compl": dist_compl}
-        return d_c
+            for opt in ["sc", "st"]:
+                resindex = sc_resindex if opt == "sc" else st_resindex
+                distances_residue[resindex] = dist[opt]
+        return distances_residue
 
     def eval_co_angles(self):
         """ Definition of the angles enclosed by the four helical legs of a
