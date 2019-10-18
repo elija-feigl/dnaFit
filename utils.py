@@ -45,3 +45,13 @@ def _proj(u, v):
 
 def _v_proj(u, v):
     return np.inner(u, v) / (np.linalg.norm(v) * np.linalg.norm(v)) * v
+
+
+def _save_arccos_deg(dist):
+    if 1.0 < abs(dist) < 1.0 + TOL:
+        dist = np.sign(dist)
+    if dist > 0:
+        a = np.arccos(dist)
+    else:
+        a = - np.arccos(abs(dist))
+    return np.rad2deg(a)
