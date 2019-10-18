@@ -415,20 +415,17 @@ class BDna(object):
             st = self.u.residues[st_resindex]
             bp = BasePair(sc=sc, st=st)
 
-        # TODO:  both directions at once
             dist = dict()
-            N_bps = dict()
             options = {"sc": "st", "st": "sc"}
-            neighbor_range = range(-n, n + 1)
-            for i in neighbor_range:
-                N_bps[i] = self._get_n_bp(bp, i)
+            bp_range = range(-n, n + 1)
+            N_bps = {i: self._get_n_bp(bp, i) for i in bp_range}
 
-            for opt in options.keys():
+            for opt, not_opt in options.items():
                 dist[opt] = {}
-                for i in neighbor_range:
+                for i in bp_range:
                     res = getattr(bp, opt)
                     n_res = getattr(N_bps[i], opt)
-                    n_compl = getattr(N_bps[i], options[opt])
+                    n_compl = getattr(N_bps[i], not_opt)
 
                     typ = {"strand": n_res, "compl": n_compl}
 
@@ -439,11 +436,11 @@ class BDna(object):
                     A = res.atoms.select_atoms("name " + atomname)[0]
                     B = dict()
 
-                    for ty, side in typ.items():
-                        if side is None:
+                    for ty, p in typ.items():
+                        if p is None:
                             dist[opt][ty] = None
                         else:
-                            B[ty] = side.atoms.select_atoms("name " + atomname)[0]
+                            B[ty] = p.atoms.select_atoms("name " + atomname)[0]
 
                         if None not in [A, B[typ]]:
                             dist[opt][ty] = np.linalg.norm(A.position - B[ty].position)
@@ -452,39 +449,7 @@ class BDna(object):
 
                 resindex = sc_resindex if opt == "sc" else st_resindex
                 distances_residue[resindex] = dist[opt]
-################
-            dist["sc"] = {}
-            dist["st"] = {}
 
-            for i in range(-n, n + 1):
-                n_bp = self._get_n_bp(bp, i)
-
-                for opt, top in [("sc", "st"), ("st", "sc")]:
-                    res = getattr(bp, opt)
-                    n_res = getattr(n_bp, opt)
-                    n_ser = getattr(n_bp, top)
-
-                    if None not in [res, n_res]:
-                        A = res.atoms.select_atoms("name " + atomname)[0]
-                        B = n_res.atoms.select_atoms("name " + atomname)[0]
-                        C = n_ser.atoms.select_atoms("name " + atomname)[0]
-                        if None not in [A, B]:
-                            strand = np.linalg.norm(A.position - B.position)
-                        else:
-                            strand = None
-                        if None not in [A, C]:
-                            compl = np.linalg.norm(A.position - C.position)
-                        else:
-                            compl = None
-                    else:
-                        strand = None
-                        compl = None
-                    dist[opt]["strand"] = strand
-                    dist[opt]["compl"] = compl
-
-            for opt in ["sc", "st"]:
-                resindex = sc_resindex if opt == "sc" else st_resindex
-                distances_residue[resindex] = dist[opt]
         return distances_residue
 
     def eval_co_angles(self):
