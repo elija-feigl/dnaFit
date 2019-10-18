@@ -136,7 +136,7 @@ def main():
     # open PDB files
     PDBs = {}
     for name in [*WC_PROPERTIES, "bp", "qual"]:
-        pdb_name = project.output / "{}__wc_{}.pdb".format(project.name, name)
+        pdb_name = project.output / "{}__bp_{}.pdb".format(project.name, name)
         PDBs[name] = mda.Writer(pdb_name, multiframe=True)
     for name in DH_ATOMS.keys():
         pdb_name = project.output / "{}__dh_{}.pdb".format(project.name, name)
@@ -149,19 +149,21 @@ def main():
 
         # perform analyis
         print("eval_wc", project.name)
-        bDNA.eval_wc()
+        bDNA.eval_bp()
         print("eval_distances", project.name)
         bDNA.eval_distances()
         print("eval_dh", project.name)
         bDNA.eval_dh()
         print("eval_co_angles", project.name)
         bDNA.eval_co_angles()
-        # ipdb.set_trace()
+
+        import ipdb
+        ipdb.set_trace()
 
         print("write pickle", project.name)
         properties.append(bDNA)
         props_tuple = [
-            (bDNA.wc_geometry, "wc_geometry"), (bDNA.wc_quality, "wc_quality"),
+            (bDNA.bp_geometry, "bp_geometry"), (bDNA.bp_quality, "bp_quality"),
             (bDNA.dh_quality, "dh_quality"), (bDNA.distances, "distances"),
             (bDNA.co_angles, "co_angles")]
         for prop, prop_name in props_tuple:
