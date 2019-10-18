@@ -13,6 +13,57 @@ from utils import (C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, TOL, BB_ATOMS,
                    )
 
 
+@attr.s(slots=True)
+class BasePairPlane(object):
+    P: Dict[str, "np.ndarray"] = attr.ib()
+    a: Dict[str, "np.ndarray"] = attr.ib()
+    n0: "np.ndarray" = attr.ib()
+
+
+@attr.s(slots=True)
+class BasePlane(object):
+    P: Dict[str, "np.ndarray"] = attr.ib()
+    n0: "np.ndarray" = attr.ib()
+
+
+@attr.s  # (slots=True)
+class BasePair(object):
+    sc: "mda.Residue" = attr.ib()
+    st: "mda.Residue" = attr.ib()
+
+    def __attrs_post_init__(self):
+        self.sc_plane = self._get_base_plane(self.sc)
+        self.st_plane = self._get_base_plane(self.st)
+        self.plane = self._get_bp_plane()
+
+    def _get_base_plane(self, res: "mda.Residue"):
+        P = {}
+        atom = []
+        for atom_name in ["C2", "C4", "C6"]:
+            A = res.atoms.select_atoms("name " + atom_name)[0]
+            atom.append(A.position)
+
+        n0 = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[1])))
+        P["diazine"] = sum(atom) / 3.
+        if res.resname in ["ADE", "GUA"]:
+            P["C6C8"] = res.atoms.select_atoms("name C8")[0].position
+        else:
+            P["C6C8"] = res.atoms.select_atoms("name C6")[0].position
+
+        P["C1p"] = res.atoms.select_atoms("name C1'")[0]
+
+        return BasePlane(n0=n0, P=P)
+
+    def _get_bp_plane(self) -> BasePairPlane:
+        a, P = dict(), dict()
+        n0 = (self.sc_plane.n0 + self.st_plane.n0) * 0.5
+        for n in ["C1'", "C6C8", "diazine"]:
+            P[n] = (self.sc_plane.P[n] + self.st_plane.P[n]) * 0.5
+            a[n] = self.sc_plane.P[n] - self.st_plane.P[n]
+
+        return BasePairPlane(n0=n0, a=a, P=P)
+
+
 @attr.s
 class BDna(object):
     u: "mda.universe" = attr.ib()
@@ -20,154 +71,153 @@ class BDna(object):
 
     def __attrs_post_init__(self):
         self.link.reverse()
-        self.wc_quality: Dict[int, Any] = None
-        self.wc_geometry: Dict[int, Any] = None
-        self.dh_quality: Dict[int, Any] = None
-        self.distances: Dict[int, Any] = None
-        self.co_angles: Dict[int, Any] = None
+        self.bp_quality: Dict[int, Any] = {}
+        self.bp_geometry: Dict[int, Any] = {}
+        self.dh_quality: Dict[int, Any] = {}
+        self.distances: Dict[int, Any] = {}
+        self.co_angles: Dict[int, Any] = {}
 
-    def _get_next_wc(self, resindex: int, resindex_wc: int, steps: int = 1
-                     ) -> Optional[Tuple[int, int], None]:
+    # TODO: generate set of bp
+    def _get_n_bp(self, bp: BasePair, steps: int = 1
+                  ) -> Optional[BasePair, None]:
         """ get next residue and its complemt wc pair whithin a helix
             check if next exists.
             check has bp (ony scaffold residues apply here)
             else returns None
         """
         if steps == 0:
-            return resindex, resindex_wc
+            return bp
 
-        n_resindex = resindex + steps
-        h, p, is_scaffold = self.link.DidDhps[self.link.FidDid[resindex]]
+        pos = self.link.DidDhps[self.link.FidDid[bp.sc.resindex]]
+        stp = np.sign(steps)
         n_skips = 0
+
         # check if we passed skips
-        for n in range(1, steps + np.sign(steps), np.sign(steps)):
-            if (h, p + n, is_scaffold) in self.link.Dskips:
-                n_skips += np.sign(steps)
+        for n in range(stp, steps + stp, stp):
+            n_pos = (pos[0], pos[1] + n, pos[2])
+            if n_pos in self.link.Dskips:
+                n_skips += 1
+
         # check if land on skip
-        while (h, p + steps + n_skips, is_scaffold) in self.link.Dskips:
-            n_skips += np.sign(steps)
+        n_pos = (pos[0], (pos[1] + steps + n_skips), pos[2])
+        while n_pos in self.link.Dskips:
+            n_skips += 1
+            n_pos = (pos[0], (pos[1] + steps + n_skips), pos[2])
 
         try:
-            n_resindex = self.link.DidFid[
-                self.link.DhpsDid[(h, p + steps + n_skips, is_scaffold)]]
+            n_sc_resindex = self.link.DidFid[self.link.DhpsDid[n_pos]]
         except KeyError:
-            n_resindex = None
+            return None
+
         try:
-            self.u.residues[n_resindex]
-            try:
-                n_resindex_wc = self.link.Fbp_full[n_resindex]
-            except KeyError:
-                n_resindex_wc = None
-        except IndexError:
-            n_resindex = None
-            n_resindex_wc = None
+            n_st_resindex = self.link.Fbp[n_sc_resindex]
+        except KeyError:
+            return None
 
-        return n_resindex, n_resindex_wc
+        n_sc = self.u.residues[n_sc_resindex]
+        n_st = self.u.residues[n_st_resindex]
+        return BasePair(sc=n_sc, st=n_st)
 
-    def eval_wc(self):
-        """  dict of wc-quality for each residue (key = resindex)
+    def eval_bp(self):
+        """ Affects
+            -------
+                self.bp_quality
+                self.bp_geometry
         """
-        self.wc_quality = {}
-        self.wc_geometry = {}
         for resindex, resindex_wc in self.link.Fbp.items():
-            res = self.u.residues[resindex]
-            res_wc = self.u.residues[resindex_wc]
+            sc = self.u.residues[resindex]
+            st = self.u.residues[resindex_wc]
+            bp = BasePair(sc=sc, st=st)
 
-            self.wc_quality[resindex], self.wc_quality[resindex_wc] = (
-                self._get_wc_quality(res, res_wc))
+            bp_qual = self._get_bp_quality(bp=bp)
+            for resindex in [bp.sc.resindex, bp.st.resindex]:
+                self.bp_quality[resindex] = bp_qual
 
-            n_resindex, n_resindex_wc = self._get_next_wc(
-                resindex, resindex_wc)
-
-            if n_resindex is not None and n_resindex_wc is not None:
-                n_res = self.u.residues[n_resindex]
-                n_res_wc = self.u.residues[n_resindex_wc]
-                self.wc_geometry[resindex], self.wc_geometry[resindex_wc] = (
-                    self._get_wc_geometry(res, res_wc, n_res, n_res_wc))
+            n_bp = self._get_n_bp(bp=bp)
+            if n_bp is not None:
+                bp_geom = self._get_bp_geometry(bp=bp, n_bp=n_bp)
+                for resindex in [bp.sc.resindex, bp.st.resindex]:
+                    self.bp_geometry[resindex] = bp_geom
 
         return
 
-    def _get_wc_quality(self, res1, res2):
+    def _get_bp_quality(self, bp: BasePair) -> Tuple[dict, dict]:
         quality = {}
 
         # C1p distance
-        c1p1 = res1.atoms.select_atoms("name C1'")[0]
-        c1p2 = res2.atoms.select_atoms("name C1'")[0]
+        # TODO: cleanup (loop?)
+        bnd = "C1'C1'"
+        C1p = []
+        atoms = []
+        for b in [bp.sc, bp.st]:
+            C1p.append(b.atoms.select_atoms("name C1'")[0])
+            atoms.append(b.atoms.select_atoms(
+                "name " + ' or name '.join(map(str, WC_HBONDS[b.resname]))))
 
-        c1p_dist = mdamath.norm(c1p1.position - c1p2.position)
-        bond = "C1'C1'"
+        c1p_dist = mdamath.norm(C1p[0].position - C1p[1].position)
         c1p_dev = abs(c1p_dist - C1P_BASEDIST) / C1P_BASEDIST
-        quality[bond] = c1p_dev
+        quality[bnd] = c1p_dev
 
-        # H-bond distances
-        atoms1 = res1.atoms.select_atoms(
-            "name " + ' or name '.join(map(str, WC_HBONDS[res1.resname])))
-        atoms2 = res2.atoms.select_atoms(
-            "name " + ' or name '.join(map(str, WC_HBONDS[res2.resname])))
-
-        for idx, a1 in enumerate(atoms1):
-            hbond_dist = mdamath.norm(atoms2[idx].position - a1.position)
-            hbond_should = WC_HBONDS_DIST[res1.resname][idx]
+        # TODO: review hbond-dev, move to function
+        for idx, a1 in enumerate(atoms[0]):
+            hbond_dist = mdamath.norm(atoms[1][idx].position - a1.position)
+            hbond_should = WC_HBONDS_DIST[bp.sc.resname][idx]
             hbond_dev = abs(hbond_dist - hbond_should) / hbond_should
-            bond = WC_HBONDS[res1.resname][idx] + WC_HBONDS[res2.resname][idx]
-            quality[bond] = (hbond_dev if hbond_dist > hbond_should
-                             else -hbond_dev)
+            bnd = WC_HBONDS[bp.sc.resname][idx] + WC_HBONDS[bp.st.resname][idx]
+            quality[bnd] = (hbond_dev if hbond_dist > hbond_should
+                            else -hbond_dev)
 
-        return quality, quality
+        return quality
 
-    def _get_wc_geometry(self, res, res_wc, n_res, n_res_wc):
-        """  dict of geometry of basepairs for each wc-pair (key= resid-scaffo)
+    def _get_bp_geometry(self, bp: BasePair, n_bp: BasePair
+                         ) -> Tuple[dict, dict]:
+        """ Returns
+            -------
+                bp_quality
         """
-        def _get_twist(basepair, n_basepair):
-            twist = []
-            for direct in ["dir-C1p", "dir-diazine", "dir-C6C8"]:
-                v1 = basepair[direct]
-                v2 = n_basepair[direct]
-                twist.append(np.rad2deg(np.arccos(_proj(v1, v2))))
+        def _get_twist(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
+            twist = dict()
+            for key, a, n_a in zip(bp.plane.a.items(), n_bp.plane.a.values()):
+                twist[key] = np.rad2deg(np.arccos(_proj(a, n_a)))
+            return twist
 
-            return {"C1p": twist[0], "diazine": twist[1], "C6C8": twist[2]}
+        def _get_rise(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
+            rise = dict()
+            n0 = bp.plane.n0
+            for key, P, n_P in zip(bp.plane.P.items(), n_bp.plane.P.values()):
+                rise[key] = np.abs(np.inner((n_P - P), n0))
+            return rise
 
-        def _get_rise(basepair, n_basepair):
-            rise = []
-            n0 = basepair["n0"]
-            for direct in ["center-C1p", "center-diazine", "center-C6C8"]:
-                P1 = basepair[direct]
-                P2 = n_basepair[direct]
-                rise.append(np.abs(np.inner((P2 - P1), n0)))
+        def _get_shift(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
+            shift = dict()
+            n0 = bp.plane.n0
+            tupl = zip(bp.plane.P.items(),
+                       bp.plane.a.values(),
+                       n_bp.plane.P.values(),
+                       )
+            for key, P, a, n_P in tupl:
+                m0 = _norm(np.cross(n0, a))
+                shift[key] = np.inner((n_P - P), m0)
+            return shift
 
-            return {"C1p": rise[0], "diazine": rise[1], "C6C8": rise[2]}
+        def _get_slide(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
+            slide = dict()
+            tupl = zip(bp.plane.P.items(),
+                       bp.plane.a.values(),
+                       n_bp.plane.P.values(),
+                       )
+            for key, P, a, n_P in tupl:
+                slide[key] = np.inner((n_P - P), _norm(a))
 
-        def _get_shift(basepair, n_basepair):
-            shift = []
-            for direct in [("center-C1p", "dir-C1p"),
-                           ("center-diazine", "dir-diazine"),
-                           ("center-C6C8", "dir-C6C8")]:
-                n0 = _norm(np.cross(basepair["n0"], basepair[direct[1]]))
-                P1 = basepair[direct[0]]
-                P2 = n_basepair[direct[0]]
-                shift.append(np.inner((P2 - P1), n0))
+            return slide
 
-            return {"C1p": shift[0], "diazine": shift[1], "C6C8": shift[2]}
+        def _get_tilt(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
+            tilt = dict()
+            n0 = bp.plane.n0
+            n_n0 = n_bp.plane.n0
 
-        def _get_slide(basepair, n_basepair):
-            slide = []
-            for direct in [("center-C1p", "dir-C1p"),
-                           ("center-diazine", "dir-diazine"),
-                           ("center-C6C8", "dir-C6C8")]:
-                n0 = _norm(basepair[direct[1]])
-                P1 = basepair[direct[0]]
-                P2 = n_basepair[direct[0]]
-                slide.append(np.inner((P2 - P1), n0))
-
-            return {"C1p": slide[0], "diazine": slide[1], "C6C8": slide[2]}
-
-        def _get_tilt(basepair, n_basepair):
-            tilt = []
-            n0 = basepair["n0"]
-            n_n0 = n_basepair["n0"]
-
-            for direct in ["dir-C1p", "dir-diazine", "dir-C6C8"]:
-                rot_axis = np.cross(basepair[direct], n0)
+            for key, a in bp.plane.a.items():
+                rot_axis = np.cross(a, n0)
                 projn0 = n0 - _v_proj(n0, rot_axis)
                 projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
 
@@ -175,23 +225,23 @@ class BDna(object):
                 if 1.0 < abs(dist) < 1.0 + TOL:
                     dist = np.sign(dist)
                 if dist > 0:
-                    tilt.append(np.rad2deg(np.arccos(dist)))
+                    tilt[key] = np.rad2deg(np.arccos(dist))
                 else:
-                    tilt.append(np.rad2deg(- np.arccos(abs(dist))))
+                    tilt[key] = np.rad2deg(- np.arccos(abs(dist)))
 
-            for value in tilt:
+            # TODO: does it really affect?
+            for value in tilt.values():
                 if value > 90.:
                     value - 180.
 
-            return {"C1p": tilt[0], "diazine": tilt[1], "C6C8": tilt[2]}
+            return tilt
 
-        def _get_roll(basepair, n_basepair):
-            roll = []
-            n0 = basepair["n0"]
-            n_n0 = n_basepair["n0"]
+        def _get_roll(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
+            roll = dict()
+            n0 = bp.plane.n0
+            n_n0 = n_bp.plane.n0
 
-            for direct in ["dir-C1p", "dir-diazine", "dir-C6C8"]:
-                rot_axis = basepair[direct]
+            for key, rot_axis in bp.plane.a.items():
                 projn0 = n0 - _v_proj(n0, rot_axis)
                 projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
 
@@ -199,39 +249,20 @@ class BDna(object):
                 if 1.0 < abs(dist) < 1.0 + TOL:
                     dist = np.sign(dist)
                 if dist > 0:
-                    roll.append(np.rad2deg(np.arccos(dist)))
+                    roll[key] = np.rad2deg(np.arccos(dist))
                 else:
-                    roll.append(np.rad2deg(- np.arccos(abs(dist))))
+                    roll[key] = np.rad2deg(- np.arccos(abs(dist)))
 
-            return {"C1p": roll[0], "diazine": roll[1], "C6C8": roll[2]}
+            return roll
 
-        bases = []
-        for r in [res, res_wc, n_res, n_res_wc]:
-            bases.append(self._get_base_plane(r))
-
-        basepairs = []
-        for i in [0, 2]:
-            basepairs.append(
-                {"center-C1p": ((bases[i]["C1p"] +
-                                 bases[i + 1]["C1p"]) * 0.5),
-                 "dir-C1p": (bases[i]["C1p"] - bases[i + 1]["C1p"]),
-                 "center-diazine": ((bases[i]["diazine"] +
-                                     bases[i + 1]["diazine"]) * 0.5),
-                 "dir-diazine": (bases[i]["diazine"] -
-                                 bases[i + 1]["diazine"]),
-                 "center-C6C8": ((bases[i]["C6C8"] +
-                                  bases[i + 1]["C6C8"]) * 0.5),
-                 "dir-C6C8": (bases[i]["C6C8"] -
-                              bases[i + 1]["C6C8"]),
-                 "n0": ((bases[i]["n0"] + bases[i + 1]["n0"]) * 0.5)})
-
-        geometry = {"rise": _get_rise(*basepairs),
-                    "slide": _get_slide(*basepairs),
-                    "shift": _get_shift(*basepairs),
-                    "twist": _get_twist(*basepairs),
-                    "tilt": _get_tilt(*basepairs),
-                    "roll": _get_roll(*basepairs)}
-        return geometry, geometry
+        geometry = {"rise": _get_rise(bp=bp, n_bp=n_bp),
+                    "slide": _get_slide(bp=bp, n_bp=n_bp),
+                    "shift": _get_shift(bp=bp, n_bp=n_bp),
+                    "twist": _get_twist(bp=bp, n_bp=n_bp),
+                    "tilt": _get_tilt(bp=bp, n_bp=n_bp),
+                    "roll": _get_roll(bp=bp, n_bp=n_bp),
+                    }
+        return geometry
 
     def _get_base_plane(self, res):
 
