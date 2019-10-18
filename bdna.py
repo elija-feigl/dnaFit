@@ -13,31 +13,33 @@ from utils import (C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, TOL, BB_ATOMS,
                    )
 
 
-@attr.s(slots=True)
+@attr.s(slots=True, frozen=True)
 class BasePairPlane(object):
     P: Dict[str, "np.ndarray"] = attr.ib()
     a: Dict[str, "np.ndarray"] = attr.ib()
     n0: "np.ndarray" = attr.ib()
 
 
-@attr.s(slots=True)
+@attr.s(slots=True, frozen=True)
 class BasePlane(object):
     P: Dict[str, "np.ndarray"] = attr.ib()
     n0: "np.ndarray" = attr.ib()
 
 
-@attr.s  # (slots=True)
+@attr.s
 class BasePair(object):
     sc: "mda.Residue" = attr.ib()
     st: "mda.Residue" = attr.ib()
 
     def __attrs_post_init__(self):
+        self.seq = self.sc.resname[0]
         self.sc_plane = self._get_base_plane(self.sc)
         self.st_plane = self._get_base_plane(self.st)
-        self.plane = self._get_bp_plane()
+        self.plane = self._get_bp_plane(sc=self.sc_plane, st=self.st_plane)
 
-    def _get_base_plane(self, res: "mda.Residue"):
+    def _get_base_plane(self, res: "mda.Residue") -> BasePlane:
         P = {}
+
         atom = []
         for atom_name in ["C2", "C4", "C6"]:
             A = res.atoms.select_atoms("name " + atom_name)[0]
@@ -45,21 +47,20 @@ class BasePair(object):
 
         n0 = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[1])))
         P["diazine"] = sum(atom) / 3.
-        if res.resname in ["ADE", "GUA"]:
-            P["C6C8"] = res.atoms.select_atoms("name C8")[0].position
-        else:
-            P["C6C8"] = res.atoms.select_atoms("name C6")[0].position
 
-        P["C1p"] = res.atoms.select_atoms("name C1'")[0]
+        C6C8 = "C8" if res.resname in ["ADE", "GUA"] else "C6"
+        P["C6C8"] = res.atoms.select_atoms("name " + C6C8)[0].position
+
+        P["C1'"] = res.atoms.select_atoms("name C1'")[0].position
 
         return BasePlane(n0=n0, P=P)
 
-    def _get_bp_plane(self) -> BasePairPlane:
+    def _get_bp_plane(self, sc, st) -> BasePairPlane:
         a, P = dict(), dict()
-        n0 = (self.sc_plane.n0 + self.st_plane.n0) * 0.5
-        for n in ["C1'", "C6C8", "diazine"]:
-            P[n] = (self.sc_plane.P[n] + self.st_plane.P[n]) * 0.5
-            a[n] = self.sc_plane.P[n] - self.st_plane.P[n]
+        n0 = (sc.n0 + st.n0) * 0.5
+        for n in sc.P.keys():
+            P[n] = (sc.P[n] + st.P[n]) * 0.5
+            a[n] = sc.P[n] - st.P[n]
 
         return BasePairPlane(n0=n0, a=a, P=P)
 
@@ -79,7 +80,7 @@ class BDna(object):
 
     # TODO: generate set of bp
     def _get_n_bp(self, bp: BasePair, steps: int = 1
-                  ) -> Optional[BasePair, None]:
+                  ) -> Optional[BasePair]:
         """ get next residue and its complemt wc pair whithin a helix
             check if next exists.
             check has bp (ony scaffold residues apply here)
@@ -230,10 +231,13 @@ class BDna(object):
                     tilt[key] = np.rad2deg(- np.arccos(abs(dist)))
 
             # TODO: does it really affect?
+            import ipdb
+            ipdb.set_trace()
             for value in tilt.values():
                 if value > 90.:
                     value - 180.
 
+            ipdb.set_trace()
             return tilt
 
         def _get_roll(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
@@ -428,7 +432,7 @@ class BDna(object):
                 resindex_wc = None
 
             for i in range(-n, n + 1):
-                resindex_x, resindex_x_wc = self._get_next_wc(resindex,
+                resindex_x, resindex_x_wc = self._get_n_bp(resindex,
                                                               resindex_wc, i)
 
                 if resindex_x is not None:
