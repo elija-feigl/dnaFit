@@ -413,57 +413,48 @@ class BDna(object):
             -------
                 distances
         """
-        # fix dict organozation
-        dist = dict()
-        for n in ["C1'", "P"]:
-            dist[n] = self._get_distance(name=n)
-
-        # import ipdb; ipdb.set_trace()
-        for resindex in self.u.residues.resindices:
-            
-            self.distances[resindex] = {"C1'": dist["C1'"][resindex],
-                                        "P": dist["P"][resindex],
-                                        }
+        for bp in self.bps.values():
+            if bp.sc is not None:
+                self.distances[bp.sc.resindex] = dict()
+            if bp.st is not None:
+                self.distances[bp.st.resindex] = dict()
+            for atom in ["C1'", "P"]:
+                sc_dist, st_dist = self._get_distance(bp=bp, name=atom)
+                if bp.sc is not None:
+                    self.distances[bp.sc.resindex][atom] = sc_dist
+                if bp.st is not None:
+                    self.distances[bp.st.resindex][atom] = st_dist
         return
 
-    def _get_distance(self, name: str) -> Dict[int, dict]:
-        distances_residue = dict()
-        # TODO compute scaffold and staple at once to rid of options madness
-        for bp in self.bps.values():
+    def _get_distance(self, bp: BasePair, name: str
+                      ) -> Tuple[Dict[str, float], Dict[str, float]]:
+        def try_position(res: "mda.residue", atom_name: str
+                         ) -> Optional["np.ndarray"]:
+            try:
+                return res.atoms.select_atoms(atom_name)[0].position
+            except (AttributeError, IndexError):
+                return None
 
-            dist = dict()
-            options = {"sc": "st", "st": "sc"}
-            n_bp = self._get_n_bp(bp)
+        sc_dist, st_dist = dict(), dict()
+        atom_name = "name {}".format(name)
 
-            for opt, not_opt in options.items():
-                dist[opt] = {}
-                res = getattr(bp, opt)
-                try:
-                    a = "name {}".format(name)
-                    A = res.atoms.select_atoms(a)[0].position
-                except (AttributeError, IndexError):
-                    for ty in ["strand", "compl"]:
-                        dist[opt][ty] = None
-                    continue
+        n_bp = self._get_n_bp(bp)
+        SC, ST = list(), list()
+        for x in [bp, n_bp]:
+            SC.append(try_position(res=x.sc, atom_name=atom_name))
+            ST.append(try_position(res=x.st, atom_name=atom_name))
 
-                n_res = getattr(n_bp, opt)
-                n_compl = getattr(n_bp, not_opt)
-                typ = {"strand": n_res, "compl": n_compl}
+        for A, B, dist in [(SC, ST, sc_dist), (ST, SC, st_dist)]:
+            for X, Y, typ in [(A[0], B[0], "pair"),
+                              (A[0], A[0], "stack"),
+                              (A[0], B[1], "crossstack")
+                              ]:
+                if X is not None and Y is not None:
+                    dist[typ] = np.linalg.norm(Y - X)
+                else:
+                    dist[typ] = np.nan
 
-                B = dict()
-                for ty, p in typ.items():
-                    try:
-                        a = "name {}".format(name)
-                        B[ty] = p.atoms.select_atoms(a)[0].position
-                    except (AttributeError, IndexError):
-                        dist[opt][ty] = None
-                        continue
-                    dist[opt][ty] = np.linalg.norm(A - B[ty])
-
-                resindex = bp.sc.resindex if opt == "sc" else bp.st.resindex
-                distances_residue[resindex] = dist[opt]
-
-        return distances_residue
+        return sc_dist, st_dist
 
     def eval_co_angles(self):
         """ Definition of the angles enclosed by the four helical legs of a
