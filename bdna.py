@@ -32,6 +32,7 @@ class BasePair(object):
     """
     sc: "mda.Residue" = attr.ib()
     st: "mda.Residue" = attr.ib()
+    hp: Tuple[int, int] = attr.ib()
 
     def __attrs_post_init__(self):
         if self.sc is None or self.st is None:
@@ -80,18 +81,34 @@ class BDna(object):
 
     def __attrs_post_init__(self):
         self.link.reverse()
-        self.pot_basepairs: Dict[Any, Basepair] = _get_pot_basepairs()
+        self.pot_basepairs: Dict[Tuple[int, int], BasePair] = _get_pot_bp()
         self.bp_quality: Dict[int, Any] = {}
         self.bp_geometry: Dict[int, Any] = {}
         self.dh_quality: Dict[int, Any] = {}
         self.distances: Dict[int, Any] = {}
         self.co_angles: Dict[int, Any] = {}
 
-    # TODO: generate set of bp
-    def _get_n_bp(self) -> Dict[Any, Basepair]:
-        
-        return pot_basepairs
+    def _get_pot_bp(self) -> Dict[Tuple[int, int], BasePair]:
+        pot_basepairs = dict()
+        done = set()
+        for sc_resindex in self.u.residues.resindices:
+            if sc_resindex in done:
+                continue
 
+            sc = self.u.residues[sc_resindex]
+            h, p, is_scaf = self.link.DidDhps[self.link.FidDid[sc_resindex]]
+
+            if sc_resindex in self.link.Fbp_full:
+                st_resindex = self.link.Fbp_full[sc_resindex]
+                st = self.u.residues[st_resindex]
+
+            if not is_scaf:
+                sc, st = st, sc
+                sc_resindex, st_resindex = st_resindex, sc_resindex
+
+            pot_basepairs[(h, p)] = BasePair(sc=sc, st=st, hp=(h, p))
+            done.update([sc_resindex, st_resindex])
+        return pot_basepairs
 
     def _get_n_bp(self, bp: BasePair, steps: int = 1
                   ) -> Optional[BasePair]:
