@@ -47,6 +47,15 @@ class BasePair(object):
         self.plane = (self._get_bp_plane(sc=self.sc_plane, st=self.st_plane)
                       if self.is_ds else None)
 
+    def recalculate_baseplanes(self):
+        self.sc_plane = (self._get_base_plane(self.sc)
+                         if self.sc is not None else None)
+        self.st_plane = (self._get_base_plane(self.st)
+                         if self.st is not None else None)
+        self.plane = (self._get_bp_plane(sc=self.sc_plane, st=self.st_plane)
+                      if self.is_ds else None)
+        return
+
     def _get_base_plane(self, res: "mda.Residue") -> BasePlane:
         P = dict()
         atom = []
