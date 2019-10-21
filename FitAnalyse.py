@@ -156,10 +156,6 @@ def main():
         bDNA.eval_dh()
         print("eval_co_angles", project.name)
         bDNA.eval_co_angles()
-
-        import ipdb
-        ipdb.set_trace()
-
         print("write pickle", project.name)
         properties.append(bDNA)
         props_tuple = [
