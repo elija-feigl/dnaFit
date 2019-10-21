@@ -9,7 +9,7 @@ from typing import Dict, Tuple, Any, Optional
 from linker import Linkage
 from utils import (C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, TOL, BB_ATOMS,
                    PUR_ATOMS, PYR_ATOMS, DH_ATOMS,
-                   _proj, _norm, _v_proj, _save_arccos_deg
+                   _proj, _norm, _v_proj, _save_arccos_deg, _dh_angle
                    )
 
 
@@ -39,15 +39,9 @@ class BasePair(object):
             self.is_ds = False
         else:
             self.is_ds = True
-        self.seq = self.sc.resname[0] if self.is_ds else None
-        self.sc_plane = (self._get_base_plane(self.sc)
-                         if self.sc is not None else None)
-        self.st_plane = (self._get_base_plane(self.st)
-                         if self.st is not None else None)
-        self.plane = (self._get_bp_plane(sc=self.sc_plane, st=self.st_plane)
-                      if self.is_ds else None)
+        self.calculate_baseplanes()
 
-    def recalculate_baseplanes(self):
+    def calculate_baseplanes(self):
         self.sc_plane = (self._get_base_plane(self.sc)
                          if self.sc is not None else None)
         self.st_plane = (self._get_base_plane(self.st)
@@ -150,8 +144,8 @@ class BDna(object):
         while (n_helix, n_position, True) in self.link.Dskips:
             n_position += 1
 
-        if (helix, position) in self.bps.keys():
-            return self.bps[(helix, position)]
+        if (helix, n_position) in self.bps.keys():
+            return self.bps[(helix, n_position)]
         else:
             return None
 
@@ -181,11 +175,12 @@ class BDna(object):
 
         # C1p distance
         # TODO: cleanup (loop?)
-        bnd = "C1'C1'"
+        atom_name = "C1'"
+        bnd = atom_name * 2
         C1p = []
         atoms = []
         for b in [bp.sc, bp.st]:
-            C1p.append(b.atoms.select_atoms("name C1'")[0])
+            C1p.append(b.atoms.select_atoms("name {}".format(atom_name))[0])
             atoms.append(b.atoms.select_atoms(
                 "name " + ' or name '.join(map(str, WC_HBONDS[b.resname]))))
 
@@ -275,26 +270,6 @@ class BDna(object):
                     }
         return geometry
 
-    # TODO delete
-    def _get_base_plane(self, res):
-
-        atom = []
-        for atom_name in ["C2", "C4", "C6", "C1'"]:
-            A = res.atoms.select_atoms("name " + atom_name)[0]
-            atom.append(A.position)
-
-        n0 = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[1])))
-        diazine_center = sum(atom[:-1]) / 3.
-        if res.resname in ["ADE", "GUA"]:
-            ref = res.atoms.select_atoms("name C8")[0].position
-        else:
-            ref = res.atoms.select_atoms("name C6")[0].position
-
-        plane = {"n0": n0, "C1p": atom[-1], "diazine": diazine_center,
-                 "C6C8": ref}
-
-        return plane
-
     def eval_dh(self):
         """ Affects
             -------
@@ -306,116 +281,94 @@ class BDna(object):
         return
 
     def _get_dihedrals(self, res):
+        def _get_residue_BB(res):
+            iniSeg, terSeg, ter5 = False, False, False
 
-        atoms, logic = self._get_residue_BB(res)
-        dh_valid = self._get_valid_DH(*logic)
+            atoms = {}
+            try:
+                P = res.atoms.select_atoms("name P")[0]
+                atoms["P"] = P.position
+            except (KeyError, IndexError):
+                ter5 = True
+
+            for x in BB_ATOMS[:-1]:
+                atom_name = "name {}".format(x)
+                atoms[x] = res.atoms.select_atoms(atom_name)[0].position
+            if res.resname in ["ADE", "GUA"]:
+                Y = PUR_ATOMS
+            else:
+                Y = PYR_ATOMS
+            for y in Y:
+                atom_name = "name {}".format(y)
+                atoms[y] = res.atoms.select_atoms(atom_name)[0].position
+
+            try:
+                n_res = self.u.residues[res.resindex + 1]
+                if res.segindex == n_res.segindex:
+                    n_P = n_res.atoms.select_atoms("name P")[0]
+                    n_O5p = n_res.atoms.select_atoms("name O5'")[0]
+                    atoms["P +"] = n_P.position
+                    atoms["O5' +"] = n_O5p.position
+                else:
+                    terSeg = True
+            except (KeyError, IndexError):
+                terSeg = True
+
+            try:
+                p_res = self.u.residues[res.resindex - 1]
+                if res.segindex == p_res.segindex:
+                    p_O3p = p_res.atoms.select_atoms("name O3'")[0]
+                    atoms["O3' -"] = p_O3p.position
+                else:
+                    iniSeg = True
+            except (KeyError, IndexError):
+                iniSeg = True
+
+            return atoms, (ter5, terSeg, iniSeg)
+
+        def _get_valid_DH(ter5, terSeg, iniSeg):
+            dh_valid = ["gamma", "delta", "xi"]
+            if terSeg is False:
+                dh_valid.extend(["epsilon", "zeta"])
+            if iniSeg is False:
+                dh_valid.append("alpha")
+            if ter5 is False:
+                dh_valid.append("beta")
+            return dh_valid
+
+        def _get_dh_for_res(atoms, pyr, dh_valid):
+            dh = {}
+            for dh_name in DH_ATOMS.keys():
+                if dh_name in dh_valid:
+                    angle = _get_dhangle(atoms, pyr, dh_name)
+                else:
+                    angle = None
+                dh[dh_name] = angle
+            return dh
+
+        def _get_dhangle(atoms, pyr, dh_name):
+            p = []
+            if dh_name == "xi":
+                if pyr:
+                    for i in DH_ATOMS[dh_name]["pyr"]:
+                        p.append(atoms[i])
+                else:
+                    for i in DH_ATOMS[dh_name]["pur"]:
+                        p.append(atoms[i])
+            else:
+                for i in DH_ATOMS[dh_name]:
+                    p.append(atoms[i])
+            return _dh_angle(p)
+
+        atoms, logic = _get_residue_BB(res)
+        dh_valid = _get_valid_DH(*logic)
         if res.resname in ["ADE", "GUA"]:
             pyr = False
         else:
             pyr = True
 
-        dh = self._get_dh_for_res(atoms, pyr, dh_valid)
+        dh = _get_dh_for_res(atoms, pyr, dh_valid)
         return dh
-
-    def _get_residue_BB(self, res):
-        iniSeg, terSeg, ter5 = False, False, False
-
-        atoms = {}
-        try:
-            P = res.atoms.select_atoms("name P")[0]
-            atoms["P"] = P.position
-
-        except (KeyError, IndexError):
-            ter5 = True
-
-        for xx in BB_ATOMS[:-1]:
-            atoms[xx] = res.atoms.select_atoms("name " + xx)[0].position
-        if res.resname in ["ADE", "GUA"]:
-            YY = PUR_ATOMS
-        else:
-            YY = PYR_ATOMS
-        for yy in YY:
-            atoms[yy] = res.atoms.select_atoms("name " + yy)[0].position
-
-        try:
-            n_res = self.u.residues[res.resindex + 1]
-            if res.segindex == n_res.segindex:
-                n_P = n_res.atoms.select_atoms("name P")[0]
-                n_O5p = n_res.atoms.select_atoms("name O5'")[0]
-                atoms["P +"] = n_P.position
-                atoms["O5' +"] = n_O5p.position
-            else:
-                terSeg = True
-        except (KeyError, IndexError):
-            terSeg = True
-
-        try:
-            p_res = self.u.residues[res.resindex - 1]
-            if res.segindex == p_res.segindex:
-                p_O3p = p_res.atoms.select_atoms("name O3'")[0]
-                atoms["O3' -"] = p_O3p.position
-            else:
-                iniSeg = True
-        except (KeyError, IndexError):
-            iniSeg = True
-
-        return atoms, (ter5, terSeg, iniSeg)
-
-    def _get_valid_DH(self, ter5, terSeg, iniSeg):
-        dh_valid = ["gamma", "delta", "xi"]
-        if terSeg is False:
-            dh_valid.extend(["epsilon", "zeta"])
-        if iniSeg is False:
-            dh_valid.append("alpha")
-        if ter5 is False:
-            dh_valid.append("beta")
-        return dh_valid
-
-    def _get_dh_for_res(self, atoms, pyr, dh_valid):
-        dh = {}
-        for dh_name in DH_ATOMS.keys():
-            if dh_name in dh_valid:
-                angle = self._get_angle(atoms, pyr, dh_name)
-            else:
-                angle = None
-            dh[dh_name] = angle
-        return dh
-
-    def _get_angle(self, atoms, pyr, dh_name):
-
-        def _dh_angle(p1, p2, p3, p4, as_rad=False):
-
-            v1 = p2 - p1
-            v2 = p3 - p2
-            v3 = p4 - p3
-
-            n1 = _norm(np.cross(v1, v2))
-            n2 = _norm(np.cross(v2, v3))
-            m1 = np.cross(n1, _norm(v2))
-
-            x = np.dot(n1, n2)
-            y = np.dot(m1, n2)
-
-            angle = - np.arctan2(y, x)
-
-            return angle if as_rad else np.rad2deg(angle)
-
-        p = []
-
-        if dh_name == "xi":
-            if pyr:
-                for i in DH_ATOMS[dh_name]["pyr"]:
-                    p.append(atoms[i])
-            else:
-                for i in DH_ATOMS[dh_name]["pur"]:
-                    p.append(atoms[i])
-        else:
-            for i in DH_ATOMS[dh_name]:
-                p.append(atoms[i])
-
-        angle = _dh_angle(*p)
-
-        return angle
 
     def eval_distances(self):
         """ Affects
@@ -455,7 +408,7 @@ class BDna(object):
 
         for A, B, dist in [(SC, ST, sc_dist), (ST, SC, st_dist)]:
             for X, Y, typ in [(A[0], B[0], "pair"),
-                              (A[0], A[0], "stack"),
+                              (A[0], A[1], "stack"),
                               (A[0], B[1], "crossstack")
                               ]:
                 if X is not None and Y is not None:
@@ -659,3 +612,23 @@ class BDna(object):
                     "angles": co_data["angles"],
                     "center-co": co_data["center-co"]}
         return
+
+    # TODO delete
+    def _get_base_plane(self, res):
+
+        atom = []
+        for atom_name in ["C2", "C4", "C6", "C1'"]:
+            A = res.atoms.select_atoms("name {}".format(atom_name))[0]
+            atom.append(A.position)
+
+        n0 = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[1])))
+        diazine_center = sum(atom[:-1]) / 3.
+        if res.resname in ["ADE", "GUA"]:
+            ref = res.atoms.select_atoms("name C8")[0].position
+        else:
+            ref = res.atoms.select_atoms("name C6")[0].position
+
+        plane = {"n0": n0, "C1p": atom[-1], "diazine": diazine_center,
+                 "C6C8": ref}
+
+        return plane
