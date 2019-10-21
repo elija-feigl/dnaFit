@@ -81,7 +81,7 @@ class BDna(object):
 
     def __attrs_post_init__(self):
         self.link.reverse()
-        self.pot_basepairs: Dict[Tuple[int, int], BasePair] = _get_pot_bp()
+        self.bps: Dict[Tuple[int, int], BasePair] = self._get_pot_bp()
         self.bp_quality: Dict[int, Any] = {}
         self.bp_geometry: Dict[int, Any] = {}
         self.dh_quality: Dict[int, Any] = {}
@@ -89,8 +89,9 @@ class BDna(object):
         self.co_angles: Dict[int, Any] = {}
 
     def _get_pot_bp(self) -> Dict[Tuple[int, int], BasePair]:
-        pot_basepairs = dict()
+        bps = dict()
         done = set()
+        # TODO: -low- loop over residues not resindex?
         for sc_resindex in self.u.residues.resindices:
             if sc_resindex in done:
                 continue
@@ -101,14 +102,17 @@ class BDna(object):
             if sc_resindex in self.link.Fbp_full:
                 st_resindex = self.link.Fbp_full[sc_resindex]
                 st = self.u.residues[st_resindex]
+            else:
+                st_resindex = None
+                st = None
 
             if not is_scaf:
                 sc, st = st, sc
                 sc_resindex, st_resindex = st_resindex, sc_resindex
 
-            pot_basepairs[(h, p)] = BasePair(sc=sc, st=st, hp=(h, p))
+            bps[(h, p)] = BasePair(sc=sc, st=st, hp=(h, p))
             done.update([sc_resindex, st_resindex])
-        return pot_basepairs
+        return bps
 
     def _get_n_bp(self, bp: BasePair, steps: int = 1
                   ) -> Optional[BasePair]:
