@@ -163,10 +163,11 @@ class BDna(object):
                 self.bp_quality[resindex] = bp_qual
 
             n_bp = self._get_n_bp(bp=bp)
-            if n_bp.is_ds:
-                bp_geom = self._get_bp_geometry(bp=bp, n_bp=n_bp)
-                for resindex in [bp.sc.resindex, bp.st.resindex]:
-                    self.bp_geometry[resindex] = bp_geom
+            if n_bp is not None:
+                if n_bp.is_ds:
+                    bp_geom = self._get_bp_geometry(bp=bp, n_bp=n_bp)
+                    for resindex in [bp.sc.resindex, bp.st.resindex]:
+                        self.bp_geometry[resindex] = bp_geom
 
         return
 
