@@ -123,37 +123,28 @@ class BDna(object):
         """
         if steps == 0:
             return bp
+        helix, position = bp.hp
+        if (helix % 2) == 1:  # scaffold 5->3: even l->r odd r->l
+            steps = -steps
 
-        pos = self.link.DidDhps[self.link.FidDid[bp.sc.resindex]]
         stp = np.sign(steps)
         n_skips = 0
 
         # check if we passed skips
         for n in range(stp, steps + stp, stp):
-            n_pos = (pos[0], pos[1] + n, pos[2])
-            if n_pos in self.link.Dskips:
+            n_helix, n_position = (helix, position + n)
+            if (n_helix, n_position, True) in self.link.Dskips:
                 n_skips += 1
 
         # check if land on skip
-        n_pos = (pos[0], (pos[1] + steps + n_skips), pos[2])
-        while n_pos in self.link.Dskips:
-            n_skips += 1
-            n_pos = (pos[0], (pos[1] + steps + n_skips), pos[2])
+        n_position = position + steps + n_skips
+        while (n_helix, n_position, True) in self.link.Dskips:
+            n_position += 1
 
-        if n_pos in self.link.DhpsDid:
-            n_sc_resindex = self.link.DidFid[self.link.DhpsDid[n_pos]]
-            n_sc = self.u.residues[n_sc_resindex]
+        if (helix, position) in self.bps.keys():
+            return self.bps[(helix, position)]
         else:
-            n_sc_resindex = None
-            n_sc = None
-
-        if n_sc_resindex in self.link.Fbp:
-            n_st_resindex = self.link.Fbp[n_sc_resindex]
-            n_st = self.u.residues[n_st_resindex]
-        else:
-            n_st = None
-
-        return BasePair(sc=n_sc, st=n_st)
+            return None
 
     def eval_bp(self):
         """ Affects
@@ -161,11 +152,9 @@ class BDna(object):
                 self.bp_quality
                 self.bp_geometry
         """
-        for resindex, resindex_wc in self.link.Fbp.items():
-            sc = self.u.residues[resindex]
-            st = self.u.residues[resindex_wc]
-            bp = BasePair(sc=sc, st=st)
-
+        for bp in self.bps.values():
+            if bp.sc is None or bp.st is None:
+                continue
             bp_qual = self._get_bp_quality(bp=bp)
             for resindex in [bp.sc.resindex, bp.st.resindex]:
                 self.bp_quality[resindex] = bp_qual
@@ -216,7 +205,7 @@ class BDna(object):
             twist = dict()
             for key, a in bp.plane.a.items():
                 n_a = n_bp.plane.a[key]
-                twist[key] = np.rad2deg(np.arccos(_proj(a, n_a)))
+                twist[key] = _save_arccos_deg(_proj(a, n_a))
             return twist
 
         def _get_rise(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
@@ -424,30 +413,27 @@ class BDna(object):
             -------
                 distances
         """
+        # fix dict organozation
         dist = dict()
         for n in ["C1'", "P"]:
             dist[n] = self._get_distance(name=n)
 
+        # import ipdb; ipdb.set_trace()
         for resindex in self.u.residues.resindices:
+            
             self.distances[resindex] = {"C1'": dist["C1'"][resindex],
                                         "P": dist["P"][resindex],
                                         }
-        import ipdb; ipdb.set_trace()
         return
 
-    def _get_distance(self, name: str, n=2) -> Dict[int, dict]:
+    def _get_distance(self, name: str) -> Dict[int, dict]:
         distances_residue = dict()
-        # TODO: reuse bp from bp_quality could speedup 
-        # TODO: ss missing
-        for sc_resindex, st_resindex in self.link.Fbp_full.items():
-            sc = self.u.residues[sc_resindex]
-            st = self.u.residues[st_resindex]
-            bp = BasePair(sc=sc, st=st)
+        # TODO compute scaffold and staple at once to rid of options madness
+        for bp in self.bps.values():
 
             dist = dict()
             options = {"sc": "st", "st": "sc"}
-            bp_range = range(-n, n + 1)
-            N_bps = {i: self._get_n_bp(bp, i) for i in bp_range}
+            n_bp = self._get_n_bp(bp)
 
             for opt, not_opt in options.items():
                 dist[opt] = {}
@@ -460,22 +446,21 @@ class BDna(object):
                         dist[opt][ty] = None
                     continue
 
-                for i in bp_range:
-                    n_res = getattr(N_bps[i], opt)
-                    n_compl = getattr(N_bps[i], not_opt)
-                    typ = {"strand": n_res, "compl": n_compl}
+                n_res = getattr(n_bp, opt)
+                n_compl = getattr(n_bp, not_opt)
+                typ = {"strand": n_res, "compl": n_compl}
 
-                    B = dict()
-                    for ty, p in typ.items():
-                        try:
-                            a = "name {}".format(name)
-                            B[ty] = p.atoms.select_atoms(a)[0].position
-                        except (AttributeError, IndexError):
-                            dist[opt][ty] = None
-                            continue
-                        dist[opt][ty] = np.linalg.norm(A - B[ty])
+                B = dict()
+                for ty, p in typ.items():
+                    try:
+                        a = "name {}".format(name)
+                        B[ty] = p.atoms.select_atoms(a)[0].position
+                    except (AttributeError, IndexError):
+                        dist[opt][ty] = None
+                        continue
+                    dist[opt][ty] = np.linalg.norm(A - B[ty])
 
-                resindex = sc_resindex if opt == "sc" else st_resindex
+                resindex = bp.sc.resindex if opt == "sc" else bp.st.resindex
                 distances_residue[resindex] = dist[opt]
 
         return distances_residue
