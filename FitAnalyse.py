@@ -42,7 +42,7 @@ def write_pdb(u, bDNA, PDBs):
         for res in u.residues:
             try:
                 res.atoms.tempfactors = (
-                    bDNA.wc_geometry[res.resindex][cond]["center-C6C8"])
+                    bDNA.bp_geometry[res.resindex][cond]["center-C6C8"])
             except KeyError:
                 pass
         PDBs[cond].write(u.atoms)
@@ -148,15 +148,8 @@ def main():
         bDNA = BDna(u, linkage)
 
         # perform analyis
-        print("eval_wc", project.name)
-        bDNA.eval_bp()
-        print("eval_distances", project.name)
-        bDNA.eval_distances()
-        print("eval_dh", project.name)
-        bDNA.eval_dh()
-        print("eval_co_angles", project.name)
-        bDNA.eval_co_angles()
-        print("write pickle", project.name)
+        print("eval_fit", project.name)
+        bDNA.sample()
         properties.append(bDNA)
         props_tuple = [
             (bDNA.bp_geometry, "bp_geometry"), (bDNA.bp_quality, "bp_quality"),
