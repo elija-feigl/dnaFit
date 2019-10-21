@@ -55,3 +55,21 @@ def _save_arccos_deg(dist):
     else:
         a = - np.arccos(abs(dist))
     return np.rad2deg(a)
+
+
+def _dh_angle(p: list, as_rad=False):
+
+    v1 = p[2] - p[1]
+    v2 = p[3] - p[2]
+    v3 = p[4] - p[3]
+
+    n1 = _norm(np.cross(v1, v2))
+    n2 = _norm(np.cross(v2, v3))
+    m1 = np.cross(n1, _norm(v2))
+
+    x = np.dot(n1, n2)
+    y = np.dot(m1, n2)
+
+    angle = - np.arctan2(y, x)
+
+    return angle if as_rad else np.rad2deg(angle)
