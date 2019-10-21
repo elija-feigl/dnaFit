@@ -91,7 +91,7 @@ class BDna(object):
         self.co_angles: Dict[int, Any] = {}
 
     def sample(self):
-        for bp in self.bps:
+        for bp in self.bps.values():
             bp.calculate_baseplanes
 
         self.eval_bp()
