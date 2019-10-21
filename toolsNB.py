@@ -57,7 +57,10 @@ class DataPrep(object):
         for pickle_name in PROP_TYPE + ["co_angles"]:
             if pickle_name == "localres":
                 nnn = "{}{}__{}.p".format(self.path, self.name, pickle_name)
-                prop = pickle.load(open(nnn, "rb"))
+                try:
+                    prop = pickle.load(open(nnn, "rb"))
+                except FileNotFoundError:
+                    prop = None
             else:
                 nnn = "{}{}__bDNA-{}-{}.p".format(traj_path,
                                                   self.name,
@@ -186,7 +189,7 @@ class DataPrep(object):
                             id_prop_dict[resindex].append(dist)
                             if (atom + "-" + loc) not in self.columns:
                                 self.columns.append(atom + "-" + loc)
-                elif prop == "localres":
+                elif prop == "localres" and data[prop] is not None:
                     try:  # not all are basepaired
                         localres = data[prop][resindex]
                     except KeyError:
@@ -210,11 +213,13 @@ class DataPrep(object):
             id_co_dict[co_id] = [[co_type, strand_type]]
 
             co_resids = data["co_angles"][co_id]['ids(abcd)']
-            locres = 0.
-            for resid in co_resids:
-                locres += (data["localres"][resid] / len(co_resids))
+            
+            if data["localres"] is not None:
+                locres = 0.
+                for resid in co_resids:
+                    locres += (data["localres"][resid] / len(co_resids))
 
-            id_co_dict[co_id].append(locres)
+                id_co_dict[co_id].append(locres)
 
             for name in COANGLES:
                 try:
@@ -222,11 +227,16 @@ class DataPrep(object):
                 except KeyError:
                     angle = None
                 id_co_dict[co_id].append(angle)
-
-        self.df_co = pd.DataFrame.from_dict(
-            id_co_dict, orient='index',
-            columns=(["type", "localres"] + COANGLES)
-        )
+        if data["localres"] is not None:
+            self.df_co = pd.DataFrame.from_dict(
+                id_co_dict, orient='index',
+                columns=(["type", "localres"] + COANGLES)
+            )
+        else:
+            self.df_co = pd.DataFrame.from_dict(
+                id_co_dict, orient='index',
+                columns=(["type"] + COANGLES)
+            )
         return self.df, self.df_co, ts
 
 
