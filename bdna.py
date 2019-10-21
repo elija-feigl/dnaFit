@@ -80,6 +80,7 @@ class BDna(object):
 
     def __attrs_post_init__(self):
         self.link.reverse()
+        self.pot_basepairs: Dict[Any, Basepair] = _get_pot_basepairs()
         self.bp_quality: Dict[int, Any] = {}
         self.bp_geometry: Dict[int, Any] = {}
         self.dh_quality: Dict[int, Any] = {}
@@ -87,6 +88,11 @@ class BDna(object):
         self.co_angles: Dict[int, Any] = {}
 
     # TODO: generate set of bp
+    def _get_n_bp(self) -> Dict[Any, Basepair]:
+        
+        return pot_basepairs
+
+
     def _get_n_bp(self, bp: BasePair, steps: int = 1
                   ) -> Optional[BasePair]:
         """ get next residue and its complemt wc pair whithin a helix
@@ -399,17 +405,19 @@ class BDna(object):
         """
         dist = dict()
         for n in ["C1'", "P"]:
-            dist[n] = self._get_distance(atomname=n)
+            dist[n] = self._get_distance(name=n)
 
         for resindex in self.u.residues.resindices:
-            self.distances[resindex] = dist[resindex]
-
+            self.distances[resindex] = {"C1'": dist["C1'"][resindex],
+                                        "P": dist["P"][resindex],
+                                        }
         import ipdb; ipdb.set_trace()
         return
 
-    def _get_distance(self, atomname, n=2):
+    def _get_distance(self, name: str, n=2) -> Dict[int, dict]:
         distances_residue = dict()
-        # TODO: reuse bp from bp_quality could speedup
+        # TODO: reuse bp from bp_quality could speedup 
+        # TODO: ss missing
         for sc_resindex, st_resindex in self.link.Fbp_full.items():
             sc = self.u.residues[sc_resindex]
             st = self.u.residues[st_resindex]
@@ -422,30 +430,29 @@ class BDna(object):
 
             for opt, not_opt in options.items():
                 dist[opt] = {}
+                res = getattr(bp, opt)
+                try:
+                    a = "name {}".format(name)
+                    A = res.atoms.select_atoms(a)[0].position
+                except (AttributeError, IndexError):
+                    for ty in ["strand", "compl"]:
+                        dist[opt][ty] = None
+                    continue
+
                 for i in bp_range:
-                    res = getattr(bp, opt)
                     n_res = getattr(N_bps[i], opt)
                     n_compl = getattr(N_bps[i], not_opt)
-
                     typ = {"strand": n_res, "compl": n_compl}
 
-                    if res is None:
-                        dist[opt]["strand"] = None
-                        dist[opt]["compl"] = None
-                        continue
-                    A = res.atoms.select_atoms("name " + atomname)[0]
                     B = dict()
-
                     for ty, p in typ.items():
-                        if p is None:
+                        try:
+                            a = "name {}".format(name)
+                            B[ty] = p.atoms.select_atoms(a)[0].position
+                        except (AttributeError, IndexError):
                             dist[opt][ty] = None
-                        else:
-                            B[ty] = p.atoms.select_atoms("name " + atomname)[0]
-
-                        if None not in [A, B[typ]]:
-                            dist[opt][ty] = np.linalg.norm(A.position - B[ty].position)
-                        else:
-                            dist[opt][ty] = None
+                            continue
+                        dist[opt][ty] = np.linalg.norm(A - B[ty])
 
                 resindex = sc_resindex if opt == "sc" else st_resindex
                 distances_residue[resindex] = dist[opt]
