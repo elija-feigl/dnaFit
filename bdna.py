@@ -92,7 +92,7 @@ class BDna(object):
 
     def sample(self):
         for bp in self.bps.values():
-            bp.calculate_baseplanes
+            bp.calculate_baseplanes()
 
         self.eval_bp()
         self.eval_distances()
