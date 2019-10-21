@@ -39,7 +39,6 @@ class BasePair(object):
             self.is_ds = False
         else:
             self.is_ds = True
-        self.calculate_baseplanes()
 
     def calculate_baseplanes(self):
         self.sc_plane = (self._get_base_plane(self.sc)
@@ -90,6 +89,16 @@ class BDna(object):
         self.dh_quality: Dict[int, Any] = {}
         self.distances: Dict[int, Any] = {}
         self.co_angles: Dict[int, Any] = {}
+
+    def sample(self):
+        for bp in self.bps:
+            bp.calculate_baseplanes
+
+        self.eval_bp()
+        self.eval_distances()
+        self.eval_dh()
+        self.eval_co_angles()
+        return
 
     def _get_pot_bp(self) -> Dict[Tuple[int, int], BasePair]:
         bps = dict()
@@ -268,6 +277,7 @@ class BDna(object):
                     "twist": _get_twist(bp=bp, n_bp=n_bp),
                     "tilt": _get_tilt(bp=bp, n_bp=n_bp),
                     "roll": _get_roll(bp=bp, n_bp=n_bp),
+                    "next_seq": n_bp.sc.resname[0] + n_bp.st.resname[0]
                     }
         return geometry
 
@@ -403,19 +413,31 @@ class BDna(object):
 
         n_bp = self._get_n_bp(bp)
         SC, ST = list(), list()
-        for x in [bp, n_bp]:
-            SC.append(try_position(res=x.sc, atom_name=atom_name))
-            ST.append(try_position(res=x.st, atom_name=atom_name))
+        if n_bp is None:
+            X = try_position(res=bp.sc, atom_name=atom_name)
+            Y = try_position(res=bp.st, atom_name=atom_name)
+            if X is not None and Y is not None:
+                for dist in [sc_dist, st_dist]:
+                    dist["pair"] = np.linalg.norm(Y - X)
+                    dist["stack"], dist["crossstack"] = None, None
+            else:
+                for dist in [sc_dist, st_dist]:
+                    for typ in ["pair", "stack", "crossstack"]:
+                        dist[typ] = None
+        else:
+            for x in [bp, n_bp]:
+                SC.append(try_position(res=x.sc, atom_name=atom_name))
+                ST.append(try_position(res=x.st, atom_name=atom_name))
 
-        for A, B, dist in [(SC, ST, sc_dist), (ST, SC, st_dist)]:
-            for X, Y, typ in [(A[0], B[0], "pair"),
-                              (A[0], A[1], "stack"),
-                              (A[0], B[1], "crossstack")
-                              ]:
-                if X is not None and Y is not None:
-                    dist[typ] = np.linalg.norm(Y - X)
-                else:
-                    dist[typ] = np.nan
+            for A, B, dist in [(SC, ST, sc_dist), (ST, SC, st_dist)]:
+                for X, Y, typ in [(A[0], B[0], "pair"),
+                                  (A[0], A[1], "stack"),
+                                  (A[0], B[1], "crossstack")
+                                  ]:
+                    if X is not None and Y is not None:
+                        dist[typ] = np.linalg.norm(Y - X)
+                    else:
+                        dist[typ] = np.nan
 
         return sc_dist, st_dist
 
