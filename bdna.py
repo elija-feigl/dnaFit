@@ -300,7 +300,7 @@ class BDna(object):
         return
 
     def _get_dihedrals(self, res):
-        def _get_residue_BB(res):
+        def _get_residue_BB(res): #slow
             iniSeg, terSeg, ter5 = False, False, False
 
             atoms = {}
@@ -365,7 +365,7 @@ class BDna(object):
                 dh[dh_name] = angle
             return dh
 
-        def _get_dhangle(atoms, pyr, dh_name):
+        def _get_dhangle(atoms, pyr, dh_name): #slow
             p = []
             if dh_name == "xi":
                 if pyr:
@@ -457,6 +457,7 @@ class BDna(object):
         """
 
         def get_co_angles_end(a, a_leg, c, c_leg, typ="C6C8"):
+            
             if a.plane is not None:
                 A = a.plane.P[typ]
             elif a.sc is not None:
@@ -495,7 +496,9 @@ class BDna(object):
             gamma = np.rad2deg(np.arccos(dist))
             beta = 90. - _save_arccos_deg(_proj(a, n0))
 
-            return {"angles": {"co_beta": beta, "co_gamma": gamma},
+            return {"angles": {"co_beta": beta,
+                               "co_gamma": gamma
+                               },
                     "center-co": center,
                     "plane": n0,
                     }
@@ -511,9 +514,7 @@ class BDna(object):
                 points.append((ins, out))
 
             # abcd
-            # ((a0 +b0)/2 +  (c0 +d0)/2)/2
             center = sum(p[0] for p in points) * 0.25
-            # n0((a0 +b0)/2 -  (c0 +d0)/2)
             n0 = _norm(points[0][0] + points[1][0] - points[2][0] - points[3][0])
 
             abcd = []
@@ -522,28 +523,27 @@ class BDna(object):
 
             proj_abcd = _proj2plane(abcd, n0)
 
-            # gamma1 = a|| c||
             d1 = _proj(proj_abcd[0], proj_abcd[2])
             gamma1 = _save_arccos_deg(d1)
-            # gamma2 = d|| b||
             d2 = _proj(proj_abcd[3], proj_abcd[1])
             gamma2 = _save_arccos_deg(d2)
-            # alpha1 = a|| -b||
             a1 = _proj(proj_abcd[0], [-x for x in proj_abcd[1]])
             alpha1 = _save_arccos_deg(a1)
-            # alpha2 = c|| -d||
             a2 = _proj(proj_abcd[2], [-x for x in proj_abcd[3]])
             alpha2 = _save_arccos_deg(a2)
 
-            # 180 - a n0 - b n0 , unprojected
             a_n0 = _save_arccos_deg(_proj(abcd[0], n0))
             b_n0 = _save_arccos_deg(_proj(abcd[1], n0))
             beta = 180. - abs(a_n0) - abs(b_n0)
 
-            return {"angles": {"co_beta": beta, "co_gamma1": gamma1,
-                               "co_gamma2": gamma2, "co_alpha1": alpha1,
+            return {"angles": {"co_beta": beta,
+                               "co_gamma1": gamma1,
+                               "co_gamma2": gamma2,
+                               "co_alpha1": alpha1,
                                "co_alpha2": alpha2},
-                    "center-co": center, "plane": n0}
+                    "center-co": center,
+                    "plane": n0,
+                    }
 
         co_done = set()
         for a_index, co in self.link.Fco.items():
