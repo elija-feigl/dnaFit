@@ -536,13 +536,9 @@ class BDna(object):
             alpha2 = _save_arccos_deg(a2)
 
             # 180 - a n0 - b n0 , unprojected
-            ang_temp1 = _save_arccos_deg(_proj(abcd[0], n0))
-            #if ang_temp1 > 90.:
-            #    ang_temp1 = 180. - ang_temp1
-            ang_temp2 = _save_arccos_deg(_proj(abcd[1], n0))
-            #if ang_temp2 > 90.:
-            #    ang_temp2 = 180. - ang_temp2
-            beta = 180. - ang_temp1 - ang_temp2
+            a_n0 = _save_arccos_deg(_proj(abcd[0], n0))
+            b_n0 = _save_arccos_deg(_proj(abcd[1], n0))
+            beta = 180. - abs(a_n0) - abs(b_n0)
 
             return {"angles": {"co_beta": beta, "co_gamma1": gamma1,
                                "co_gamma2": gamma2, "co_alpha1": alpha1,
