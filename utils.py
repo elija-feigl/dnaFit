@@ -59,9 +59,9 @@ def _save_arccos_deg(dist):
 
 def _dh_angle(p: list, as_rad=False):
 
-    v1 = p[2] - p[1]
-    v2 = p[3] - p[2]
-    v3 = p[4] - p[3]
+    v1 = p[1] - p[0]
+    v2 = p[2] - p[1]
+    v3 = p[3] - p[2]
 
     n1 = _norm(np.cross(v1, v2))
     n2 = _norm(np.cross(v2, v3))
