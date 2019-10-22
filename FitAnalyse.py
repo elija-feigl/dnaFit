@@ -4,7 +4,6 @@ import numpy as np
 import os
 
 import pickle
-import bpLinker
 import contextlib
 import argparse
 # import attr
@@ -15,6 +14,7 @@ from pathlib import Path
 from project import Project
 from utils import WC_PROPERTIES, DH_ATOMS
 from bdna import BDna
+from linker import Linker
 
 
 @contextlib.contextmanager
@@ -117,7 +117,7 @@ def proc_input():
 def main():
     project = proc_input()
 
-    linker = bpLinker.Linker(project)
+    linker = Linker(project)
     linkage = linker.create_linkage()
     linkage.dump_linkage(project)
 
@@ -150,6 +150,7 @@ def main():
         # perform analyis
         print("eval_fit", project.name)
         bDNA.sample()
+        import ipdb; ipdb.set_trace()
         properties.append(bDNA)
         props_tuple = [
             (bDNA.bp_geometry, "bp_geometry"), (bDNA.bp_quality, "bp_quality"),
