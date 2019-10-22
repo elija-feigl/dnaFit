@@ -9,7 +9,8 @@ from typing import Dict, Tuple, Any, Optional
 from linker import Linkage
 from utils import (C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, TOL, BB_ATOMS,
                    PUR_ATOMS, PYR_ATOMS, DH_ATOMS,
-                   _proj, _norm, _v_proj, _save_arccos_deg, _dh_angle
+                   _proj, _norm, _v_proj, _save_arccos_deg,
+                   _dh_angle, _proj2plane
                    )
 
 
@@ -100,30 +101,37 @@ class BDna(object):
         self.eval_co_angles()
         return
 
+    def _get_bp(self, resindex: int) -> Tuple[Tuple[int, int], BasePair]:
+        h, p, is_scaf = self.link.DidDhps[self.link.FidDid[resindex]]
+        res = self.u.residues[resindex]
+        if resindex in self.link.Fbp_full:
+            wcindex = self.link.Fbp_full[resindex]
+            wc = self.u.residues[wcindex]
+        else:
+            wcindex = None
+            wc = None
+
+        if is_scaf:
+            sc, st = res, wc
+        else:
+            sc, st = wc, res
+
+        bp = BasePair(sc=sc, st=st, hp=(h, p))
+        return (h, p), bp
+
     def _get_pot_bp(self) -> Dict[Tuple[int, int], BasePair]:
         bps = dict()
         done = set()
         # TODO: -low- loop over residues not resindex?
-        for sc_resindex in self.u.residues.resindices:
-            if sc_resindex in done:
+        for resindex in self.u.residues.resindices:
+            if resindex in done:
                 continue
+            pos, bp = self._get_bp(resindex)
+            bps[pos] = bp
 
-            sc = self.u.residues[sc_resindex]
-            h, p, is_scaf = self.link.DidDhps[self.link.FidDid[sc_resindex]]
-
-            if sc_resindex in self.link.Fbp_full:
-                st_resindex = self.link.Fbp_full[sc_resindex]
-                st = self.u.residues[st_resindex]
-            else:
-                st_resindex = None
-                st = None
-
-            if not is_scaf:
-                sc, st = st, sc
-                sc_resindex, st_resindex = st_resindex, sc_resindex
-
-            bps[(h, p)] = BasePair(sc=sc, st=st, hp=(h, p))
-            done.update([sc_resindex, st_resindex])
+            done.add(resindex)
+            if resindex in self.link.Fbp_full.keys():
+                done.add(self.link.Fbp_full[resindex])
         return bps
 
     def _get_n_bp(self, bp: BasePair, steps: int = 1
@@ -442,107 +450,54 @@ class BDna(object):
         return sc_dist, st_dist
 
     def eval_co_angles(self):
-        """ Definition of the angles enclosed by the four helical legs of a
-            cross-over.
-            Vectors are computed using the coordinates of base pair midpoints
-            at the cross-over position and 2 bp away from  cross-over in each
-            leg.
-            The cross-over vector x is computed from the coordinates of the
-            midpoints between the two base pairs in each of the two helices at
-            the crossover position and is normal to what we call the cross-over
-            plane. The subscript “jj” indicates vectorial projections into the
-            cross-over plane. The angle β is also computed as indicated for
-            vectors C and D.(Bai 2012)
+        """ Definition: Bai, X. (2012).  doi: 10.1073/pnas.1215713109
+            Affects
+            -------
+                co_angles
         """
 
-        def get_co_baseplanes(res_index, leg_index, co_index, coleg_index):
-            bases = []
-            for r in [res_index, leg_index, co_index, coleg_index]:
-                try:
-                    wc_r = self.link.Fbp_full[r]
-                    bases.append(self._get_base_plane(self.u.residues[r]))
-                    bases.append(self._get_base_plane(self.u.residues[wc_r]))
-                except KeyError:
-                    bases.append(self._get_base_plane(self.u.residues[r]))
-                    bases.append(self._get_base_plane(self.u.residues[r]))
-            bp_planes = []
-            for i in [0, 2, 4, 6]:
-                bp_planes.append(
-                    {"center-C1p": ((bases[i]["C1p"] +
-                                     bases[i + 1]["C1p"]) * 0.5),
-                     "dir-C1p": (bases[i]["C1p"] - bases[i + 1]["C1p"]),
-                     "center-diazine": ((bases[i]["diazine"] +
-                                         bases[i + 1]["diazine"]) * 0.5),
-                     "dir-diazine": (bases[i]["diazine"] -
-                                     bases[i + 1]["diazine"]),
-                     "center-C6C8": ((bases[i]["C6C8"] +
-                                      bases[i + 1]["C6C8"]) * 0.5),
-                     "dir-C6C8": (bases[i]["C6C8"] -
-                                  bases[i + 1]["C6C8"]),
-                     "n0": ((bases[i]["n0"] + bases[i + 1]["n0"]) * 0.5)})
-            return bp_planes
+        def get_co_angles_end(a, a_leg, c, c_leg, typ="C6C8"):
+            A = a.plane.P[typ]
+            A_ = a_leg.plane.P[typ]
+            C = c.plane.P[typ]
+            C_ = c_leg.plane.P[typ]
 
-        def get_co_angles_end(bpplanes):  # TODO: -low- cleanup
-            """def project_to_plane(vect, n0):
-                pro = []
-                for x in vect:
-                    d = np.inner(x, n0)
-                    p = [d * n0[i] for i in range(len(n0))]
-                    pro.append([x[i] - p[i] for i in range(len(x))])
-                return pro"""
+            center = (A + C) * 0.5
+            a = A_ - A
+            c = C_ - C
+            n0 = _norm((A - C))
 
-            a1 = bpplanes[0]["center-C6C8"]
-            a2 = bpplanes[1]["center-C6C8"]
-            c1 = bpplanes[2]["center-C6C8"]
-            # c2 = bpplanes[3]["center-C6C8"]
+            proj_ac = _proj2plane([a, c], n0)
+            dist = _proj(proj_ac[0], proj_ac[1])
+            gamma = np.rad2deg(np.arccos(dist))
+            beta = 90. - _save_arccos_deg(_proj(a, n0))
 
-            center = (a1 + c1) * 0.5
-            a = a2 - a1
-            # c = c2 - c1
-
-            n0 = _norm((a1 - c1))
-            # proj_ac = project_to_plane([a, c], n0)
-
-            # dist = _proj(proj_ac[0], proj_ac[0])
-            # if 1.0 < abs(dist) < 1.0 + TOL : dist = np.sign(dist)
-            # gamma1 = np.rad2deg(np.arccos(dist))
-            ang_temp = np.rad2deg(np.arccos(_proj(a, n0)))  # unprojected
-            beta = 90. - ang_temp
-
-            return {"angles": {"co_beta": beta}, "center-co": center,
-                    "plane": n0}
+            return {"angles": {"co_beta": beta, "co_gamma": gamma},
+                    "center-co": center,
+                    "plane": n0,
+                    }
 
         # TODO: -low- cleanup
-        def get_co_angles_full(bpplanes, double_bpplanes):
-
-            def project_to_plane(vect, n0):
-                pro = []
-                for x in vect:
-                    d = np.inner(x, n0)
-                    p = [d * n0[i] for i in range(len(n0))]
-                    pro.append([x[i] - p[i] for i in range(len(x))])
-                return pro
-
+        def get_co_angles_full(bpplanes, double_bpplanes, typ="C6C8"):
             points = []
 
             for x in [bpplanes[0:2], double_bpplanes[0:2], bpplanes[2:],
                       double_bpplanes[2:]]:  # abcd
-                ins = x[0]["center-C6C8"]
-                out = x[1]["center-C6C8"]
+                ins = x[0].plane.P[typ]
+                out = x[1].plane.P[typ]
                 points.append((ins, out))
 
             # abcd
             # ((a0 +b0)/2 +  (c0 +d0)/2)/2
             center = sum(p[0] for p in points) * 0.25
             # n0((a0 +b0)/2 -  (c0 +d0)/2)
-            n0 = _norm(points[0][0] + points[1][0] -
-                       points[2][0] - points[3][0])
+            n0 = _norm(points[0][0] + points[1][0] - points[2][0] - points[3][0])
 
             abcd = []
             for p_in, p_out in points:
                 abcd.append(p_out - p_in)
 
-            proj_abcd = project_to_plane(abcd, n0)
+            proj_abcd = _proj2plane(abcd, n0)
 
             # gamma1 = a|| c||
             d1 = _proj(proj_abcd[0], proj_abcd[2])
@@ -581,53 +536,57 @@ class BDna(object):
                                "co_alpha2": alpha2},
                     "center-co": center, "plane": n0}
 
-        self.co_angles = {}
-
         co_done = set()
-        for res_index, co in self.link.Fco.items():
-            if res_index not in co_done:
-                leg_index = co["leg"]
-                co_index = co["co"]
-                coleg_index = self.link.Fco[co_index]["leg"]
+        for a_index, co in self.link.Fco.items():
+            if a_index not in co_done:
+                a_leg_index = co["leg"]
+                c_index = co["co"]
+                c_leg_index = self.link.Fco[c_index]["leg"]
 
-                co_done.update([res_index, co_index])
-                # res -> a, co -> c
-                bpplanes = get_co_baseplanes(
-                    res_index, leg_index, co_index, coleg_index)
+                co_done.update([a_index, c_index])
+
+                a = self.bps[self.link.DidDhps[self.link.FidDid[a_index]][:2]]
+                a_leg = self.bps[self.link.DidDhps[self.link.FidDid[a_leg_index]][:2]]
+                c = self.bps[self.link.DidDhps[self.link.FidDid[c_index]][:2]]
+                c_leg = self.bps[self.link.DidDhps[self.link.FidDid[c_leg_index]][:2]]
 
                 co_type = co["type"][0]
-                if co_type == "double":
-                    double_res_index = co["type"][1]
-                    double_leg_index = self.link.Fco[double_res_index]["leg"]
-                    double_co_index = self.link.Fco[double_res_index]["co"]
-                    double_coleg_index = self.link.Fco[double_co_index]["leg"]
-                    co_done.update([double_res_index, double_co_index])
-                    # double -> b, d_co -> d
-                    double_bpplanes = get_co_baseplanes(
-                        double_res_index, double_leg_index, double_co_index,
-                        double_coleg_index)
-                    co_data = get_co_angles_full(
-                        bpplanes, double_bpplanes)  # ac bd
-                    crossover_ids = (res_index, double_res_index,
-                                     co_index, double_co_index)
-                elif (co_type == "single" and
-                        self.link.Fco[co_index]["type"][0] != "end"):
-                    single_res_index = co["type"][1]
-                    single_leg_index = co["type"][2]
-                    single_co_index = self.link.Fco[co_index]["type"][1]
-                    single_coleg_index = self.link.Fco[co_index]["type"][2]
-                    co_done.update([single_res_index, single_co_index])
-                    # single -> b, s_co -> d
-                    single_bpplanes = get_co_baseplanes(
-                        single_res_index, single_leg_index, single_co_index,
-                        single_coleg_index)
-                    co_data = get_co_angles_full(
-                        bpplanes, single_bpplanes)  # ac bd
-                    crossover_ids = (res_index, single_res_index,
-                                     co_index, single_co_index)
+                co_type2 = self.link.Fco[a_index]["type"][0]
+                is_full = (co_type == "double")
+                is_half = (co_type == "single" and co_type2 != "end")
+
+                if is_full:
+                    b_index = co["type"][1]
+                    b_leg_index = self.link.Fco[b_index]["leg"]
+                    d_index = self.link.Fco[b_index]["co"]
+                    d_leg_index = self.link.Fco[b_index]["leg"]
+                    co_done.update([b_index, d_index])
+                    b = self.bps[self.link.DidDhps[self.link.FidDid[b_index]][:2]]
+                    b_leg = self.bps[self.link.DidDhps[self.link.FidDid[b_leg_index]][:2]]
+                    d = self.bps[self.link.DidDhps[self.link.FidDid[d_index]][:2]]
+                    d_leg = self.bps[self.link.DidDhps[self.link.FidDid[d_leg_index]][:2]]
+
+                    co_data = get_co_angles_full([a, a_leg, c, c_leg],
+                                                 [b, b_leg, d, d_leg])  # ac bd
+                    crossover_ids = (a_index, b_index, c_index, d_index)
+                elif is_half:
+                    b_index = co["type"][1]
+                    b_leg_index = co["type"][2]
+                    d_index = self.link.Fco[c_index]["type"][1]
+                    d_leg_index = self.link.Fco[c_index]["type"][2]
+                    co_done.update([b_index, d_index])
+
+                    b = self.bps[self.link.DidDhps[self.link.FidDid[b_index]][:2]]
+                    b_leg = self.bps[self.link.DidDhps[self.link.FidDid[b_leg_index]][:2]]
+                    d = self.bps[self.link.DidDhps[self.link.FidDid[d_index]][:2]]
+                    d_leg = self.bps[self.link.DidDhps[self.link.FidDid[d_leg_index]][:2]]
+
+                    co_data = get_co_angles_full([a, a_leg, c, c_leg],
+                                                 [b, b_leg, d, d_leg])  # ac bd
+                    crossover_ids = (a_index, b_index, c_index, d_index)
                 else:
-                    co_data = get_co_angles_end(bpplanes)
-                    crossover_ids = (res_index, co_index)
+                    co_data = get_co_angles_end(a, a_leg, c, c_leg)
+                    crossover_ids = (a_index, c_index)
 
                 self.co_angles[co["co_index"]] = {
                     "ids(abcd)": crossover_ids, "type": co_type,
@@ -635,23 +594,3 @@ class BDna(object):
                     "angles": co_data["angles"],
                     "center-co": co_data["center-co"]}
         return
-
-    # TODO delete
-    def _get_base_plane(self, res):
-
-        atom = []
-        for atom_name in ["C2", "C4", "C6", "C1'"]:
-            A = res.atoms.select_atoms("name {}".format(atom_name))[0]
-            atom.append(A.position)
-
-        n0 = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[1])))
-        diazine_center = sum(atom[:-1]) / 3.
-        if res.resname in ["ADE", "GUA"]:
-            ref = res.atoms.select_atoms("name C8")[0].position
-        else:
-            ref = res.atoms.select_atoms("name C6")[0].position
-
-        plane = {"n0": n0, "C1p": atom[-1], "diazine": diazine_center,
-                 "C6C8": ref}
-
-        return plane
