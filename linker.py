@@ -224,6 +224,7 @@ class Linker(object):
         return Dhps
 
     def _identify_crossover(self) -> Dict[int, Any]:
+        # TODO: make crossover object 
         """ for every base id that is involved in a crossover
             updates linker attribute of crossovers and returns it
         -------
