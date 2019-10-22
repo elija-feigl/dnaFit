@@ -22,6 +22,15 @@ class Design(object):
         self.staples = self._clean_staple(self.strands)
         self.helixorder = self._create_helix_order()
         self.stapleorder = self._create_staple_order()
+        self.hps_base: dict = self._init_hps_base()
+
+    def _init_hps_base(self):
+        hps_base = dict()
+        import ipdb; ipdb.set_trace()
+        for base in [b for s in self.strands for b in s.tour]:
+            position = (base.h, base.p, base.is_scaf)
+            hps_base[position] = base
+        return hps_base
 
     def _is_del(self, base: "nd.base") -> bool:
         return base.num_deletions != 0
