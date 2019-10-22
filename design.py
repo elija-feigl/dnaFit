@@ -26,7 +26,6 @@ class Design(object):
 
     def _init_hps_base(self):
         hps_base = dict()
-        import ipdb; ipdb.set_trace()
         for base in [b for s in self.strands for b in s.tour]:
             position = (base.h, base.p, base.is_scaf)
             hps_base[position] = base
