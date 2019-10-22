@@ -457,28 +457,28 @@ class BDna(object):
         """
 
         def get_co_angles_end(a, a_leg, c, c_leg, typ="C6C8"):
-            if a is not None:
+            if a.plane is not None:
                 A = a.plane.P[typ]
             elif a.sc is not None:
                 A = a.sc_plane.P[typ]
             else:
                 A = a.st_plane.P[typ]
 
-            if a_leg is not None:
+            if a_leg.plane is not None:
                 A_ = a_leg.plane.P[typ]
             elif a.sc is not None:
                 A_ = a_leg.sc_plane.P[typ]
             else:
                 A_ = a_leg.st_plane.P[typ]
 
-            if c is not None:
+            if c.plane is not None:
                 C = c.plane.P[typ]
             elif a.sc is not None:
                 C = c.sc_plane.P[typ]
             else:
                 C = c.st_plane.P[typ]
 
-            if c_leg is not None:
+            if c_leg.plane is not None:
                 C_ = c_leg.plane.P[typ]
             elif a.sc is not None:
                 C_ = c_leg.sc_plane.P[typ]
