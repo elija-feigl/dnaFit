@@ -457,10 +457,33 @@ class BDna(object):
         """
 
         def get_co_angles_end(a, a_leg, c, c_leg, typ="C6C8"):
-            A = a.plane.P[typ]
-            A_ = a_leg.plane.P[typ]
-            C = c.plane.P[typ]
-            C_ = c_leg.plane.P[typ]
+            if a is not None:
+                A = a.plane.P[typ]
+            elif a.sc is not None:
+                A = a.sc_plane.P[typ]
+            else:
+                A = a.st_plane.P[typ]
+
+            if a_leg is not None:
+                A_ = a_leg.plane.P[typ]
+            elif a.sc is not None:
+                A_ = a_leg.sc_plane.P[typ]
+            else:
+                A_ = a_leg.st_plane.P[typ]
+
+            if c is not None:
+                C = c.plane.P[typ]
+            elif a.sc is not None:
+                C = c.sc_plane.P[typ]
+            else:
+                C = c.st_plane.P[typ]
+
+            if c_leg is not None:
+                C_ = c_leg.plane.P[typ]
+            elif a.sc is not None:
+                C_ = c_leg.sc_plane.P[typ]
+            else:
+                C_ = c_leg.st_plane.P[typ]
 
             center = (A + C) * 0.5
             a = A_ - A
@@ -501,34 +524,24 @@ class BDna(object):
 
             # gamma1 = a|| c||
             d1 = _proj(proj_abcd[0], proj_abcd[2])
-            if 1.0 < abs(d1) < 1.0 + TOL:
-                d1 = np.sign(d1)
-            gamma1 = np.rad2deg(np.arccos(d1))
+            gamma1 = _save_arccos_deg(d1)
             # gamma2 = d|| b||
             d2 = _proj(proj_abcd[3], proj_abcd[1])
-            if 1.0 < abs(d2) < 1.0 + TOL:
-                d2 = np.sign(d2)
-            gamma2 = np.rad2deg(np.arccos(d2))
-
+            gamma2 = _save_arccos_deg(d2)
             # alpha1 = a|| -b||
             a1 = _proj(proj_abcd[0], [-x for x in proj_abcd[1]])
-            if 1.0 < abs(a1) < 1.0 + TOL:
-                a1 = np.sign(a1)
-            alpha1 = np.rad2deg(np.arccos(a1))
+            alpha1 = _save_arccos_deg(a1)
             # alpha2 = c|| -d||
             a2 = _proj(proj_abcd[2], [-x for x in proj_abcd[3]])
-            if 1.0 < abs(a2) < 1.0 + TOL:
-                a2 = np.sign(a2)
-            alpha2 = np.rad2deg(np.arccos(a2))
+            alpha2 = _save_arccos_deg(a2)
 
             # 180 - a n0 - b n0 , unprojected
-            ang_temp1 = np.rad2deg(np.arccos(_proj(abcd[0], n0)))
-            if ang_temp1 > 90.:
-                ang_temp1 = 180. - ang_temp1
-            ang_temp2 = np.rad2deg(np.arccos(_proj(abcd[1], n0)))
-            if ang_temp2 > 90.:
-                ang_temp2 = 180. - ang_temp2
-
+            ang_temp1 = _save_arccos_deg(_proj(abcd[0], n0))
+            #if ang_temp1 > 90.:
+            #    ang_temp1 = 180. - ang_temp1
+            ang_temp2 = _save_arccos_deg(_proj(abcd[1], n0))
+            #if ang_temp2 > 90.:
+            #    ang_temp2 = 180. - ang_temp2
             beta = 180. - ang_temp1 - ang_temp2
 
             return {"angles": {"co_beta": beta, "co_gamma1": gamma1,
