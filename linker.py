@@ -1,15 +1,40 @@
 #!/usr/bin/env python3#
-import numpy as np
 import pickle
 import attr
 import nanodesign as nd
+import numpy as np 
 
 from itertools import chain
-from typing import Set, Dict, Tuple, Any
+from typing import Set, Dict, Tuple, Any, Optional, List
 
 from project import Project
 from fit import Fit
 from design import Design
+from basepair import BasePair
+
+
+@attr.s
+class Crossover(object):
+    A: BasePair = attr.ib()
+    A_: BasePair = attr.ib()
+    B: BasePair = attr.ib()
+    B_: BasePair = attr.ib()
+    C: BasePair = attr.ib()
+    C_: BasePair = attr.ib()
+    D: BasePair = attr.ib()
+    D_: BasePair = attr.ib()
+    typ: str = attr.ib()
+    is_scaf: bool = attr.ib()
+
+    def __attrs_post_init__(self):
+        self.Ps: List[BasePair] = list()
+        self.Ls: List[BasePair] = list()
+        for P in [self.A, self.B, self.C, self.D]:
+            self.Ps.append(P)
+        for L in [self.A_, self.B_, self.C_, self.D_]:
+            self.Ls.append(L)
+
+        self.position = sorted([P.hp for P in self.Ps if P is not None])
 
 
 @attr.s(auto_attribs=True)
@@ -74,17 +99,9 @@ class Linker(object):
                   }
         return FidSeq
 
-    def _eval_skips(self) -> Set[Tuple[int, int, bool]]:
-        """ Returns
-            -------
-                (base.h, base.p, base.is_scaf) of all skips
-        """
-        design_allbases = [base
-                           for strand in self.design.strands
-                           for base in strand.tour
-                           ]
-        Dskips = set((base.h, base.p, base.is_scaf)
-                     for base in design_allbases
+    def _eval_skips(self) -> Set[Tuple[int, int]]:
+        Dskips = set((base.h, base.p)
+                     for base in self.design.allbases
                      if self._is_del(base)
                      )
         return Dskips
@@ -215,138 +232,164 @@ class Linker(object):
                     }
         return self.Fbp
 
-    def _get_nextInHelix(self, h: int, p: int, is_scaf: bool, i: int
-                         ) -> Tuple[int, int, bool]:
-        Dhps = (h, p + i, is_scaf)
-        while Dhps in self.Dskips:
-            i += np.sign(i)
-            Dhps = (h, p + i, is_scaf)
-        return Dhps
+    def _get_n_strand(self, base: "nd.base", direct: str, steps=1
+                      ) -> Optional["nd.base"]:
+        if steps == 0:
+            return base
+
+        # steps missing
+        n = (base.up if direct == "up" else base.down)
+        if n is None:
+            return None
+        else:
+            n_position = (n.h, n.p)
+            while n_position in self.Dskips:
+                n = (n.up if direct == "up" else n.down)
+                if n is None:
+                    return None
+                n_position = (n.h, n.p)
+            return n
+
+    def _get_n_helix(self, base: "nd.base", direct: int, steps=1
+                     ) -> Optional["nd.base"]:
+        if steps == 0:
+            return base
+        helix, position, is_scaf = base.h, base.p, base.is_scaf
+        if ((helix % 2) == 1) and is_scaf:
+            direct = -direct
+        elif ((helix % 2) == 0) and not is_scaf:
+            direct = -direct
+
+        if steps < 0:
+            steps = abs(steps)
+            direct = -direct
+
+        n_skips = 0
+        # check if we passed skips
+        for n in range(direct, direct * (steps + 1), direct):
+            n_position = position + n
+            if (helix, n_position) in self.Dskips:
+                n_skips += 1
+
+        # check if land on skip
+        n_position = position + direct * (steps + n_skips)
+        while (helix, n_position) in self.Dskips:
+            n_position += direct
+
+        if (helix, n_position, is_scaf) in self.design.Dhps_base.keys():
+            return self.design.Dhps_base[(helix, n_position, is_scaf)]
+        else:
+            return None
+
+    def _get_bp(self, base: Optional["nd.residue"]
+                ) -> Optional[BasePair]:
+        if base is None:
+            return None
+
+        h, p, is_scaf = base.h, base.p, base.is_scaf
+        resindex = self.DidFid[base.id]
+        res = self.fit.u.residues[resindex]
+        Fbp_full = {**self.Fbp, **{v: k for k, v in iter(self.Fbp.items())}}
+        if resindex in Fbp_full:
+            wcindex = Fbp_full[resindex]
+            wc = self.fit.u.residues[wcindex]
+        else:
+            wcindex = None
+            wc = None
+
+        if is_scaf:
+            sc, st = res, wc
+        else:
+            sc, st = wc, res
+
+        bp = BasePair(sc=sc, st=st, hp=(h, p))
+        return bp
 
     def _identify_crossover(self) -> Dict[int, Any]:
         """ for every base id that is involved in a crossover
             updates linker attribute of crossovers and returns it
-        -------
-         Returns
-            -------
-            self.Fco
-                fit-id ->
-                "co_index": co_index, "co": co_id,
-                "leg": leg_id,
-                "is_scaffold": is_scaf,
-                "position": (h, p, is_scaf)
-                if end, single, dpouble
-                    "type": ("end", None)
-                    "type": ("single", single, single_leg)
-                    "type": ("double", double)
         """
-        # TODO: double, single -> full, half
-        def add_co_type() -> None:
-
-            def get_co_leg_p(n_Dhps: Tuple[int, int, bool], i: int) -> int:
-                """determine leg base by Dhps and +1/-1 (def: 2 bases away)"""
-                h, p, is_scaf = n_Dhps
-                Dhps = self._get_nextInHelix(h, p, is_scaf, i)
-                leg_Did = self.DhpsDid[Dhps]
-                return self.DidFid[leg_Did]
-
-            def is_nextInStrand(b_Dhps: Tuple[int, int, bool],
-                                a_Dhps: Tuple[int, int, bool]
-                                ) -> bool:
-                a_Fid = self.DidFid[self.DhpsDid[a_Dhps]]
-                b_Fid = self.DidFid[self.DhpsDid[b_Dhps]]
-                return True if abs(a_Fid - b_Fid) == 1 else False
-
-            for co in iter(self.Fco.values()):
-                h, p, is_scaf = co["position"]
-                for i in [-1, 1]:
-                    n_Dhps = self._get_nextInHelix(h, p, is_scaf, i)
-                    n_Did = self.DhpsDid.get(n_Dhps, None)
-                    n_Fid = self.DidFid.get(n_Did, None)
-
-                    if n_Fid is None:
-                        co["type"] = ("end", None, None)
-                    elif is_nextInStrand(co["position"], n_Dhps):
-                        continue
-                    else:
-                        is_double = (n_Fid in iter(self.Fco.keys()))
-                        if is_double:
-                            co["type"] = ("double", n_Fid, None)
-                        else:
-                            leg = get_co_leg_p(n_Dhps, i)
-                            co["type"] = ("single", n_Fid, leg)
-                co.pop("base")
-            return
-
-        def get_co_leg_id(base: "nd.base", direct: str) -> int:
-            """determine leg base base and up/down (def: 2 bases away)"""
-            m = base.down.p if direct == "up" else base.up.p
-            i = (m - base.p) * 2.
-            Dhps = self._get_nextInHelix(base.h, base.p, base.is_scaf, i)
-            leg_Did = self.DhpsDid[Dhps]
-            return self.DidFid[leg_Did]
-
-        def get_next(base: "nd.base", direct: str) -> "nd.base":
-            n = (base.up if direct == "up" else base.down)
-            if n is None:
+        def get_co_leg(base: Optional["nd.base"], direct: str
+                       ) -> Optional["nd.base"]:
+            if base is None:
                 return None
             else:
-                n_position = (n.h, n.p, n.is_scaf)
-                while n_position in self.Dskips:
-                    n = (n.up if direct == "up" else n.down)
-                    if n is None:
-                        return None
-                    n_position = (n.h, n.p, n.is_scaf)
-                return n
+                return self._get_n_helix(base=base, direct=direct, steps=2)
 
-        def is_co(base: "nd.base", neighbor: "nd.base", direct: str) -> bool:
+        def is_co(base: "nd.base", neighbor: Optional["nd.base"], direct: str
+                  ) -> bool:
             if neighbor is None:
                 return False
             else:
                 while self._is_del(neighbor):
-                    neighbor = get_next(neighbor, direct)
+                    neighbor = self._get_n_strand(neighbor, direct)
                 return neighbor.h != base.h
 
-        def get_co(base: "nd.base",
-                   neighbor: "nd.base",
-                   direct: str,
-                   run_id: int
-                   ) -> Tuple[dict, int]:
-            co_id = self.DidFid[neighbor.id]
-            leg_id = get_co_leg_id(base, direct)
-            Dhps = (base.h, base.p, base.is_scaf)
+        def get_co(bA: "nd.base",
+                   bC: "nd.base",
+                   bB: Optional["nd.base"],
+                   bD: Optional["nd.base"],
+                   direct: int,
+                   typ: str,
+                   ) -> Crossover:
 
-            try:  # TODO -high cleanup co_index
-                index = self.Fco[co_id]["co_index"]
-            except KeyError:
-                run_id += 1
-                index = run_id
-            data = {"co_index": index,
-                    "co": co_id,
-                    "leg": leg_id,
-                    "is_scaffold": base.is_scaf,
-                    "position": Dhps,
-                    "base": base,
-                    }
-            return data, run_id
+            bA_ = get_co_leg(base=bA, direct=(-1 * direct))
+            bB_ = get_co_leg(base=bB, direct=direct)
+            bC_ = get_co_leg(base=bC, direct=direct)
+            bD_ = get_co_leg(base=bD, direct=(-1 * direct))
 
-        allbases = self.design.scaffold.copy()
-        staples = [base for staple in self.design.staples for base in staple]
-        allbases.extend(staples)
+            co = Crossover(A=self._get_bp(base=bA),
+                           A_=self._get_bp(base=bA_),
+                           B=self._get_bp(base=bB),
+                           B_=self._get_bp(base=bB_),
+                           C=self._get_bp(base=bC),
+                           C_=self._get_bp(base=bC_),
+                           D=self._get_bp(base=bD),
+                           D_=self._get_bp(base=bD_),
+                           typ=typ,
+                           is_scaf=bA.is_scaf,
+                           )
+            key = str(co.position)
+            return key, co
 
-        run_id = 0
-        for base in allbases:
-            base_Fid = self.DidFid[base.id]
+        dir_str2int = {"up": -1, "down": 1}
+        co_subparts = set()
+        co_cubpart_dir = dict()
+        for base in self.design.allbases:
+            if self._is_del(base):
+                continue
             for direct in ["up", "down"]:
-                neighbor = get_next(base, direct)
+                neighbor = self._get_n_strand(base, direct)
                 if is_co(base, neighbor, direct):
-                    co_data, run_id = get_co(base, neighbor, direct, run_id)
-                    self.Fco[base_Fid] = co_data
+                    AC = frozenset([base, neighbor])
+                    co_subparts.add(AC)
+                    co_cubpart_dir[AC] = direct
                     break
-        add_co_type()
+
+        while co_subparts:
+            bAbC = co_subparts.pop()
+            dir_int = dir_str2int[co_cubpart_dir[bAbC]]
+            bA, bC = bAbC
+            if (bA.h, bA.p) == (17, 120):
+                import ipdb; ipdb.set_trace()
+            bB = self._get_n_helix(base=bA, direct=dir_int)
+            bD = self._get_n_helix(base=bC, direct=(-1 * dir_int))
+            bBbD = frozenset([bB, bD])
+
+            if bBbD in co_subparts:
+                typ = "full"
+            elif (bB is not None) and (bD is not None):
+                typ = "half"
+            else:
+                typ = "end"
+
+            key, co = get_co(bA=bA, bB=bB, bC=bC, bD=bD,
+                             direct=dir_int, typ=typ)
+            self.Fco[key] = co
+        import ipdb; ipdb.set_trace()
         return self.Fco
 
-    def _identify_nicks(self) -> Dict[int, int]:
+    def _identify_nicks(self) -> Dict[int, int]:  # slow!
         """ for every nick, provide id of base accross nick, bidirectional
         -------
          Returns
@@ -354,7 +397,8 @@ class Linker(object):
             self.Fnicks
                 fit-id -> fit_id
         """
-        def is_nick(candidate: "nd.base", base: "nd.base") -> bool:
+        # called 145924 times
+        def is_nick(candidate: "nd.base", base: "nd.base") -> bool:  
             is_onhelix = (candidate.h == base.h)
             is_neighbor = (abs(base.p - candidate.p) <= 2)  # skip = 2
             is_base = (candidate is base)
