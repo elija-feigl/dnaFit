@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
+from typing import List
 
 C1P_BASEDIST = 10.7
 TOL = 10e6
@@ -47,6 +48,15 @@ def _v_proj(u, v):
     return np.inner(u, v) / (np.linalg.norm(v) * np.linalg.norm(v)) * v
 
 
+def _proj2plane(vect: List["np.ndarray"], n0: "np.ndarray"):
+    pro = []
+    for x in vect:
+        d = np.inner(x, n0)
+        p = [d * n0[i] for i in range(len(n0))]
+        pro.append([x[i] - p[i] for i in range(len(x))])
+    return pro
+
+
 def _save_arccos_deg(dist):
     if 1.0 < abs(dist) < 1.0 + TOL:
         dist = np.sign(dist)
@@ -57,7 +67,7 @@ def _save_arccos_deg(dist):
     return np.rad2deg(a)
 
 
-def _dh_angle(p: list, as_rad=False):
+def _dh_angle(p: list, as_rad=False): #slow
 
     v1 = p[1] - p[0]
     v2 = p[2] - p[1]
