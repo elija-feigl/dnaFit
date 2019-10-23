@@ -352,11 +352,9 @@ class Linker(object):
 
         while co_subparts:
             bA, bC = co_subparts.pop()
-            co_direct = "up" if bA.up == bC else "down"
+            co_direct = "up" if self._get_n_strand(bA, "up") == bC else "down"
             bN = bA.up if co_direct == "down" else bA.down
             direct = bA.p - bN.p
-            if direct not in [-1, 1]:
-                import ipdb; ipdb.set_trace()
             bB = self._get_n_helix(base=bA, direct=direct)
             bD = self._get_n_helix(base=bC, direct=direct)
             bBbD = frozenset([bB, bD])
