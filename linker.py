@@ -9,31 +9,15 @@ from typing import Set, Dict, Tuple, Any, Optional, List
 from project import Project
 from fit import Fit
 from design import Design
-from basepair import BasePair
 
 
 @attr.s
 class Crossover(object):
-    A: BasePair = attr.ib()
-    A_: BasePair = attr.ib()
-    B: BasePair = attr.ib()
-    B_: BasePair = attr.ib()
-    C: BasePair = attr.ib()
-    C_: BasePair = attr.ib()
-    D: BasePair = attr.ib()
-    D_: BasePair = attr.ib()
+    Ps: List[Tuple[int, int]] = attr.ib()
+    Ls: List[Tuple[int, int]] = attr.ib()
+    position: List[Tuple[int, int]] = attr.ib()
     typ: str = attr.ib()
     is_scaf: bool = attr.ib()
-
-    def __attrs_post_init__(self):
-        self.Ps: List[BasePair] = list()
-        self.Ls: List[BasePair] = list()
-        for P in [self.A, self.B, self.C, self.D]:
-            self.Ps.append(P)
-        for L in [self.A_, self.B_, self.C_, self.D_]:
-            self.Ls.append(L)
-
-        self.position = sorted([P.hp for P in self.Ps if P is not None])
 
 
 @attr.s(auto_attribs=True)
@@ -278,29 +262,28 @@ class Linker(object):
         else:
             return None
 
-    def _get_bp(self, base: Optional["nd.residue"]
-                ) -> Optional[BasePair]:
+    def _get_bp_tuple(self, base: Optional["nd.residue"]
+                      ) -> Optional[Tuple[Tuple[int, int], Tuple[int, int]]]:
         if base is None:
-            return None
+            return None, None
 
         h, p, is_scaf = base.h, base.p, base.is_scaf
         resindex = self.DidFid[base.id]
-        res = self.fit.u.residues[resindex]
         Fbp_full = {**self.Fbp, **{v: k for k, v in iter(self.Fbp.items())}}
         if resindex in Fbp_full:
             wcindex = Fbp_full[resindex]
-            wc = self.fit.u.residues[wcindex]
         else:
             wcindex = None
-            wc = None
 
         if is_scaf:
-            sc, st = res, wc
+            sc_index, st_index = resindex, wcindex
         else:
-            sc, st = wc, res
+            sc_index, st_index = wcindex, resindex
 
-        bp = BasePair(sc=sc, st=st, hp=(h, p))
-        return bp
+        bp_resindices = (sc_index, st_index)
+        pos = (h, p)
+
+        return pos, bp_resindices
 
     def _identify_crossover(self) -> Dict[int, Any]:
         """ for every base id that is involved in a crossover
@@ -335,18 +318,22 @@ class Linker(object):
             bC_ = get_co_leg(base=bC, direct=direct)
             bD_ = get_co_leg(base=bD, direct=(-1 * direct))
 
-            co = Crossover(A=self._get_bp(base=bA),
-                           A_=self._get_bp(base=bA_),
-                           B=self._get_bp(base=bB),
-                           B_=self._get_bp(base=bB_),
-                           C=self._get_bp(base=bC),
-                           C_=self._get_bp(base=bC_),
-                           D=self._get_bp(base=bD),
-                           D_=self._get_bp(base=bD_),
+            position, Ps, Ls = [], [], []
+            for bP, bL in zip([bA, bB, bC, bD], [bA_, bB_, bC_, bD_]):
+
+                pos, P = self._get_bp_tuple(base=bP)
+                _, L = self._get_bp_tuple(base=bL)
+                Ps.append(P)
+                Ls.append(L)
+                position.append(pos)
+
+            co = Crossover(Ps=Ps,
+                           Ls=Ls,
+                           position=position,
                            typ=typ,
                            is_scaf=bA.is_scaf,
                            )
-            key = str(co.position)
+            key = str(sorted(filter(None, co.position)))
             return key, co
 
         dir_str2int = {"up": -1, "down": 1}
