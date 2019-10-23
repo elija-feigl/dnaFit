@@ -347,7 +347,7 @@ class Linker(object):
             for direct in ["up", "down"]:
                 neighbor = self._get_n_strand(base, direct)
                 if is_co(base, neighbor, direct):
-                    co_subparts.add(set([base, neighbor]))
+                    co_subparts.add(frozenset([base, neighbor]))
                     break
 
         while co_subparts:
@@ -359,7 +359,7 @@ class Linker(object):
                 import ipdb; ipdb.set_trace()
             bB = self._get_n_helix(base=bA, direct=direct)
             bD = self._get_n_helix(base=bC, direct=direct)
-            bBbD = set([bB, bD])
+            bBbD = frozenset([bB, bD])
 
             if bBbD in co_subparts:
                 typ = "full"
