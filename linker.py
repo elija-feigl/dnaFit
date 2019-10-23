@@ -15,9 +15,16 @@ from design import Design
 class Crossover(object):
     Ps: List[Tuple[int, int]] = attr.ib()
     Ls: List[Tuple[int, int]] = attr.ib()
-    position: List[Tuple[int, int]] = attr.ib()
+    P_pos: List[Tuple[int, int]] = attr.ib()
+    L_pos: List[Tuple[int, int]] = attr.ib()
     typ: str = attr.ib()
     is_scaf: bool = attr.ib()
+
+    def transform2bp(self, bps: dict):
+        self.Ps, self.Ls = list(), list()
+        for hp, hp_ in zip(self.P_pos, self.L_pos):
+            self.Ps.append(bps[hp])
+            self.Ls.append(bps[hp_])
 
 
 @attr.s(auto_attribs=True)
@@ -213,7 +220,7 @@ class Linker(object):
 
     def _get_n_strand(self, base: "nd.base", direct: str, steps=1
                       ) -> Optional["nd.base"]:
-        """direct = [1,-1]"""
+        """direct = ["up","down"]"""
         if steps == 0:
             return base
 
@@ -232,14 +239,10 @@ class Linker(object):
 
     def _get_n_helix(self, base: "nd.base", direct: int, steps=1
                      ) -> Optional["nd.base"]:
-        """direct = ["up","down"]"""
+        """direct = [1,-1]"""
         if steps == 0:
             return base
         helix, position, is_scaf = base.h, base.p, base.is_scaf
-        if ((helix % 2) == 1) and is_scaf:
-            direct = -direct
-        elif ((helix % 2) == 0) and not is_scaf:
-            direct = -direct
 
         if steps < 0:
             steps = abs(steps)
@@ -315,48 +318,48 @@ class Linker(object):
 
             bA_ = get_co_leg(base=bA, direct=(-1 * direct))
             bB_ = get_co_leg(base=bB, direct=direct)
-            bC_ = get_co_leg(base=bC, direct=direct)
-            bD_ = get_co_leg(base=bD, direct=(-1 * direct))
+            bC_ = get_co_leg(base=bC, direct=(-1 * direct))
+            bD_ = get_co_leg(base=bD, direct=direct)
 
-            position, Ps, Ls = [], [], []
+            Ps, Ls, P_pos, L_pos = [], [], [], []
             for bP, bL in zip([bA, bB, bC, bD], [bA_, bB_, bC_, bD_]):
-
-                pos, P = self._get_bp_tuple(base=bP)
-                _, L = self._get_bp_tuple(base=bL)
-                Ps.append(P)
-                Ls.append(L)
-                position.append(pos)
+                posP, P_index = self._get_bp_tuple(base=bP)
+                Ps.append(P_index)
+                P_pos.append(posP)
+                posL, L_index = self._get_bp_tuple(base=bL)
+                Ls.append(L_index)
+                L_pos.append(posL)
 
             co = Crossover(Ps=Ps,
                            Ls=Ls,
-                           position=position,
+                           P_pos=P_pos,
+                           L_pos=L_pos,
                            typ=typ,
                            is_scaf=bA.is_scaf,
                            )
-            key = str(sorted(filter(None, co.position)))
+            key = str(sorted(filter(None, co.P_pos)))
             return key, co
 
-        dir_str2int = {"up": -1, "down": 1}
         co_subparts = set()
-        co_cubpart_dir = dict()
         for base in self.design.allbases:
             if self._is_del(base):
                 continue
             for direct in ["up", "down"]:
                 neighbor = self._get_n_strand(base, direct)
                 if is_co(base, neighbor, direct):
-                    AC = frozenset([base, neighbor])
-                    co_subparts.add(AC)
-                    co_cubpart_dir[AC] = direct
+                    co_subparts.add(set([base, neighbor]))
                     break
 
         while co_subparts:
-            bAbC = co_subparts.pop()
-            dir_int = dir_str2int[co_cubpart_dir[bAbC]]
-            bA, bC = bAbC
-            bB = self._get_n_helix(base=bA, direct=dir_int)
-            bD = self._get_n_helix(base=bC, direct=(-1 * dir_int))
-            bBbD = frozenset([bB, bD])
+            bA, bC = co_subparts.pop()
+            co_direct = "up" if bA.up == bC else "down"
+            bN = bA.up if co_direct == "down" else bA.down
+            direct = bA.p - bN.p
+            if direct not in [-1, 1]:
+                import ipdb; ipdb.set_trace()
+            bB = self._get_n_helix(base=bA, direct=direct)
+            bD = self._get_n_helix(base=bC, direct=direct)
+            bBbD = set([bB, bD])
 
             if bBbD in co_subparts:
                 typ = "full"
@@ -366,7 +369,7 @@ class Linker(object):
                 typ = "end"
 
             key, co = get_co(bA=bA, bB=bB, bC=bC, bD=bD,
-                             direct=dir_int, typ=typ)
+                             direct=direct, typ=typ)
             self.Fco[key] = co
         return self.Fco
 
