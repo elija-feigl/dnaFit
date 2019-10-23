@@ -2,7 +2,6 @@
 import pickle
 import attr
 import nanodesign as nd
-import numpy as np 
 
 from itertools import chain
 from typing import Set, Dict, Tuple, Any, Optional, List
@@ -115,10 +114,6 @@ class Linker(object):
             basepairs are mapped from scaffold to staple, unique (invertable).
             updates linker attributes corresponding to the respective mapping
             and returns them.
-        -------
-         Returns
-            -------
-                Linkage
         """
 
         self._link()
@@ -234,10 +229,11 @@ class Linker(object):
 
     def _get_n_strand(self, base: "nd.base", direct: str, steps=1
                       ) -> Optional["nd.base"]:
+        """direct = [1,-1]"""
         if steps == 0:
             return base
 
-        # steps missing
+        # TODO: steps missing
         n = (base.up if direct == "up" else base.down)
         if n is None:
             return None
@@ -252,6 +248,7 @@ class Linker(object):
 
     def _get_n_helix(self, base: "nd.base", direct: int, steps=1
                      ) -> Optional["nd.base"]:
+        """direct = ["up","down"]"""
         if steps == 0:
             return base
         helix, position, is_scaf = base.h, base.p, base.is_scaf
@@ -395,7 +392,7 @@ class Linker(object):
                 fit-id -> fit_id
         """
         # called 145924 times
-        def is_nick(candidate: "nd.base", base: "nd.base") -> bool:  
+        def is_nick(candidate: "nd.base", base: "nd.base") -> bool:
             is_onhelix = (candidate.h == base.h)
             is_neighbor = (abs(base.p - candidate.p) <= 2)  # skip = 2
             is_base = (candidate is base)
