@@ -6,7 +6,7 @@ from MDAnalysis.lib import mdamath
 import attr
 from typing import Dict, Tuple, Any, Optional
 
-from linker import Linkage
+from linker import Linkage, Crossover
 from basepair import BasePair
 from utils import (C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, BB_ATOMS,
                    PUR_ATOMS, PYR_ATOMS, DH_ATOMS,
@@ -394,8 +394,11 @@ class BDna(object):
                 co_angles
         """
 
-        def get_co_angles_end(a, a_leg, c, c_leg, typ="C6C8"):
-            
+        def get_co_angles_end(co: Crossover, typ="C6C8"):
+            a = co.A
+            a_leg = co.A_
+            c = co.C
+            c_leg = co.C_
             if a.plane is not None:
                 A = a.plane.P[typ]
             elif a.sc is not None:
@@ -442,13 +445,11 @@ class BDna(object):
                     }
 
         # TODO: -low- cleanup
-        def get_co_angles_full(bpplanes, double_bpplanes, typ="C6C8"):
+        def get_co_angles_full(co: Crossover, typ="C6C8"):
             points = []
-
-            for x in [bpplanes[0:2], double_bpplanes[0:2], bpplanes[2:],
-                      double_bpplanes[2:]]:  # abcd
-                ins = x[0].plane.P[typ]
-                out = x[1].plane.P[typ]
+            for p, l in zip(co.Ps, co.Ls):  # abcd
+                ins = p.plane.P[typ]
+                out = l.plane.P[typ]
                 points.append((ins, out))
 
             # abcd
@@ -483,61 +484,15 @@ class BDna(object):
                     "plane": n0,
                     }
 
-        co_done = set()
-        for a_index, co in self.link.Fco.items():
-            if a_index not in co_done:
-                a_leg_index = co["leg"]
-                c_index = co["co"]
-                c_leg_index = self.link.Fco[c_index]["leg"]
+        for key, co in self.link.Fco.items():
+            if co.typ != "end":
+                co_data = get_co_angles_full(co=co)
+            else:
+                co_data = get_co_angles_end(co=co)
 
-                co_done.update([a_index, c_index])
-
-                a = self.bps[self.link.DidDhps[self.link.FidDid[a_index]][:2]]
-                a_leg = self.bps[self.link.DidDhps[self.link.FidDid[a_leg_index]][:2]]
-                c = self.bps[self.link.DidDhps[self.link.FidDid[c_index]][:2]]
-                c_leg = self.bps[self.link.DidDhps[self.link.FidDid[c_leg_index]][:2]]
-
-                co_type = co["type"][0]
-                co_type2 = self.link.Fco[a_index]["type"][0]
-                is_full = (co_type == "double")
-                is_half = (co_type == "single" and co_type2 != "end")
-
-                if is_full:
-                    b_index = co["type"][1]
-                    b_leg_index = self.link.Fco[b_index]["leg"]
-                    d_index = self.link.Fco[b_index]["co"]
-                    d_leg_index = self.link.Fco[b_index]["leg"]
-                    co_done.update([b_index, d_index])
-                    b = self.bps[self.link.DidDhps[self.link.FidDid[b_index]][:2]]
-                    b_leg = self.bps[self.link.DidDhps[self.link.FidDid[b_leg_index]][:2]]
-                    d = self.bps[self.link.DidDhps[self.link.FidDid[d_index]][:2]]
-                    d_leg = self.bps[self.link.DidDhps[self.link.FidDid[d_leg_index]][:2]]
-
-                    co_data = get_co_angles_full([a, a_leg, c, c_leg],
-                                                 [b, b_leg, d, d_leg])  # ac bd
-                    crossover_ids = (a_index, b_index, c_index, d_index)
-                elif is_half:
-                    b_index = co["type"][1]
-                    b_leg_index = co["type"][2]
-                    d_index = self.link.Fco[c_index]["type"][1]
-                    d_leg_index = self.link.Fco[c_index]["type"][2]
-                    co_done.update([b_index, d_index])
-
-                    b = self.bps[self.link.DidDhps[self.link.FidDid[b_index]][:2]]
-                    b_leg = self.bps[self.link.DidDhps[self.link.FidDid[b_leg_index]][:2]]
-                    d = self.bps[self.link.DidDhps[self.link.FidDid[d_index]][:2]]
-                    d_leg = self.bps[self.link.DidDhps[self.link.FidDid[d_leg_index]][:2]]
-
-                    co_data = get_co_angles_full([a, a_leg, c, c_leg],
-                                                 [b, b_leg, d, d_leg])  # ac bd
-                    crossover_ids = (a_index, b_index, c_index, d_index)
-                else:
-                    co_data = get_co_angles_end(a, a_leg, c, c_leg)
-                    crossover_ids = (a_index, c_index)
-
-                self.co_angles[co["co_index"]] = {
-                    "ids(abcd)": crossover_ids, "type": co_type,
-                    "is_scaffold": co["is_scaffold"],
-                    "angles": co_data["angles"],
-                    "center-co": co_data["center-co"]}
+            self.co_angles[key] = {
+                "co": key, "type": co.typ,
+                "is_scaffold": co.is_scaf,
+                "angles": co_data["angles"],
+                "center-co": co_data["center-co"]}
         return
