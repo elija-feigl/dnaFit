@@ -370,8 +370,6 @@ class Linker(object):
             bAbC = co_subparts.pop()
             dir_int = dir_str2int[co_cubpart_dir[bAbC]]
             bA, bC = bAbC
-            if (bA.h, bA.p) == (17, 120):
-                import ipdb; ipdb.set_trace()
             bB = self._get_n_helix(base=bA, direct=dir_int)
             bD = self._get_n_helix(base=bC, direct=(-1 * dir_int))
             bBbD = frozenset([bB, bD])
@@ -386,7 +384,6 @@ class Linker(object):
             key, co = get_co(bA=bA, bB=bB, bC=bC, bD=bD,
                              direct=dir_int, typ=typ)
             self.Fco[key] = co
-        import ipdb; ipdb.set_trace()
         return self.Fco
 
     def _identify_nicks(self) -> Dict[int, int]:  # slow!
