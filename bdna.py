@@ -86,17 +86,16 @@ class BDna(object):
 
         stp = np.sign(steps)
         n_skips = 0
-
         # check if we passed skips
         for n in range(stp, steps + stp, stp):
             n_helix, n_position = (helix, position + n)
             if (n_helix, n_position) in self.link.Dskips:
-                n_skips += 1
+                n_skips += stp
 
         # check if land on skip
         n_position = position + steps + n_skips
         while (n_helix, n_position) in self.link.Dskips:
-            n_position += 1
+            n_position += stp
 
         if (helix, n_position) in self.bps.keys():
             return self.bps[(helix, n_position)]
