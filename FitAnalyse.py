@@ -117,6 +117,7 @@ def proc_input():
 def main():
     project = proc_input()
 
+    print("link_fit", project.name)
     linker = Linker(project)
     linkage = linker.create_linkage()
     linkage.dump_linkage(project)
