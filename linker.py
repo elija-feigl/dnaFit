@@ -23,8 +23,8 @@ class Crossover(object):
     def transform2bp(self, bps: dict):
         self.Ps, self.Ls = list(), list()
         for hp, hp_ in zip(self.P_pos, self.L_pos):
-            self.Ps.append(bps[hp])
-            self.Ls.append(bps[hp_])
+            self.Ps.append(bps.get(hp, None))
+            self.Ls.append(bps.get(hp_, None))
 
 
 @attr.s(auto_attribs=True)
@@ -69,13 +69,13 @@ class Linker(object):
     """
     # TODO: move categorize to linker?
     project: Project = attr.ib()
-    Fbp: Dict[int, int] = {}
-    DidFid: Dict[int, int] = {}
-    DhpsDid: Dict[Tuple[int, int, bool], int] = {}
-    Fnicks: Dict[int, int] = {}
-    FidSeq: Dict[int, str] = {}
+    Fbp: Dict[int, int] = dict()
+    DidFid: Dict[int, int] = dict()
+    DhpsDid: Dict[Tuple[int, int, bool], int] = dict()
+    Fnicks: Dict[int, int] = dict()
+    FidSeq: Dict[int, str] = dict()
     Dskips: Set[Tuple[int, int, bool]] = set()
-    Fco: Dict[int, Any] = {}
+    Fco: Dict[int, Any] = dict()
 
     def __attrs_post_init__(self):
         self.fit: Fit = Fit(self.project)
@@ -386,14 +386,8 @@ class Linker(object):
             is_base = (candidate is base)
             b_Fid = self.DidFid[base.id]
             c_Fid = self.DidFid[candidate.id]
-            is_ds_staple = (b_Fid in self.Fbp.values() and
-                            c_Fid in self.Fbp.values()
-                            )
-            return (is_onhelix and
-                    is_neighbor and
-                    not is_base and
-                    is_ds_staple
-                    )
+            is_ds = all([(x in self.Fbp.values()) for x in [b_Fid, c_Fid]])
+            return all([is_onhelix, is_neighbor, not is_base, is_ds])
 
         def Fid(Did: int) -> int:
             return self.DidFid[Did]
