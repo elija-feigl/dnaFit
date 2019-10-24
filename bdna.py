@@ -90,12 +90,12 @@ class BDna(object):
         # check if we passed skips
         for n in range(stp, steps + stp, stp):
             n_helix, n_position = (helix, position + n)
-            if (n_helix, n_position, True) in self.link.Dskips:
+            if (n_helix, n_position) in self.link.Dskips:
                 n_skips += 1
 
         # check if land on skip
         n_position = position + steps + n_skips
-        while (n_helix, n_position, True) in self.link.Dskips:
+        while (n_helix, n_position) in self.link.Dskips:
             n_position += 1
 
         if (helix, n_position) in self.bps.keys():
