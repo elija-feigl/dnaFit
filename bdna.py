@@ -4,7 +4,7 @@ import MDAnalysis as mda
 from MDAnalysis.lib import mdamath
 
 import attr
-from typing import Dict, Tuple, Any, Optional
+from typing import Dict, Tuple, Any, Optional, List
 
 from linker import Linkage
 from basepair import BasePair
@@ -229,8 +229,10 @@ class BDna(object):
             self.dh_quality[res.resindex] = self._get_dihedrals(res)
         return
 
-    def _get_dihedrals(self, res):
-        def _get_residue_BB(res):  # slow
+    # TODO: improve
+    def _get_dihedrals(self, res: "mda.residue") -> Dict[str: float]:
+        def _get_residue_BB(res: "mda.residue"
+                            ) -> Tuple[Dict[str: "np.ndarray"], Tuple[str]]:
             iniSeg, terSeg, ter5 = False, False, False
 
             atoms = {}
@@ -275,7 +277,7 @@ class BDna(object):
 
             return atoms, (ter5, terSeg, iniSeg)
 
-        def _get_valid_DH(ter5, terSeg, iniSeg):
+        def _get_valid_DH(ter5: bool, terSeg: bool, iniSeg: bool) -> List[str]:
             dh_valid = ["gamma", "delta", "xi"]
             if terSeg is False:
                 dh_valid.extend(["epsilon", "zeta"])
@@ -285,7 +287,10 @@ class BDna(object):
                 dh_valid.append("beta")
             return dh_valid
 
-        def _get_dh_for_res(atoms, pyr, dh_valid):
+        def _get_dh_for_res(atoms: Dict[str: "np.ndarray"],
+                            pyr: bool,
+                            dh_valid: List[str],
+                            ) -> Dict[str: float]:
             dh = {}
             for dh_name in DH_ATOMS:
                 if dh_name in dh_valid:
@@ -295,7 +300,10 @@ class BDna(object):
                 dh[dh_name] = angle
             return dh
 
-        def _get_dhangle(atoms, pyr, dh_name):  # slow
+        def _get_dhangle(atoms: Dict[str: "np.ndarray"],
+                         pyr: bool,
+                         dh_name: str,
+                         ) -> float:
             p = []
             if dh_name == "xi":
                 if pyr:

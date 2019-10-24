@@ -20,7 +20,5 @@ class ProjectLink(object):
     output: Path = attr.ib()
     name: str = attr.ib()
     # specific
-    frames: int = attr.ib()
-    dev: float = attr.ib()
     ENmodify: bool = attr.ib()
     EN: str = attr.ib()
