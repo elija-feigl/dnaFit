@@ -11,7 +11,7 @@ import argparse
 from pathlib import Path
 # from typing import Set, Dict, Tuple, Any
 
-from project import Project
+from project import ProjectAnalysis as Project
 from utils import WC_PROPERTIES, DH_ATOMS
 from bdna import BDna
 from linker import Linker

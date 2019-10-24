@@ -1,3 +1,4 @@
+*.pyc
 *.json
 pointer
 test*

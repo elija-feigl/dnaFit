@@ -36,6 +36,11 @@ PUR_ATOMS = ["N9", "C4"]
 WC_PROPERTIES = ["rise", "slide", "shift", "twist", "tilt", "roll"]
 
 
+class UnexpectedCaseError(Exception):
+    """Raised when a case occurs that makes no sense in the programs context"""
+    pass
+
+
 def _norm(vector):
     return vector / np.linalg.norm(vector)
 
