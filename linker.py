@@ -3,7 +3,6 @@ import pickle
 import attr
 import nanodesign as nd
 
-from itertools import chain
 from typing import Set, Dict, Tuple, Any, Optional, List
 
 from project import Project
@@ -46,7 +45,7 @@ class Linkage(object):
         return
 
     def load_linkage(self, project: Project) -> None:
-        for name in vars(self).keys():
+        for name in vars(self):
             input = project.output / "{}__{}.p".format(project.name, name)
             value = pickle.load(open(input, "rb"))
             setattr(self, name, value)
@@ -260,7 +259,7 @@ class Linker(object):
         while (helix, n_position) in self.Dskips:
             n_position += direct
 
-        if (helix, n_position, is_scaf) in self.design.Dhps_base.keys():
+        if (helix, n_position, is_scaf) in self.design.Dhps_base:
             return self.design.Dhps_base[(helix, n_position, is_scaf)]
         else:
             return None
