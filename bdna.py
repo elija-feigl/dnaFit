@@ -6,8 +6,9 @@ from MDAnalysis.lib import mdamath
 import attr
 from typing import Dict, Tuple, Any, Optional
 
-from linker import Linkage, Crossover
+from linker import Linkage
 from basepair import BasePair
+from crossover import Crossover
 from utils import (C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, BB_ATOMS,
                    PUR_ATOMS, PYR_ATOMS, DH_ATOMS,
                    _proj, _norm, _v_proj, _save_arccos_deg,
@@ -73,11 +74,6 @@ class BDna(object):
 
     def _get_n_bp(self, bp: BasePair, steps: int = 1
                   ) -> Optional[BasePair]:
-        """ get next residue and its complemt wc pair whithin a helix
-            check if next exists.
-            check has bp (ony scaffold residues apply here)
-            else returns None
-        """
         if steps == 0:
             return bp
         helix, position = bp.hp
@@ -125,8 +121,7 @@ class BDna(object):
         return
 
     def _get_bp_quality(self, bp: BasePair) -> Tuple[dict, dict]:
-        quality = {}
-
+        quality = dict()
         # TODO: cleanup (loop?)
         atom_name = "C1'"
         bnd = atom_name * 2
@@ -392,7 +387,7 @@ class BDna(object):
         """
         def get_co_angles(co: Crossover, typ="C6C8"):
             def P_from_p(p: BasePair, typ: str) -> "np.ndarray":
-                if p is None:  # TODO: check condition for end
+                if p is None:
                     return np.zeros(3)
                 if p.plane is not None:
                     return p.plane.P[typ]
