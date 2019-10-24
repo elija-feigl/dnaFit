@@ -371,7 +371,7 @@ class Linker(object):
             self.Fco[key] = co
         return self.Fco
 
-    def _identify_nicks(self) -> Dict[int, int]:  # slow!
+    def _identify_nicks(self) -> Dict[int, int]:
         """ for every nick, provide id of base accross nick, bidirectional
         -------
          Returns
@@ -379,7 +379,6 @@ class Linker(object):
             self.Fnicks
                 fit-id -> fit_id
         """
-        # called 145924 times
         def is_nick(candidate: "nd.base", base: "nd.base") -> bool:
             is_onhelix = (candidate.h == base.h)
             is_neighbor = (abs(base.p - candidate.p) <= 2)  # skip = 2
@@ -392,13 +391,13 @@ class Linker(object):
         def Fid(Did: int) -> int:
             return self.DidFid[Did]
 
-        staple_end_bases = list(chain.from_iterable((s[0], s[-1])
-                                for s in self.design.staples)
-                                )
-        self.Fnicks = {Fid(base.id): Fid(candidate.id)
-                       for base in staple_end_bases
-                       for candidate in staple_end_bases
-                       if is_nick(candidate, base)
+        start_bases = [s[0] for s in self.design.staples]
+        end_bases = [s[-1] for s in self.design.staples]
+
+        self.Fnicks = {Fid(start.id): Fid(candi.id)
+                       for start in start_bases
+                       for candi in end_bases
+                       if is_nick(candidate=candi, base=start)
                        }
         return self.Fnicks
 
