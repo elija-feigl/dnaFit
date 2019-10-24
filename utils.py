@@ -67,7 +67,7 @@ def _save_arccos_deg(dist):
     return np.rad2deg(a)
 
 
-def _dh_angle(p: list, as_rad=False): #slow
+def _dh_angle(p: list, as_rad=False):  # slow
 
     v1 = p[1] - p[0]
     v2 = p[2] - p[1]
