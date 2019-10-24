@@ -64,7 +64,7 @@ class BasePair(object):
     def _get_bp_plane(self, sc, st) -> BasePairPlane:
         a, P = dict(), dict()
         n0 = (sc.n0 + st.n0) * 0.5
-        for n in sc.P.keys():
+        for n in sc.P:
             P[n] = (sc.P[n] + st.P[n]) * 0.5
             a[n] = sc.P[n] - st.P[n]
 

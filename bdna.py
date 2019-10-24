@@ -67,7 +67,7 @@ class BDna(object):
             bps[pos] = bp
 
             done.add(resindex)
-            if resindex in self.link.Fbp_full.keys():
+            if resindex in self.link.Fbp_full:
                 done.add(self.link.Fbp_full[resindex])
         return bps
 
@@ -97,7 +97,7 @@ class BDna(object):
         while (n_helix, n_position) in self.link.Dskips:
             n_position += stp
 
-        if (helix, n_position) in self.bps.keys():
+        if (helix, n_position) in self.bps:
             return self.bps[(helix, n_position)]
         else:
             return None
@@ -292,7 +292,7 @@ class BDna(object):
 
         def _get_dh_for_res(atoms, pyr, dh_valid):
             dh = {}
-            for dh_name in DH_ATOMS.keys():
+            for dh_name in DH_ATOMS:
                 if dh_name in dh_valid:
                     angle = _get_dhangle(atoms, pyr, dh_name)
                 else:

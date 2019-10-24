@@ -47,7 +47,7 @@ def write_pdb(u, bDNA, PDBs):
                 pass
         PDBs[cond].write(u.atoms)
 
-    for dh in DH_ATOMS.keys():
+    for dh in DH_ATOMS:
         u.atoms.tempfactors = -1.
         for res in u.residues:
             try:
@@ -139,7 +139,7 @@ def main():
     for name in [*WC_PROPERTIES, "bp", "qual"]:
         pdb_name = project.output / "{}__bp_{}.pdb".format(project.name, name)
         PDBs[name] = mda.Writer(pdb_name, multiframe=True)
-    for name in DH_ATOMS.keys():
+    for name in DH_ATOMS:
         pdb_name = project.output / "{}__dh_{}.pdb".format(project.name, name)
         PDBs[name] = mda.Writer(pdb_name, multiframe=True)
 
@@ -151,7 +151,6 @@ def main():
         # perform analyis
         print("eval_fit", project.name)
         bDNA.sample()
-        import ipdb; ipdb.set_trace()
         properties.append(bDNA)
         props_tuple = [
             (bDNA.bp_geometry, "bp_geometry"), (bDNA.bp_quality, "bp_quality"),
