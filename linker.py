@@ -17,10 +17,10 @@ class Linkage(object):
     DidFid: Dict[int, int] = {}
     DhpsDid: Dict[Tuple[int, int, bool], int] = {}
     Dcolor: Dict[int, int] = {}
-    Dskips: Set[Tuple[int, int, bool]] = set()
+    Dskips: Set[Tuple[int, int]] = set()
     Fnicks: Dict[int, int] = {}
     FidSeq: Dict[int, str] = {}
-    Fco: Dict[int, Any] = {}
+    Fco: Dict[str, Crossover] = {}
     universe: Tuple[str, str] = ("", "")
 
     def dump_linkage(self, project: Project) -> None:
@@ -58,10 +58,10 @@ class Linker(object):
     DhpsDid: Dict[Tuple[int, int, bool], int] = dict()
     Fnicks: Dict[int, int] = dict()
     FidSeq: Dict[int, str] = dict()
-    Dskips: Set[Tuple[int, int, bool]] = set()
-    Fco: Dict[int, Any] = dict()
+    Dskips: Set[Tuple[int, int]] = set()
+    Fco: Dict[str, Crossover] = dict()
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self.fit: Fit = Fit(self.project)
         self.design: Design = Design(self.project)
         self.Dskips = self._eval_skips()
@@ -193,10 +193,7 @@ class Linker(object):
             self.Fbp
                 fit-id -> fit-id
         """
-        def Fid(Did: int) -> int:
-            return self.DidFid[Did]
-
-        self.Fbp = {Fid(base.id): Fid(base.across.id)
+        self.Fbp = {self.DidFid[base.id]: self.DidFid[base.across.id]
                     for base in self.design.scaffold
                     if base.across is not None
                     }
@@ -244,23 +241,19 @@ class Linker(object):
         while (helix, n_position) in self.Dskips:
             n_position += direct
 
-        if (helix, n_position, is_scaf) in self.design.Dhps_base:
-            return self.design.Dhps_base[(helix, n_position, is_scaf)]
-        else:
-            return None
+        return self.design.Dhps_base.get((helix, n_position, is_scaf), None)
 
     def _get_bp_tuple(self, base: Optional["nd.residue"]
-                      ) -> Optional[Tuple[Tuple[int, int], Tuple[int, int]]]:
+                      ) -> Tuple[Optional[Tuple[Any, Any]],
+                                 Optional[Tuple[int, Optional[int]]]
+                                 ]:
         if base is None:
             return None, None
 
         h, p, is_scaf = base.h, base.p, base.is_scaf
         resindex = self.DidFid[base.id]
         Fbp_full = {**self.Fbp, **{v: k for k, v in iter(self.Fbp.items())}}
-        if resindex in Fbp_full:
-            wcindex = Fbp_full[resindex]
-        else:
-            wcindex = None
+        wcindex = Fbp_full.get(resindex, None)
 
         if is_scaf:
             sc_index, st_index = resindex, wcindex
@@ -272,11 +265,12 @@ class Linker(object):
 
         return pos, bp_resindices
 
-    def _identify_crossover(self) -> Dict[int, Any]:
-        """ for every base id that is involved in a crossover
-            updates linker attribute of crossovers and returns it
+    def _identify_crossover(self) -> None:
+        """ Affects
+            -------
+                self.Fco
         """
-        def get_co_leg(base: Optional["nd.base"], direct: str
+        def get_co_leg(base: Optional["nd.base"], direct: int
                        ) -> Optional["nd.base"]:
             if base is None:
                 return None
@@ -298,7 +292,7 @@ class Linker(object):
                    bD: Optional["nd.base"],
                    direct: int,
                    typ: str,
-                   ) -> Crossover:
+                   ) -> Tuple[str, Crossover]:
 
             bA_ = get_co_leg(base=bA, direct=(-1 * direct))
             bB_ = get_co_leg(base=bB, direct=direct)
@@ -339,6 +333,8 @@ class Linker(object):
             co_direct = "up" if self._get_n_strand(bA, "up") == bC else "down"
             bN = bA.up if co_direct == "down" else bA.down
             direct = bA.p - bN.p
+            if isinstance(direct, str):
+                import ipdb; ipdb.set_trace()
             bB = self._get_n_helix(base=bA, direct=direct)
             bD = self._get_n_helix(base=bC, direct=direct)
             bBbD = frozenset([bB, bD])
@@ -353,15 +349,12 @@ class Linker(object):
             key, co = get_co(bA=bA, bB=bB, bC=bC, bD=bD,
                              direct=direct, typ=typ)
             self.Fco[key] = co
-        return self.Fco
+        return
 
-    def _identify_nicks(self) -> Dict[int, int]:
-        """ for every nick, provide id of base accross nick, bidirectional
-        -------
-         Returns
+    def _identify_nicks(self) -> None:
+        """ Affects
             -------
-            self.Fnicks
-                fit-id -> fit_id
+                self.Fnicks
         """
         def is_nick(candidate: "nd.base", base: "nd.base") -> bool:
             is_onhelix = (candidate.h == base.h)
@@ -383,7 +376,7 @@ class Linker(object):
                        for candi in end_bases
                        if is_nick(candidate=candi, base=start)
                        }
-        return self.Fnicks
+        return
 
     def _get_universe_tuple(self) -> Tuple[str, str]:
         infile = self.project.input / self.project.name

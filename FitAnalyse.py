@@ -32,7 +32,7 @@ def write_pdb(u, bDNA, PDBs):
     u.atoms.tempfactors = -1.
     for res in u.residues:
         try:
-            res.atoms.tempfactors = bDNA.wc_quality[res.resindex]["C1'C1'"]
+            res.atoms.tempfactors = bDNA.bp_quality[res.resindex]["C1'C1'"]
         except KeyError:
             pass
     PDBs["qual"].write(u.atoms)

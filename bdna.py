@@ -4,7 +4,7 @@ import MDAnalysis as mda
 from MDAnalysis.lib import mdamath
 
 import attr
-from typing import Dict, Tuple, Any, Optional, List
+from typing import Dict, Tuple, Any, Optional, List, Set
 
 from linker import Linkage
 from basepair import BasePair
@@ -21,16 +21,16 @@ class BDna(object):
     u: "mda.universe" = attr.ib()
     link: Linkage = attr.ib()
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         self.link.reverse()
         self.bps: Dict[Tuple[int, int], BasePair] = self._get_pot_bp()
         self.bp_quality: Dict[int, Any] = {}
         self.bp_geometry: Dict[int, Any] = {}
         self.dh_quality: Dict[int, Any] = {}
         self.distances: Dict[int, Any] = {}
-        self.co_angles: Dict[int, Any] = {}
+        self.co_angles: Dict[str, Any] = {}
 
-    def sample(self):
+    def sample(self) -> None:
         for bp in self.bps.values():
             bp.calculate_baseplanes()
 
@@ -43,12 +43,8 @@ class BDna(object):
     def _get_bp(self, resindex: int) -> Tuple[Tuple[int, int], BasePair]:
         h, p, is_scaf = self.link.DidDhps[self.link.FidDid[resindex]]
         res = self.u.residues[resindex]
-        if resindex in self.link.Fbp_full:
-            wcindex = self.link.Fbp_full[resindex]
-            wc = self.u.residues[wcindex]
-        else:
-            wcindex = None
-            wc = None
+        wcindex = self.link.Fbp_full.get(resindex, None)
+        wc = None if wcindex is None else self.u.residues[wcindex]
 
         if is_scaf:
             sc, st = res, wc
@@ -60,7 +56,7 @@ class BDna(object):
 
     def _get_pot_bp(self) -> Dict[Tuple[int, int], BasePair]:
         bps = dict()
-        done = set()
+        done: Set[int] = set()
         for resindex in self.u.residues.resindices:
             if resindex in done:
                 continue
@@ -93,12 +89,9 @@ class BDna(object):
         while (n_helix, n_position) in self.link.Dskips:
             n_position += stp
 
-        if (helix, n_position) in self.bps:
-            return self.bps[(helix, n_position)]
-        else:
-            return None
+        return self.bps.get((helix, n_position), None)
 
-    def eval_bp(self):
+    def eval_bp(self) -> None:
         """ Affects
             -------
                 self.bp_quality
@@ -120,7 +113,7 @@ class BDna(object):
 
         return
 
-    def _get_bp_quality(self, bp: BasePair) -> Tuple[dict, dict]:
+    def _get_bp_quality(self, bp: BasePair) -> Dict[str, Any]:
         quality = dict()
         # TODO: cleanup (loop?)
         atom_name = "C1'"
@@ -148,7 +141,7 @@ class BDna(object):
         return quality
 
     def _get_bp_geometry(self, bp: BasePair, n_bp: BasePair
-                         ) -> Tuple[dict, dict]:
+                         ) -> Dict[str, Any]:
         """ Returns
             -------
                 bp_quality
@@ -219,10 +212,10 @@ class BDna(object):
                     }
         return geometry
 
-    def eval_dh(self):
+    def eval_dh(self) -> None:
         """ Affects
             -------
-                dh_quality
+                self.dh_quality
         """
         self.dh_quality = {}
         for res in self.u.residues:
@@ -230,9 +223,11 @@ class BDna(object):
         return
 
     # TODO: improve
-    def _get_dihedrals(self, res: "mda.residue") -> Dict[str: float]:
+    def _get_dihedrals(self, res: "mda.residue") -> Dict[str, float]:
         def _get_residue_BB(res: "mda.residue"
-                            ) -> Tuple[Dict[str: "np.ndarray"], Tuple[str]]:
+                            ) -> Tuple[Dict[str, "np.ndarray"],
+                                       Tuple[bool, bool, bool]
+                                       ]:
             iniSeg, terSeg, ter5 = False, False, False
 
             atoms = {}
@@ -287,20 +282,20 @@ class BDna(object):
                 dh_valid.append("beta")
             return dh_valid
 
-        def _get_dh_for_res(atoms: Dict[str: "np.ndarray"],
+        def _get_dh_for_res(atoms: Dict[str, "np.ndarray"],
                             pyr: bool,
                             dh_valid: List[str],
-                            ) -> Dict[str: float]:
+                            ) -> Dict[str, float]:
             dh = {}
             for dh_name in DH_ATOMS:
                 if dh_name in dh_valid:
                     angle = _get_dhangle(atoms, pyr, dh_name)
                 else:
-                    angle = None
+                    angle = np.nan
                 dh[dh_name] = angle
             return dh
 
-        def _get_dhangle(atoms: Dict[str: "np.ndarray"],
+        def _get_dhangle(atoms: Dict[str, "np.ndarray"],
                          pyr: bool,
                          dh_name: str,
                          ) -> float:
@@ -327,7 +322,7 @@ class BDna(object):
         dh = _get_dh_for_res(atoms, pyr, dh_valid)
         return dh
 
-    def eval_distances(self):
+    def eval_distances(self) -> None:
         """ Affects
             -------
                 distances
@@ -354,7 +349,8 @@ class BDna(object):
             except (AttributeError, IndexError):
                 return None
 
-        sc_dist, st_dist = dict(), dict()
+        sc_dist: Dict[str, float] = dict()
+        st_dist: Dict[str, float] = dict()
         atom_name = "name {}".format(name)
 
         n_bp = self._get_n_bp(bp)
@@ -365,11 +361,12 @@ class BDna(object):
             if X is not None and Y is not None:
                 for dist in [sc_dist, st_dist]:
                     dist["pair"] = np.linalg.norm(Y - X)
-                    dist["stack"], dist["crossstack"] = None, None
+                    dist["stack"] = np.nan
+                    dist["crossstack"] = np.nan
             else:
                 for dist in [sc_dist, st_dist]:
                     for typ in ["pair", "stack", "crossstack"]:
-                        dist[typ] = None
+                        dist[typ] = np.nan
         else:
             for x in [bp, n_bp]:
                 SC.append(try_position(res=x.sc, atom_name=atom_name))
@@ -387,7 +384,7 @@ class BDna(object):
 
         return sc_dist, st_dist
 
-    def eval_co_angles(self):
+    def eval_co_angles(self) -> None:
         """ Definition: Bai, X. (2012).  doi: 10.1073/pnas.1215713109
             Affects
             -------
