@@ -395,47 +395,25 @@ class BDna(object):
         """
 
         def get_co_angles_end(co: Crossover, typ="C6C8"):
-            a = co.A
-            a_leg = co.A_
-            c = co.C
-            c_leg = co.C_
-            if a.plane is not None:
-                A = a.plane.P[typ]
-            elif a.sc is not None:
-                A = a.sc_plane.P[typ]
-            else:
-                A = a.st_plane.P[typ]
+            def P_from_p(p, typ):
+                if p.plane is not None:
+                    return p.plane.P[typ]
+                elif p.sc is not None:
+                    return p.sc_plane.P[typ]
+                else:
+                    return p.st_plane.P[typ]
 
-            if a_leg.plane is not None:
-                A_ = a_leg.plane.P[typ]
-            elif a.sc is not None:
-                A_ = a_leg.sc_plane.P[typ]
-            else:
-                A_ = a_leg.st_plane.P[typ]
+            X = [P_from_p(p, typ) for p in co.Ps[::2]]
+            X_ = [P_from_p(l, typ) for l in co.Ls[::2]]
 
-            if c.plane is not None:
-                C = c.plane.P[typ]
-            elif a.sc is not None:
-                C = c.sc_plane.P[typ]
-            else:
-                C = c.st_plane.P[typ]
+            center = sum(X) * 0.5
+            x = [np.subtract(Y_, Y) for Y, Y_ in zip(X, X_)]
+            n0 = _norm(np.subtract(X[0], X[1]))
 
-            if c_leg.plane is not None:
-                C_ = c_leg.plane.P[typ]
-            elif a.sc is not None:
-                C_ = c_leg.sc_plane.P[typ]
-            else:
-                C_ = c_leg.st_plane.P[typ]
-
-            center = (A + C) * 0.5
-            a = A_ - A
-            c = C_ - C
-            n0 = _norm((A - C))
-
-            proj_ac = _proj2plane([a, c], n0)
-            dist = _proj(proj_ac[0], proj_ac[1])
+            proj = _proj2plane(x, n0)
+            dist = _proj(proj[0], proj[1])
             gamma = np.rad2deg(np.arccos(dist))
-            beta = 90. - _save_arccos_deg(_proj(a, n0))
+            beta = 90. - _save_arccos_deg(_proj(x[0], n0))
 
             return {"angles": {"co_beta": beta,
                                "co_gamma": gamma
@@ -447,12 +425,11 @@ class BDna(object):
         # TODO: -low- cleanup
         def get_co_angles_full(co: Crossover, typ="C6C8"):
             points = []
-            for p, l in zip(co.Ps, co.Ls):  # abcd
+            for p, l in zip(co.Ps, co.Ls):
                 ins = p.plane.P[typ]
                 out = l.plane.P[typ]
                 points.append((ins, out))
 
-            # abcd
             center = sum(p[0] for p in points) * 0.25
             n0 = _norm(points[0][0] + points[1][0] - points[2][0] - points[3][0])
 
@@ -485,6 +462,7 @@ class BDna(object):
                     }
 
         for key, co in self.link.Fco.items():
+            co.transform2bp(self.bps)
             if co.typ != "end":
                 co_data = get_co_angles_full(co=co)
             else:
