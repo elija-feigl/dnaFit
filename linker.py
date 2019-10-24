@@ -207,19 +207,21 @@ class Linker(object):
         """direct = ["up","down"]"""
         if steps == 0:
             return base
+        if steps < 0:
+            direct = "up" if direct == "down" else "down"
 
-        # TODO: steps missing
-        n = (base.up if direct == "up" else base.down)
-        if n is None:
-            return None
-        else:
-            n_position = (n.h, n.p)
-            while n_position in self.Dskips:
-                n = (n.up if direct == "up" else n.down)
-                if n is None:
-                    return None
-                n_position = (n.h, n.p)
-            return n
+        for _ in range(steps):
+            base = (base.up if direct == "up" else base.down)
+            if base is None:
+                return None
+            else:
+                n_position = (base.h, base.p)
+                while n_position in self.Dskips:
+                    base = (base.up if direct == "up" else base.down)
+                    if base is None:
+                        return None
+                    n_position = (base.h, base.p)
+        return base
 
     def _get_n_helix(self, base: "nd.base", direct: int, steps=1
                      ) -> Optional["nd.base"]:
@@ -233,13 +235,11 @@ class Linker(object):
             direct = -direct
 
         n_skips = 0
-        # check if we passed skips
         for n in range(direct, direct * (steps + 1), direct):
             n_position = position + n
             if (helix, n_position) in self.Dskips:
                 n_skips += 1
 
-        # check if land on skip
         n_position = position + direct * (steps + n_skips)
         while (helix, n_position) in self.Dskips:
             n_position += direct
