@@ -60,7 +60,6 @@ class BDna(object):
     def _get_pot_bp(self) -> Dict[Tuple[int, int], BasePair]:
         bps = dict()
         done = set()
-        # TODO: -low- loop over residues not resindex?
         for resindex in self.u.residues.resindices:
             if resindex in done:
                 continue
@@ -129,7 +128,6 @@ class BDna(object):
     def _get_bp_quality(self, bp: BasePair) -> Tuple[dict, dict]:
         quality = {}
 
-        # C1p distance
         # TODO: cleanup (loop?)
         atom_name = "C1'"
         bnd = atom_name * 2
@@ -393,9 +391,10 @@ class BDna(object):
             -------
                 co_angles
         """
-
-        def get_co_angles_end(co: Crossover, typ="C6C8"):
-            def P_from_p(p, typ):
+        def get_co_angles(co: Crossover, typ="C6C8"):
+            def P_from_p(p: BasePair, typ: str) -> "np.ndarray":
+                if p is None:  # TODO: check condition for end
+                    return np.zeros(3)
                 if p.plane is not None:
                     return p.plane.P[typ]
                 elif p.sc is not None:
@@ -403,53 +402,34 @@ class BDna(object):
                 else:
                     return p.st_plane.P[typ]
 
-            X = [P_from_p(p, typ) for p in co.Ps[::2]]
-            X_ = [P_from_p(l, typ) for l in co.Ls[::2]]
+            X = [P_from_p(p, typ) for p in co.Ps]
+            X_ = [P_from_p(l, typ) for l in co.Ls]
 
-            center = sum(X) * 0.5
-            x = [np.subtract(Y_, Y) for Y, Y_ in zip(X, X_)]
-            n0 = _norm(np.subtract(X[0], X[1]))
-
+            center = sum(X) / len(X)
+            x = [(p_ - p) for p, p_ in zip(X, X_)]
+            n0 = _norm(X[0] + X[1] - X[2] - X[3])
             proj = _proj2plane(x, n0)
-            dist = _proj(proj[0], proj[1])
-            gamma = np.rad2deg(np.arccos(dist))
-            beta = 90. - _save_arccos_deg(_proj(x[0], n0))
 
-            return {"angles": {"co_beta": beta,
-                               "co_gamma": gamma
-                               },
-                    "center-co": center,
-                    "plane": n0,
-                    }
+            d1 = _proj(proj[0], proj[2])
+            a_n0 = _save_arccos_deg(_proj(x[0], n0))
 
-        # TODO: -low- cleanup
-        def get_co_angles_full(co: Crossover, typ="C6C8"):
-            points = []
-            for p, l in zip(co.Ps, co.Ls):
-                ins = p.plane.P[typ]
-                out = l.plane.P[typ]
-                points.append((ins, out))
+            if co.typ != "end":
+                b_n0 = _save_arccos_deg(_proj(x[1], n0))
+                d2 = _proj(proj[3], proj[1])
+                a1 = _proj(proj[0], [-x for x in proj[1]])
+                a2 = _proj(proj[2], [-x for x in proj[3]])
 
-            center = sum(p[0] for p in points) * 0.25
-            n0 = _norm(points[0][0] + points[1][0] - points[2][0] - points[3][0])
+                gamma1 = _save_arccos_deg(d1)
+                gamma2 = _save_arccos_deg(d2)
+                alpha1 = _save_arccos_deg(a1)
+                alpha2 = _save_arccos_deg(a2)
+            else:
+                b_n0 = 90.
+                gamma2 = np.nan
+                alpha1 = np.nan
+                alpha2 = np.nan
 
-            abcd = []
-            for p_in, p_out in points:
-                abcd.append(p_out - p_in)
-
-            proj_abcd = _proj2plane(abcd, n0)
-
-            d1 = _proj(proj_abcd[0], proj_abcd[2])
-            gamma1 = _save_arccos_deg(d1)
-            d2 = _proj(proj_abcd[3], proj_abcd[1])
-            gamma2 = _save_arccos_deg(d2)
-            a1 = _proj(proj_abcd[0], [-x for x in proj_abcd[1]])
-            alpha1 = _save_arccos_deg(a1)
-            a2 = _proj(proj_abcd[2], [-x for x in proj_abcd[3]])
-            alpha2 = _save_arccos_deg(a2)
-
-            a_n0 = _save_arccos_deg(_proj(abcd[0], n0))
-            b_n0 = _save_arccos_deg(_proj(abcd[1], n0))
+            gamma1 = np.rad2deg(np.arccos(d1))
             beta = 180. - abs(a_n0) - abs(b_n0)
 
             return {"angles": {"co_beta": beta,
@@ -463,10 +443,7 @@ class BDna(object):
 
         for key, co in self.link.Fco.items():
             co.transform2bp(self.bps)
-            if co.typ != "end":
-                co_data = get_co_angles_full(co=co)
-            else:
-                co_data = get_co_angles_end(co=co)
+            co_data = get_co_angles(co=co)
 
             self.co_angles[key] = {
                 "co": key, "type": co.typ,
