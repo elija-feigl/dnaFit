@@ -6,9 +6,9 @@ from typing import Tuple, List, Optional
 
 @attr.s
 class Crossover(object):
-    Ps: List[Optional[Tuple[int, Optional[int]]]] = attr.ib()
-    Ls: List[Optional[Tuple[int, Optional[int]]]] = attr.ib()
-    P_pos: List[Optional[Tuple[int, Optional[int]]]] = attr.ib()
+    Ps: List[Optional[Tuple[Optional[int], Optional[int]]]] = attr.ib()
+    Ls: List[Optional[Tuple[Optional[int], Optional[int]]]] = attr.ib()
+    P_pos: List[Optional[Tuple[Optional[int], Optional[int]]]] = attr.ib()
     L_pos: List[Optional[Tuple[int, Optional[int]]]] = attr.ib()
     typ: str = attr.ib()
     is_scaf: bool = attr.ib()

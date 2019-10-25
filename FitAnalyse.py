@@ -11,7 +11,7 @@ import argparse
 from pathlib import Path
 # from typing import Set, Dict, Tuple, Any
 
-from project import ProjectAnalysis as Project
+from project import Project
 from utils import WC_PROPERTIES, DH_ATOMS
 from bdna import BDna
 from linker import Linker
@@ -63,8 +63,6 @@ def write_pdb(u, bDNA, PDBs):
         u.residues[resindex_wc].atoms.tempfactors = ing
         ing += 0.01
     PDBs["bp"].write(u.atoms)
-
-    return
 
 
 def get_description():
@@ -168,8 +166,6 @@ def main():
     # close PDB files
     for _, PDB in PDBs.items():
         PDB.close()
-
-    return
 
 
 if __name__ == "__main__":

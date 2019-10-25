@@ -161,7 +161,6 @@ class ElaticNetwortModifier(object):
                                   ssDNA=bool(logic_string[6]),
                                   dihedral=bool(logic_string[7]),
                                   )
-        return
 
     def _modify_en(self) -> set:
         """ create reduced elastic network according to boolean flags
@@ -191,7 +190,6 @@ class ElaticNetwortModifier(object):
         with open(exb_filepath, mode="w+") as mod_exb_file:
             for bond in mod_network:
                 mod_exb_file.write("{}\n".format(bond))
-        return
 
     def _compute_dihedral(self):
         """ compute restraints corresponding to backbone dihedral

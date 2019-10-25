@@ -6,7 +6,7 @@ import nanodesign as nd
 from typing import List, Dict, Any
 from nanodesign.converters import Converter
 
-from project import ProjectLink as Project
+from project import Project
 
 
 @attr.s

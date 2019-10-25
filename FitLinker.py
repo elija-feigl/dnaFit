@@ -5,7 +5,7 @@ import argparse
 
 from pathlib import Path
 
-from project import ProjectLink as Project
+from project import Project
 from linker import Linker
 from elastic_network import ElaticNetwortModifier
 

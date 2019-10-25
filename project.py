@@ -5,20 +5,12 @@ from pathlib import Path
 
 
 @attr.s(slots=True)
-class ProjectAnalysis(object):
+class Project(object):
     input: Path = attr.ib()
     output: Path = attr.ib()
     name: str = attr.ib()
     # specific
-    frames: int = attr.ib()
-    dev: float = attr.ib()
-
-
-@attr.s(slots=True)
-class ProjectLink(object):
-    input: Path = attr.ib()
-    output: Path = attr.ib()
-    name: str = attr.ib()
-    # specific
-    ENmodify: bool = attr.ib()
-    EN: str = attr.ib()
+    frames: int = attr.ib(default=1)
+    dev: float = attr.ib(default=0.)
+    ENmodify: bool = attr.ib(default=False)
+    EN: str = attr.ib(default="11111110")

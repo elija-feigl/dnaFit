@@ -3,9 +3,9 @@ import pickle
 import attr
 import nanodesign as nd
 
-from typing import Set, Dict, Tuple, Any, Optional
+from typing import Set, Dict, Tuple, Optional
 
-from project import ProjectLink as Project
+from project import Project
 from fit import Fit
 from design import Design
 from crossover import Crossover
@@ -27,14 +27,12 @@ class Linkage(object):
         for name, link in vars(self).items():
             output = project.output / "{}__{}.p".format(project.name, name)
             pickle.dump(link, open(output, "wb"))
-        return
 
     def load_linkage(self, project: Project) -> None:
         for name in vars(self):
             input = project.output / "{}__{}.p".format(project.name, name)
             value = pickle.load(open(input, "rb"))
             setattr(self, name, value)
-        return
 
     def reverse(self) -> None:
         def reverse_d(dict: dict) -> dict:
@@ -44,7 +42,6 @@ class Linkage(object):
         self.DidDhps = reverse_d(self.DhpsDid)
         self.Fbp_rev = reverse_d(self.Fbp)
         self.Fbp_full = {**self.Fbp, **self.Fbp_rev}
-        return
 
 
 @attr.s
@@ -243,27 +240,26 @@ class Linker(object):
 
         return self.design.Dhps_base.get((helix, n_position, is_scaf), None)
 
-    def _get_bp_tuple(self, base: Optional["nd.residue"]
-                      ) -> Tuple[Optional[Tuple[Any, Any]],
-                                 Optional[Tuple[int, Optional[int]]]
-                                 ]:
+    def _get_bp_indices(self, base: "nd.residue"
+                        ) -> [Tuple[int, Optional[int]]]:
         if base is None:
-            return None, None
-
-        h, p, is_scaf = base.h, base.p, base.is_scaf
-        resindex = self.DidFid[base.id]
-        Fbp_full = {**self.Fbp, **{v: k for k, v in iter(self.Fbp.items())}}
-        wcindex = Fbp_full.get(resindex, None)
-
-        if is_scaf:
-            sc_index, st_index = resindex, wcindex
+            return None
         else:
-            sc_index, st_index = wcindex, resindex
+            resindex = self.DidFid[base.id]
+            Fbp_all = {**self.Fbp, **{v: k for k, v in iter(self.Fbp.items())}}
+            wcindex = Fbp_all.get(resindex, None)
+            sc_index = resindex if base.is_scaf else wcindex
+            st_index = wcindex if base.is_scaf else resindex
+            bp_resindices = (sc_index, st_index)
+            return bp_resindices
 
-        bp_resindices = (sc_index, st_index)
-        pos = (h, p)
-
-        return pos, bp_resindices
+    def _get_bp_pos(self, base: Optional["nd.residue"]
+                    ) -> Optional[Tuple[int, int]]:
+        if base is None:
+            return None
+        else:
+            pos = (base.h, base.p)
+            return pos
 
     def _identify_crossover(self) -> None:
         """ Affects
@@ -301,12 +297,10 @@ class Linker(object):
 
             Ps, Ls, P_pos, L_pos = [], [], [], []
             for bP, bL in zip([bA, bB, bC, bD], [bA_, bB_, bC_, bD_]):
-                posP, P_index = self._get_bp_tuple(base=bP)
-                Ps.append(P_index)
-                P_pos.append(posP)
-                posL, L_index = self._get_bp_tuple(base=bL)
-                Ls.append(L_index)
-                L_pos.append(posL)
+                Ps.append(self._get_bp_indices(base=bP))
+                P_pos.append(self._get_bp_pos(base=bP))
+                Ls.append(self._get_bp_indices(base=bL))
+                L_pos.append(self._get_bp_pos(base=bL))
 
             co = Crossover(Ps=Ps,
                            Ls=Ls,
@@ -332,11 +326,9 @@ class Linker(object):
             bA, bC = co_subparts.pop()
             co_direct = "up" if self._get_n_strand(bA, "up") == bC else "down"
             bN = bA.up if co_direct == "down" else bA.down
-            direct = bA.p - bN.p
-            if isinstance(direct, str):
-                import ipdb; ipdb.set_trace()
-            bB = self._get_n_helix(base=bA, direct=direct)
-            bD = self._get_n_helix(base=bC, direct=direct)
+            direct_int = bA.p - bN.p
+            bB = self._get_n_helix(base=bA, direct=direct_int)
+            bD = self._get_n_helix(base=bC, direct=direct_int)
             bBbD = frozenset([bB, bD])
 
             if bBbD in co_subparts:
@@ -347,9 +339,8 @@ class Linker(object):
                 typ = "end"
 
             key, co = get_co(bA=bA, bB=bB, bC=bC, bD=bD,
-                             direct=direct, typ=typ)
+                             direct=direct_int, typ=typ)
             self.Fco[key] = co
-        return
 
     def _identify_nicks(self) -> None:
         """ Affects
@@ -376,7 +367,6 @@ class Linker(object):
                        for candi in end_bases
                        if is_nick(candidate=candi, base=start)
                        }
-        return
 
     def _get_universe_tuple(self) -> Tuple[str, str]:
         infile = self.project.input / self.project.name

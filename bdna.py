@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# TODO: abkürzungsverzeichnis
+
 import numpy as np
 import MDAnalysis as mda
 from MDAnalysis.lib import mdamath
@@ -38,7 +40,6 @@ class BDna(object):
         self.eval_distances()
         self.eval_dh()
         self.eval_co_angles()
-        return
 
     def _get_bp(self, resindex: int) -> Tuple[Tuple[int, int], BasePair]:
         h, p, is_scaf = self.link.DidDhps[self.link.FidDid[resindex]]
@@ -110,8 +111,6 @@ class BDna(object):
                     bp_geom = self._get_bp_geometry(bp=bp, n_bp=n_bp)
                     for resindex in [bp.sc.resindex, bp.st.resindex]:
                         self.bp_geometry[resindex] = bp_geom
-
-        return
 
     def _get_bp_quality(self, bp: BasePair) -> Dict[str, Any]:
         quality = dict()
@@ -217,10 +216,8 @@ class BDna(object):
             -------
                 self.dh_quality
         """
-        self.dh_quality = {}
         for res in self.u.residues:
             self.dh_quality[res.resindex] = self._get_dihedrals(res)
-        return
 
     # TODO: improve
     def _get_dihedrals(self, res: "mda.residue") -> Dict[str, float]:
@@ -230,7 +227,7 @@ class BDna(object):
                                        ]:
             iniSeg, terSeg, ter5 = False, False, False
 
-            atoms = {}
+            atoms = dict()
             try:
                 P = res.atoms.select_atoms("name P")[0]
                 atoms["P"] = P.position
@@ -325,7 +322,7 @@ class BDna(object):
     def eval_distances(self) -> None:
         """ Affects
             -------
-                distances
+                self.distances
         """
         for bp in self.bps.values():
             if bp.sc is not None:
@@ -338,7 +335,6 @@ class BDna(object):
                     self.distances[bp.sc.resindex][atom] = sc_dist
                 if bp.st is not None:
                     self.distances[bp.st.resindex][atom] = st_dist
-        return
 
     def _get_distance(self, bp: BasePair, name: str
                       ) -> Tuple[Dict[str, float], Dict[str, float]]:
@@ -388,7 +384,7 @@ class BDna(object):
         """ Definition: Bai, X. (2012).  doi: 10.1073/pnas.1215713109
             Affects
             -------
-                co_angles
+                self.co_angles
         """
         def get_co_angles(co: Crossover, typ="C6C8"):
             def P_from_p(p: BasePair, typ: str) -> "np.ndarray":
@@ -449,4 +445,3 @@ class BDna(object):
                 "is_scaffold": co.is_scaf,
                 "angles": co_data["angles"],
                 "center-co": co_data["center-co"]}
-        return

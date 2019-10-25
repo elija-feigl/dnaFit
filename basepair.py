@@ -42,7 +42,6 @@ class BasePair(object):
                          if self.st is not None else None)
         self.plane = (self._get_bp_plane(sc=self.sc_plane, st=self.st_plane)
                       if self.is_ds else None)
-        return
 
     def _get_base_plane(self, res: "mda.Residue") -> BasePlane:
         P = dict()

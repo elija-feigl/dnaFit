@@ -7,7 +7,7 @@ import nanodesign as nd
 from operator import attrgetter
 from typing import List, Tuple
 
-from project import ProjectLink as Project
+from project import Project
 
 
 @attr.s
