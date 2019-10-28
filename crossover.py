@@ -3,9 +3,13 @@ import attr
 
 from typing import Tuple, List, Optional
 
+import MDAnalysis as mda
+
+from basepair import BasePair
+
 
 @attr.s
-class Crossover(object):
+class CrossoverPicklable(object):
     Ps: List[Optional[Tuple[Optional[int], Optional[int]]]] = attr.ib()
     Ls: List[Optional[Tuple[Optional[int], Optional[int]]]] = attr.ib()
     P_pos: List[Optional[Tuple[Optional[int], Optional[int]]]] = attr.ib()
@@ -13,8 +17,46 @@ class Crossover(object):
     typ: str = attr.ib()
     is_scaf: bool = attr.ib()
 
-    def transform2bp(self, bps: dict):
-        self.Ps, self.Ls = list(), list()
-        for hp, hp_ in zip(self.P_pos, self.L_pos):
-            self.Ps.append(bps.get(hp, None))
-            self.Ls.append(bps.get(hp_, None))
+    def transform(self, u: "mda.universe"):
+        Ps, Ls = list(), list()
+        for Xs, hp, Xs_new, in [(self.Ps, self.P_pos, Ps),
+                                (self.Ls, self.L_pos, Ls)]:
+            for P in Xs:
+                sc_index, st_index = P
+                sc = None if sc_index is None else u.residues[sc_index]
+                st = None if st_index is None else u.residues[st_index]
+                Xs_new.append(BasePair(sc=sc, st=st, hp=hp))
+        return Crossover(Ps=Ps,
+                         Ls=Ls,
+                         typ=self.typ,
+                         is_scaf=self.is_scaf,
+                         )
+
+
+@attr.s
+class Crossover(object):
+    Ps: List[Optional[BasePair]] = attr.ib()
+    Ls: List[Optional[BasePair]] = attr.ib()
+    typ: str = attr.ib()
+    is_scaf: bool = attr.ib()
+
+    def transform2picklable(self):
+        Ps, Ls, P_pos, L_pos = list(), list(), list(), list()
+        for Xs, Xs_new, X_pos in [(self.Ps, Ps, P_pos), (self.Ls, Ls, L_pos)]:
+            for P in Xs:
+                if P is None:
+                    Xs_new.append(None)
+                    X_pos.append(None)
+                else:
+                    sc_index = P.sc.resindex if P.sc is not None else None
+                    st_index = P.st.resindex if P.st is not None else None
+                    Xs_new.append((sc_index, st_index))
+                    X_pos.append(P.hp)
+
+        return CrossoverPicklable(Ps=Ps,
+                                  Ls=Ls,
+                                  P_pos=P_pos,
+                                  L_pos=L_pos,
+                                  typ=self.typ,
+                                  is_scaf=self.is_scaf,
+                                  )

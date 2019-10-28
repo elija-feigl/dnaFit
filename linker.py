@@ -1,5 +1,4 @@
 #!/usr/bin/env python3#
-import pickle
 import attr
 import nanodesign as nd
 
@@ -9,39 +8,8 @@ from project import Project
 from fit import Fit
 from design import Design
 from crossover import Crossover
-
-
-@attr.s(auto_attribs=True)
-class Linkage(object):
-    Fbp: Dict[int, int] = {}
-    DidFid: Dict[int, int] = {}
-    DhpsDid: Dict[Tuple[int, int, bool], int] = {}
-    Dcolor: Dict[int, int] = {}
-    Dskips: Set[Tuple[int, int]] = set()
-    Fnicks: Dict[int, int] = {}
-    FidSeq: Dict[int, str] = {}
-    Fco: Dict[str, Crossover] = {}
-    universe: Tuple[str, str] = ("", "")
-
-    def dump_linkage(self, project: Project) -> None:
-        for name, link in vars(self).items():
-            output = project.output / "{}__{}.p".format(project.name, name)
-            pickle.dump(link, open(output, "wb"))
-
-    def load_linkage(self, project: Project) -> None:
-        for name in vars(self):
-            input = project.output / "{}__{}.p".format(project.name, name)
-            value = pickle.load(open(input, "rb"))
-            setattr(self, name, value)
-
-    def reverse(self) -> None:
-        def reverse_d(dict: dict) -> dict:
-            return {v: k for k, v in iter(dict.items())}
-
-        self.FidDid = reverse_d(self.DidFid)
-        self.DidDhps = reverse_d(self.DhpsDid)
-        self.Fbp_rev = reverse_d(self.Fbp)
-        self.Fbp_full = {**self.Fbp, **self.Fbp_rev}
+from linkage import Linkage
+from basepair import BasePair
 
 
 @attr.s
@@ -50,6 +18,7 @@ class Linker(object):
     """
     # TODO: move categorize to linker?
     project: Project = attr.ib()
+
     Fbp: Dict[int, int] = dict()
     DidFid: Dict[int, int] = dict()
     DhpsDid: Dict[Tuple[int, int, bool], int] = dict()
@@ -61,8 +30,6 @@ class Linker(object):
     def __attrs_post_init__(self) -> None:
         self.fit: Fit = Fit(self.project)
         self.design: Design = Design(self.project)
-        self.Dskips = self._eval_skips()
-        self.FidSeq = self._eval_sequence()
 
     def _eval_sequence(self) -> Dict[int, str]:
         FidSeq = {res.resindex: res.resname[0]
@@ -87,23 +54,23 @@ class Linker(object):
             updates linker attributes corresponding to the respective mapping
             and returns them.
         """
-
+        self.Dskips = self._eval_skips()
+        self.FidSeq = self._eval_sequence()
         self._link()
         self._identify_bp()
         self._identify_crossover()
         self._identify_nicks()
-        universe = self._get_universe_tuple()
-
-        return Linkage(Fbp=self.Fbp,
-                       DidFid=self.DidFid,
-                       DhpsDid=self.DhpsDid,
-                       Dcolor=self.Dcolor,
-                       Dskips=self.Dskips,
-                       Fco=self.Fco,
-                       Fnicks=self.Fnicks,
-                       FidSeq=self.FidSeq,
-                       universe=universe,
-                       )
+        self.link = Linkage(Fbp=self.Fbp,
+                            DidFid=self.DidFid,
+                            DhpsDid=self.DhpsDid,
+                            Dcolor=self.Dcolor,
+                            Dskips=self.Dskips,
+                            Fco=self.Fco,
+                            Fnicks=self.Fnicks,
+                            FidSeq=self.FidSeq,
+                            u=self.fit.u,
+                            )
+        return self.link
 
     def _link(self) -> Tuple[Dict[int, int],
                              Dict[Tuple[int, int, bool], int],
@@ -240,8 +207,7 @@ class Linker(object):
 
         return self.design.Dhps_base.get((helix, n_position, is_scaf), None)
 
-    def _get_bp_indices(self, base: "nd.residue"
-                        ) -> [Tuple[int, Optional[int]]]:
+    def _get_bp(self, base: "nd.residue") -> Optional[BasePair]:
         if base is None:
             return None
         else:
@@ -250,16 +216,11 @@ class Linker(object):
             wcindex = Fbp_all.get(resindex, None)
             sc_index = resindex if base.is_scaf else wcindex
             st_index = wcindex if base.is_scaf else resindex
-            bp_resindices = (sc_index, st_index)
-            return bp_resindices
 
-    def _get_bp_pos(self, base: Optional["nd.residue"]
-                    ) -> Optional[Tuple[int, int]]:
-        if base is None:
-            return None
-        else:
-            pos = (base.h, base.p)
-            return pos
+            sc = None if sc_index is None else self.fit.u.residues[sc_index]
+            st = None if st_index is None else self.fit.u.residues[st_index]
+            hp = (base.h, base.p)
+            return BasePair(sc=sc, st=st, hp=hp)
 
     def _identify_crossover(self) -> None:
         """ Affects
@@ -295,21 +256,19 @@ class Linker(object):
             bC_ = get_co_leg(base=bC, direct=(-1 * direct))
             bD_ = get_co_leg(base=bD, direct=direct)
 
-            Ps, Ls, P_pos, L_pos = [], [], [], []
+            Ps, Ls = list(), list()
+            co_pos = list()
             for bP, bL in zip([bA, bB, bC, bD], [bA_, bB_, bC_, bD_]):
-                Ps.append(self._get_bp_indices(base=bP))
-                P_pos.append(self._get_bp_pos(base=bP))
-                Ls.append(self._get_bp_indices(base=bL))
-                L_pos.append(self._get_bp_pos(base=bL))
-
+                Ps.append(self._get_bp(base=bP))
+                if bP is not None:
+                    co_pos.append((bP.h, bP.p))
+                Ls.append(self._get_bp(base=bL))
             co = Crossover(Ps=Ps,
                            Ls=Ls,
-                           P_pos=P_pos,
-                           L_pos=L_pos,
                            typ=typ,
                            is_scaf=bA.is_scaf,
                            )
-            key = str(sorted(filter(None, co.P_pos)))
+            key = str(sorted(co_pos))
             return key, co
 
         co_subparts = set()
@@ -367,9 +326,3 @@ class Linker(object):
                        for candi in end_bases
                        if is_nick(candidate=candi, base=start)
                        }
-
-    def _get_universe_tuple(self) -> Tuple[str, str]:
-        infile = self.project.input / self.project.name
-        top = infile.with_suffix(".psf")
-        trj = infile.with_suffix(".dcd")
-        return (str(top), str(trj))

@@ -117,15 +117,14 @@ def main():
 
     print("link_fit", project.name)
     linker = Linker(project)
-    linkage = linker.create_linkage()
-    linkage.dump_linkage(project)
+    link = linker.create_linkage()
+    link.dump_linkage(project)
 
-    u = mda.Universe(*linkage.universe)
     if project.frames == 1:
         frames = [-1]
     else:
-        frames_step = int(len(u.trajectory) / project.frames)
-        frames = list((range(len(u.trajectory) - 1), 0, -frames_step))
+        frames_step = int(len(link.u.trajectory) / project.frames)
+        frames = list((range(len(link.u.trajectory) - 1), 0, -frames_step))
 
     properties = []
     traj_out = project.output / "frames"
@@ -142,9 +141,9 @@ def main():
         PDBs[name] = mda.Writer(pdb_name, multiframe=True)
 
     # loop over selected frames
-    for i, ts in enumerate([u.trajectory[i] for i in frames]):
+    for i, ts in enumerate([link.u.trajectory[i] for i in frames]):
         print(ts)
-        bDNA = BDna(u, linkage)
+        bDNA = BDna(link)
 
         # perform analyis
         print("eval_fit", project.name)
@@ -161,7 +160,7 @@ def main():
                                                                )
             pickle.dump((ts, prop), open(pickle_name, "wb"))
         print("write pdbs", project.name)
-        write_pdb(u, bDNA, PDBs)
+        write_pdb(link.u, bDNA, PDBs)
 
     # close PDB files
     for _, PDB in PDBs.items():

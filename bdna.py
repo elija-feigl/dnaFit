@@ -20,12 +20,12 @@ from utils import (C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, BB_ATOMS,
 
 @attr.s
 class BDna(object):
-    u: "mda.universe" = attr.ib()
     link: Linkage = attr.ib()
 
     def __attrs_post_init__(self) -> None:
         self.link.reverse()
         self.bps: Dict[Tuple[int, int], BasePair] = self._get_pot_bp()
+        self.link.relink_crossover_basepairs(self.bps)
         self.bp_quality: Dict[int, Any] = {}
         self.bp_geometry: Dict[int, Any] = {}
         self.dh_quality: Dict[int, Any] = {}
@@ -43,9 +43,9 @@ class BDna(object):
 
     def _get_bp(self, resindex: int) -> Tuple[Tuple[int, int], BasePair]:
         h, p, is_scaf = self.link.DidDhps[self.link.FidDid[resindex]]
-        res = self.u.residues[resindex]
+        res = self.link.u.residues[resindex]
         wcindex = self.link.Fbp_full.get(resindex, None)
-        wc = None if wcindex is None else self.u.residues[wcindex]
+        wc = None if wcindex is None else self.link.u.residues[wcindex]
 
         if is_scaf:
             sc, st = res, wc
@@ -58,7 +58,7 @@ class BDna(object):
     def _get_pot_bp(self) -> Dict[Tuple[int, int], BasePair]:
         bps = dict()
         done: Set[int] = set()
-        for resindex in self.u.residues.resindices:
+        for resindex in self.link.u.residues.resindices:
             if resindex in done:
                 continue
             pos, bp = self._get_bp(resindex)
@@ -216,7 +216,7 @@ class BDna(object):
             -------
                 self.dh_quality
         """
-        for res in self.u.residues:
+        for res in self.link.u.residues:
             self.dh_quality[res.resindex] = self._get_dihedrals(res)
 
     # TODO: improve
@@ -246,7 +246,7 @@ class BDna(object):
                 atoms[y] = res.atoms.select_atoms(atom_name)[0].position
 
             try:
-                n_res = self.u.residues[res.resindex + 1]
+                n_res = self.link.u.residues[res.resindex + 1]
                 if res.segindex == n_res.segindex:
                     n_P = n_res.atoms.select_atoms("name P")[0]
                     n_O5p = n_res.atoms.select_atoms("name O5'")[0]
@@ -258,7 +258,7 @@ class BDna(object):
                 terSeg = True
 
             try:
-                p_res = self.u.residues[res.resindex - 1]
+                p_res = self.link.u.residues[res.resindex - 1]
                 if res.segindex == p_res.segindex:
                     p_O3p = p_res.atoms.select_atoms("name O3'")[0]
                     atoms["O3' -"] = p_O3p.position
@@ -437,7 +437,6 @@ class BDna(object):
                     }
 
         for key, co in self.link.Fco.items():
-            co.transform2bp(self.bps)
             co_data = get_co_angles(co=co)
 
             self.co_angles[key] = {
