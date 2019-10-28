@@ -397,6 +397,15 @@ class BDna(object):
                 else:
                     return p.st_plane.P[typ]
 
+            resindices = list()
+            for P in co.Ps:
+                if P is None:
+                    continue
+                elif P.sc is not None:
+                    resindices.append(P.sc.resindex)
+                elif P.st is not None:
+                    resindices.append(P.st.resindex)
+
             X = [P_from_p(p, typ) for p in co.Ps]
             X_ = [P_from_p(l, typ) for l in co.Ls]
 
@@ -434,6 +443,7 @@ class BDna(object):
                                "co_alpha2": alpha2},
                     "center-co": center,
                     "plane": n0,
+                    "resindices": resindices
                     }
 
         for key, co in self.link.Fco.items():
@@ -443,4 +453,6 @@ class BDna(object):
                 "co": key, "type": co.typ,
                 "is_scaffold": co.is_scaf,
                 "angles": co_data["angles"],
-                "center-co": co_data["center-co"]}
+                "center-co": co_data["center-co"],
+                "resindices": co_data["resindices"],
+                }
