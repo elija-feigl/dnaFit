@@ -15,6 +15,7 @@ from project import Project
 from utils import WC_PROPERTIES, DH_ATOMS
 from bdna import BDna
 from linker import Linker
+from linkage import Linkage
 
 
 @contextlib.contextmanager
@@ -115,10 +116,15 @@ def proc_input():
 def main():
     project = proc_input()
 
-    print("link_fit", project.name)
-    linker = Linker(project)
-    link = linker.create_linkage()
-    link.dump_linkage(project)
+    try:
+        link = Linkage()
+        link.load_linkage(project=project)
+        print("found linkage for {}".format(project.name))
+    except FileNotFoundError:
+        print("link_fit {}".format(project.name))
+        linker = Linker(project)
+        link = linker.create_linkage()
+        link.dump_linkage(project)
 
     if project.frames == 1:
         frames = [-1]
@@ -143,11 +149,12 @@ def main():
     # loop over selected frames
     for i, ts in enumerate([link.u.trajectory[i] for i in frames]):
         print(ts)
-        bDNA = BDna(link)
 
         # perform analyis
         print("eval_fit", project.name)
+        bDNA = BDna(link)
         bDNA.sample()
+        import ipdb; ipdb.set_trace()
         properties.append(bDNA)
         props_tuple = [
             (bDNA.bp_geometry, "bp_geometry"), (bDNA.bp_quality, "bp_quality"),

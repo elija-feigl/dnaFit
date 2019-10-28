@@ -21,11 +21,15 @@ class CrossoverPicklable(object):
         Ps, Ls = list(), list()
         for Xs, hp, Xs_new, in [(self.Ps, self.P_pos, Ps),
                                 (self.Ls, self.L_pos, Ls)]:
-            for P in Xs:
-                sc_index, st_index = P
+
+            for idx, P in enumerate(Xs):
+                sc_index, st_index = P if P is not None else (None, None)
                 sc = None if sc_index is None else u.residues[sc_index]
                 st = None if st_index is None else u.residues[st_index]
-                Xs_new.append(BasePair(sc=sc, st=st, hp=hp))
+                if sc is None and st is None:
+                    Xs_new.append(None)
+                else:
+                    Xs_new.append(BasePair(sc=sc, st=st, hp=hp[idx]))
         return Crossover(Ps=Ps,
                          Ls=Ls,
                          typ=self.typ,
