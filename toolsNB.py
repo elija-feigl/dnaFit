@@ -4,10 +4,14 @@ import os
 
 import pandas as pd
 import pickle
+from pathlib import Path
 
 from statistics import mean
 
 import ipywidgets as widgets
+
+from ..a_all.linkage import Linkage
+from ..a_all.project import Project
 
 # TODO: -low get dynamically from dicts
 DICTS = ["Fbp", "DidFid", "DhpsDid", "Fco", "Fnicks",
@@ -26,30 +30,22 @@ class DataPrep(object):
     def __init__(self, path, name, plus=3):
         self.name = name
         self.path = path
-        self.topo = self._topology()
+        self.link = self._load_linkage()
         self.categories = self._categorise(plus)
         self.columns = ["categories", "position"]
 
         self.df = None
         self.df_co = None
 
-    def _topology(self):
-        topo = {}
-        for pickle_name in DICTS:
-            try:
-                file_name = "{}{}__{}.p".format(self.path,
-                                                self.name,
-                                                pickle_name
-                                                )
-                topo[pickle_name] = pickle.load(open(file_name, "rb"))
-            except FileNotFoundError:
-                print("pickle {} missing".format(file_name))
-                pass
-        self.inv_dict_idid = {v: k for k, v in topo["DidFid"].items()}
-        self.inv_dict_hpid = {v: k for k, v in topo["DhpsDid"].items()}
-        self.inv_dict_bp = {v: k for k, v in topo["Fbp"].items()}
-
-        return topo
+    def _load_linkage(self):
+        project = Project(input=Path("./"),
+                          output=Path("./") / "analysis",
+                          name=self.name,
+                          )
+        link = Linkage()
+        link.load_linkage(project=project)
+        link.reverse()
+        return link
 
     def _traj_frame(self, frame):
         traj_path = self.path + "frames/"
@@ -75,20 +71,20 @@ class DataPrep(object):
         id_seq = {}
         for X in ["A", "T", "G", "C"]:
             id_seq[X] = set(resindex for resindex, Y in
-                            self.topo["FidSeq"].items() if Y == X)
+                            self.link.FidSeq.items() if Y == X)
         id_ds = set()
 
-        for wc_id1, wc_id2 in self.topo["Fbp"].items():
+        for wc_id1, wc_id2 in self.link.Fbp.items():
             id_ds.add(wc_id1)
             id_ds.add(wc_id2)
-        id_ss = set(self.topo["DidFid"].values()) - id_ds
+        id_ss = set(self.link.DidFid.values()) - id_ds
 
         id_co_bp = set()
-        id_co = {id_fit for id_fit in self.topo["Fco"].keys()
+        id_co = {id_fit for id_fit in self.link.Fco.keys()
                  if id_fit not in id_ss}
         for resindex in id_co:
             try:
-                id_co_bp.add(self.topo["Fbp"][resindex])
+                id_co_bp.add(self.link.Fbp[resindex])
             except KeyError:
                 id_co_bp.add(self.inv_dict_bp[resindex])
 
@@ -103,8 +99,8 @@ class DataPrep(object):
 
         id_all = id_ss | id_ds
         id_clean = id_all - (id_co | id_co_plus | id_ss)
-        id_nick = (list(self.topo["Fnicks"].values()) +
-                   list(self.topo["Fnicks"].keys()))
+        id_nick = (list(self.link.Fnicks.values()) +
+                   list(self.link.Fnicks.keys()))
 
         return {"co": id_co, "co_plus": id_co_plus, "ss": id_ss, "ds": id_ds,
                 "all": id_all, "clean": id_clean, "nick": id_nick,
@@ -125,7 +121,7 @@ class DataPrep(object):
 
             if "sequence" not in self.columns:
                 self.columns.append("sequence")
-            id_prop_dict[resindex].append(self.topo["FidSeq"][resindex])
+            id_prop_dict[resindex].append(self.link.FidSeq[resindex])
 
             if "strand" not in self.columns:
                 self.columns.append("strand")
@@ -213,7 +209,7 @@ class DataPrep(object):
             id_co_dict[co_id] = [[co_type, strand_type]]
 
             co_resids = data["co_angles"][co_id]['ids(abcd)']
-            
+
             if data["localres"] is not None:
                 locres = 0.
                 for resid in co_resids:
