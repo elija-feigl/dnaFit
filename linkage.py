@@ -24,9 +24,9 @@ class Linkage(object):
 
     def dump_linkage(self, project: Project) -> None:
         def pickle_universe(u: "mda.universe") -> Tuple[str, str]:
-            top = u.filename
-            suffix = top.split(".")[-1]
-            trj = top[:-len(suffix)] + "dcd"
+            top = project.input / u.filename
+            suffix = u.filename.split(".")[-1]
+            trj = project.input / "{}dcd".format(u.filename[:-len(suffix)])
             return (top, trj)
 
         def pickle_Fco(Fco: Dict[str, Crossover]
