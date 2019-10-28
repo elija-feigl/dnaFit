@@ -27,7 +27,7 @@ class Linkage(object):
             top = project.input / u.filename
             suffix = u.filename.split(".")[-1]
             trj = project.input / "{}dcd".format(u.filename[:-len(suffix)])
-            return (top, trj)
+            return (str(top.absolute()), str(trj.absolute()))
 
         def pickle_Fco(Fco: Dict[str, Crossover]
                        ) -> Dict[str, CrossoverPicklable]:
