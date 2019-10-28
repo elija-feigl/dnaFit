@@ -10,8 +10,8 @@ from statistics import mean
 
 import ipywidgets as widgets
 
-from ..a_all.linkage import Linkage
-from ..a_all.project import Project
+from linkage import Linkage
+from project import Project
 
 # TODO: -low get dynamically from dicts
 DICTS = ["Fbp", "DidFid", "DhpsDid", "Fco", "Fnicks",
