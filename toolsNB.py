@@ -3,6 +3,7 @@ import sys
 import os
 
 import pandas as pd
+import numpy as np
 import pickle
 from pathlib import Path
 
@@ -14,14 +15,11 @@ from linkage import Linkage
 from project import Project
 
 # TODO: -low get dynamically from dicts
-DICTS = ["Fbp", "DidFid", "DhpsDid", "Fco", "Fnicks",
-         "Dskips", "FidSeq", "localres"]
 CATEGORIES = ["co", "co_plus", "ss", "ds", "clean", "nick"]
 CO_CATEGORIES = ["single", "double", "end", "all"]
-PROP_TYPE = ["wc_geometry", "wc_quality",
+PROP_TYPE = ["bp_geometry", "bp_quality",
              "dh_quality", "distances", "localres"]
 WCGEOMETRY = ["twist", "rise", "tilt", "roll", "shift", "slide"]
-DIST = ["C1'", "P"]
 DIHEDRALS = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "xi"]
 COANGLES = ["co_alpha1", "co_alpha2", "co_gamma1", "co_gamma2", "co_beta"]
 
@@ -38,31 +36,32 @@ class DataPrep(object):
         self.df_co = None
 
     def _load_linkage(self):
-        project = Project(input=Path("./"),
-                          output=Path("./") / "analysis",
-                          name=self.name,
-                          )
+        self.project = Project(input=Path(self.path),
+                               output=Path(self.path) / "analysis",
+                               name=self.name,
+                               )
         link = Linkage()
-        link.load_linkage(project=project)
+        link.load_linkage(project=self.project)
         link.reverse()
         return link
 
     def _traj_frame(self, frame):
-        traj_path = self.path + "frames/"
+        traj_path = self.project.output / "frames/"
         data = {}
         for pickle_name in PROP_TYPE + ["co_angles"]:
             if pickle_name == "localres":
-                nnn = "{}{}__{}.p".format(self.path, self.name, pickle_name)
+                nnn = "{}/{}__{}.p".format(self.project.output, self.name, pickle_name)
                 try:
                     prop = pickle.load(open(nnn, "rb"))
                 except FileNotFoundError:
+                    print("flie {} not found".format(nnn))
                     prop = None
             else:
-                nnn = "{}{}__bDNA-{}-{}.p".format(traj_path,
-                                                  self.name,
-                                                  pickle_name,
-                                                  frame
-                                                  )
+                nnn = "{}/{}__bDNA-{}-{}.p".format(traj_path,
+                                                   self.name,
+                                                   pickle_name,
+                                                   frame
+                                                   )
                 ts, prop = pickle.load(open(nnn, "rb"))
             data[pickle_name] = prop
         return data, ts
@@ -79,16 +78,16 @@ class DataPrep(object):
             id_ds.add(wc_id2)
         id_ss = set(self.link.DidFid.values()) - id_ds
 
-        id_co_bp = set()
-        id_co = {id_fit for id_fit in self.link.Fco.keys()
-                 if id_fit not in id_ss}
-        for resindex in id_co:
-            try:
-                id_co_bp.add(self.link.Fbp[resindex])
-            except KeyError:
-                id_co_bp.add(self.inv_dict_bp[resindex])
+        id_co = set()
+        for co in self.link.Fco.values():
+            for P in co.Ps:
+                if P is None:
+                    continue
+                if P.sc is not None:
+                    id_co.add(P.sc.resindex)
+                if P.st is not None:
+                    id_co.add(P.st.resindex)
 
-        id_co = id_co | id_co_bp
         id_ds = id_ds - id_co
 
         id_co_plus = set()
@@ -112,7 +111,7 @@ class DataPrep(object):
         max_res = max(self.categories["all"])
         id_prop_dict = {}
         for resindex in range(0, max_res + 1):
-            position = self.inv_dict_hpid[self.inv_dict_idid[resindex]]
+            position = self.link.DidDhps[self.link.FidDid[resindex]]
             categories = [
                 cat for cat in CATEGORIES if resindex in self.categories[cat]]
             strand_type = "scaffold" if position[2] else "staple"
@@ -140,11 +139,11 @@ class DataPrep(object):
             id_prop_dict[resindex].append(motif)
 
             for prop in PROP_TYPE:
-                if prop == "wc_quality":
+                if prop == "bp_quality":
                     try:  # not all are basepaired
                         bp_qual = mean(data[prop][resindex].values())
                     except KeyError:
-                        bp_qual = None
+                        bp_qual = np.nan
                     id_prop_dict[resindex].append(bp_qual)
                     if prop not in self.columns:
                         self.columns.append(prop)
@@ -154,34 +153,21 @@ class DataPrep(object):
                         id_prop_dict[resindex].append(angle)
                         if ("dh-" + dh) not in self.columns:
                             self.columns.append("dh-" + dh)
-                elif prop == "wc_geometry":
+                elif prop == "bp_geometry":
                     for geom in WCGEOMETRY:
                         try:
                             cent_ank = data[prop][resindex][geom]
                         except KeyError:
-                            cent_ank = {"C1p": None,
-                                        "diazine": None, "C6C8": None}
+                            cent_ank = {"C1'": np.nan,
+                                        "diazine": np.nan, "C6C8": np.nan}
                         for loc, value in cent_ank.items():
                             id_prop_dict[resindex].append(value)
                             if (geom + "-" + loc) not in self.columns:
                                 self.columns.append(geom + "-" + loc)
                 elif prop == "distances":
-                    for atom in DIST:
+                    for atom in ["C1'", "P"]:
                         dist_dicts = data[prop][resindex][atom]
-                        for loc, dist_list in dist_dicts.items():
-                            idx_self = int(len(dist_list) * 0.5)
-                            if loc == "strand":
-                                if (dist_list[idx_self + 1] is not None and
-                                        dist_list[idx_self - 1] is not None):
-                                    dist = 0.5 * (dist_list[idx_self - 1] +
-                                                  dist_list[idx_self + 1])
-                                elif dist_list[idx_self + 1] is not None:
-                                    dist = dist_list[idx_self + 1]
-                                else:
-                                    dist = dist_list[idx_self - 1]
-                            else:
-                                dist = dist_list[idx_self]
-
+                        for loc, dist in dist_dicts.items():
                             id_prop_dict[resindex].append(dist)
                             if (atom + "-" + loc) not in self.columns:
                                 self.columns.append(atom + "-" + loc)
@@ -189,16 +175,15 @@ class DataPrep(object):
                     try:  # not all are basepaired
                         localres = data[prop][resindex]
                     except KeyError:
-                        localres = None
+                        localres = np.nan
                     id_prop_dict[resindex].append(localres)
                     if prop not in self.columns:
                         self.columns.append(prop)
         self.df = pd.DataFrame.from_dict(
             id_prop_dict, orient='index', columns=self.columns)
 
-        max_co = max(data["co_angles"].keys())
         id_co_dict = {}
-        for co_id in range(1, max_co + 1):
+        for co_id in self.link.Fco.keys():
             try:
                 co_type = data["co_angles"][co_id]["type"]
             except KeyError:
@@ -208,8 +193,7 @@ class DataPrep(object):
                            else "staple")
             id_co_dict[co_id] = [[co_type, strand_type]]
 
-            co_resids = data["co_angles"][co_id]['ids(abcd)']
-
+            co_resids = data["co_angles"][co_id]["resindices"]
             if data["localres"] is not None:
                 locres = 0.
                 for resid in co_resids:
@@ -223,6 +207,7 @@ class DataPrep(object):
                 except KeyError:
                     angle = None
                 id_co_dict[co_id].append(angle)
+
         if data["localres"] is not None:
             self.df_co = pd.DataFrame.from_dict(
                 id_co_dict, orient='index',
