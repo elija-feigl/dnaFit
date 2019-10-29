@@ -120,7 +120,7 @@ def main():
         link = Linkage()
         link.load_linkage(project=project)
         print("found linkage for {}".format(project.name))
-    except FileNotFoundError:
+    except:
         print("link_fit {}".format(project.name))
         linker = Linker(project)
         link = linker.create_linkage()
@@ -154,7 +154,7 @@ def main():
         print("eval_fit", project.name)
         bDNA = BDna(link)
         bDNA.sample()
-        import ipdb; ipdb.set_trace()
+        
         properties.append(bDNA)
         props_tuple = [
             (bDNA.bp_geometry, "bp_geometry"), (bDNA.bp_quality, "bp_quality"),
@@ -166,6 +166,7 @@ def main():
                                                                i,
                                                                )
             pickle.dump((ts, prop), open(pickle_name, "wb"))
+        import ipdb; ipdb.set_trace()
         print("write pdbs", project.name)
         write_pdb(link.u, bDNA, PDBs)
 
