@@ -2,7 +2,7 @@
 import attr
 import nanodesign as nd
 
-from typing import Set, Dict, Tuple, Optional
+from typing import Set, Dict, Tuple, Optional, List
 
 from project import Project
 from fit import Fit
@@ -36,10 +36,10 @@ class Linker(object):
             -------
                 self.FidSeq
         """
-        self.FidSeq = dict()
+        self.FidSeq: Dict[int, str] = dict()
         for base in self.design.allbases_clean:
             sequence = ""
-            for stp in range(steps):
+            for stp in range(steps + 1):
                 neighbor = self._get_n_strand(base, "down", steps=stp)
                 if neighbor is None:
                     sequence += "N"
@@ -50,6 +50,46 @@ class Linker(object):
                     sequence += self.fit.u.residues[n_resindex].resname[0]
             resindex = self.DidFid[base.id]
             self.FidSeq[resindex] = sequence
+
+    def _eval_FidHelixneighbors(self, steps=5) -> None:
+        """ Affects
+            -------
+                self.FidHN
+        """
+        def is_occupied_helix(H: Optional["nd.DnaStructureHelix"],
+                              p: int,
+                              ) -> bool:
+            if H is None:
+                return False
+            elif (H.id, p, True) in self.design.Dhps_base:
+                return True
+            elif (H.id, p, False) in self.design.Dhps_base:
+                return True
+            else:
+                return False
+
+        self.FidHN: Dict[int, List[int]] = dict()
+        for base in self.design.allbases_clean:
+            HidH = self.design.design.structure_helices_map
+            HrcH = self.design.design.structure_helices_coord_map
+            h_col = HidH[base.h].lattice_col
+            h_row = HidH[base.h].lattice_row
+
+            nhelices = list()
+            for stp in range(1, steps + 1):
+                number_nhelices = 0
+                for rc in [(h_row - stp, h_col),
+                           (h_row + stp, h_col),
+                           (h_row, h_col - stp),
+                           (h_row, h_col + stp)
+                           ]:
+                    n_H = HrcH.get(rc, None)
+                    is_nh_occupied = is_occupied_helix(H=n_H, p=base.p)
+                    if is_nh_occupied:
+                        number_nhelices += 1
+                nhelices.append(number_nhelices)
+            resindex = self.DidFid[base.id]
+            self.FidHN[resindex] = nhelices
 
     def _eval_skips(self) -> Set[Tuple[int, int]]:
         """ Affects
@@ -77,6 +117,7 @@ class Linker(object):
         self._identify_crossover()
         self._identify_nicks()
         self._eval_sequence()
+        self._eval_FidHelixneighbors()
         self.link = Linkage(Fbp=self.Fbp,
                             DidFid=self.DidFid,
                             DhpsDid=self.DhpsDid,
@@ -85,6 +126,7 @@ class Linker(object):
                             Fco=self.Fco,
                             Fnicks=self.Fnicks,
                             FidSeq=self.FidSeq,
+                            FidHN=self.FidHN,
                             u=self.fit.u,
                             )
         return self.link
