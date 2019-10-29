@@ -386,7 +386,7 @@ class BDna(object):
                 self.co_angles
         """
         def get_co_angles(co: Crossover, typ="C6C8"):
-            def P_from_p(p: BasePair, typ: str) -> "np.ndarray":
+            def P_from_p(p: Optional[BasePair], typ: str) -> "np.ndarray":
                 if p is None:
                     return np.zeros(3)
                 if p.plane is not None:
