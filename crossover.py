@@ -18,7 +18,8 @@ class CrossoverPicklable(object):
     is_scaf: bool = attr.ib()
 
     def transform(self, u: "mda.universe"):
-        Ps, Ls = list(), list()
+        Ps: List[Optional[BasePair]] = list()
+        Ls: List[Optional[BasePair]] = list()
         for Xs, hp, Xs_new, in [(self.Ps, self.P_pos, Ps),
                                 (self.Ls, self.L_pos, Ls)]:
 
@@ -45,7 +46,10 @@ class Crossover(object):
     is_scaf: bool = attr.ib()
 
     def transform2picklable(self):
-        Ps, Ls, P_pos, L_pos = list(), list(), list(), list()
+        Ps: List[Optional[Tuple[Optional[int], Optional[int]]]] = list()
+        Ls: List[Optional[Tuple[Optional[int], Optional[int]]]] = list()
+        P_pos: List[Optional[Tuple[Optional[int], Optional[int]]]] = list()
+        L_pos: List[Optional[Tuple[Optional[int], Optional[int]]]] = list()
         for Xs, Xs_new, X_pos in [(self.Ps, Ps, P_pos), (self.Ls, Ls, L_pos)]:
             for P in Xs:
                 if P is None:
