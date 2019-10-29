@@ -28,7 +28,7 @@ class Design(object):
 
     def _init_hps_base(self):
         hps_base = dict()
-        for base in self.allbases_clean:
+        for base in self.allbases:
             position = (base.h, base.p, base.is_scaf)
             hps_base[position] = base
         return hps_base
