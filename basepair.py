@@ -50,7 +50,11 @@ class BasePair(object):
             A = res.atoms.select_atoms("name " + atom_name)[0]
             atom.append(A.position)
 
-        n0 = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[1])))
+        n0 = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[0])))
+        if res.resname in ["CYT", "GUA"]:
+            # C2, C4, C6 ordered counterclockwise
+            n0 = -n0
+
         P["diazine"] = sum(atom) / 3.
 
         C6C8 = "C8" if res.resname in ["ADE", "GUA"] else "C6"
