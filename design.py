@@ -23,11 +23,12 @@ class Design(object):
         self.helixorder = self._create_helix_order()
         self.stapleorder = self._create_staple_order()
         self.allbases = [b for s in self.strands for b in s.tour]
+        self.allbases_clean = [b for b in self.allbases if not self._is_del(b)]
         self.Dhps_base: dict = self._init_hps_base()
 
     def _init_hps_base(self):
         hps_base = dict()
-        for base in self.allbases:
+        for base in self.allbases_clean:
             position = (base.h, base.p, base.is_scaf)
             hps_base[position] = base
         return hps_base
