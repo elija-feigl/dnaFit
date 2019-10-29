@@ -207,7 +207,6 @@ class BDna(object):
                     "twist": _get_twist(bp=bp, n_bp=n_bp),
                     "tilt": _get_tilt(bp=bp, n_bp=n_bp),
                     "roll": _get_roll(bp=bp, n_bp=n_bp),
-                    "next_seq": n_bp.sc.resname[0] + n_bp.st.resname[0]
                     }
         return geometry
 
@@ -449,10 +448,10 @@ class BDna(object):
         for key, co in self.link.Fco.items():
             co_data = get_co_angles(co=co)
 
-            self.co_angles[key] = {
-                "co": key, "type": co.typ,
-                "is_scaffold": co.is_scaf,
-                "angles": co_data["angles"],
-                "center-co": co_data["center-co"],
-                "resindices": co_data["resindices"],
-                }
+            self.co_angles[key] = {"co": key,
+                                   "type": co.typ,
+                                   "is_scaffold": co.is_scaf,
+                                   "angles": co_data["angles"],
+                                   "center-co": co_data["center-co"],
+                                   "resindices": co_data["resindices"],
+                                   }

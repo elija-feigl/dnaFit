@@ -31,18 +31,35 @@ class Linker(object):
         self.fit: Fit = Fit(self.project)
         self.design: Design = Design(self.project)
 
-    def _eval_sequence(self) -> Dict[int, str]:
-        FidSeq = {res.resindex: res.resname[0]
-                  for res in self.fit.u.residues
-                  }
-        return FidSeq
+    def _eval_sequence(self, steps=5) -> None:
+        """ Affects
+            -------
+                self.FidSeq
+        """
+        self.FidSeq = dict()
+        for base in self.design.allbases_clean:
+            sequence = ""
+            for stp in range(steps):
+                neighbor = self._get_n_strand(base, "down", steps=stp)
+                if neighbor is None:
+                    sequence += "N"
+                elif neighbor.h != base.h:
+                    sequence += "X"
+                else:
+                    n_resindex = self.DidFid[neighbor.id]
+                    sequence += self.fit.u.residues[n_resindex].resname[0]
+            resindex = self.DidFid[base.id]
+            self.FidSeq[resindex] = sequence
 
     def _eval_skips(self) -> Set[Tuple[int, int]]:
-        Dskips = set((base.h, base.p)
-                     for base in self.design.allbases
-                     if self._is_del(base)
-                     )
-        return Dskips
+        """ Affects
+            -------
+                self.Dskips
+        """
+        return set((base.h, base.p)
+                   for base in self.design.allbases
+                   if self._is_del(base)
+                   )
 
     def _is_del(self, base: "nd.base") -> bool:
         return base.num_deletions != 0
@@ -54,12 +71,12 @@ class Linker(object):
             updates linker attributes corresponding to the respective mapping
             and returns them.
         """
-        self.Dskips = self._eval_skips()
-        self.FidSeq = self._eval_sequence()
+        self._eval_skips()
         self._link()
         self._identify_bp()
         self._identify_crossover()
         self._identify_nicks()
+        self._eval_sequence()
         self.link = Linkage(Fbp=self.Fbp,
                             DidFid=self.DidFid,
                             DhpsDid=self.DhpsDid,
@@ -222,6 +239,13 @@ class Linker(object):
             hp = (base.h, base.p)
             return BasePair(sc=sc, st=st, hp=hp)
 
+    def is_co(self, base: "nd.base", neighbor: Optional["nd.base"]
+              ) -> bool:
+        if neighbor is None:
+            return False
+        else:
+            return neighbor.h != base.h
+
     def _identify_crossover(self) -> None:
         """ Affects
             -------
@@ -233,15 +257,6 @@ class Linker(object):
                 return None
             else:
                 return self._get_n_helix(base=base, direct=direct, steps=2)
-
-        def is_co(base: "nd.base", neighbor: Optional["nd.base"], direct: str
-                  ) -> bool:
-            if neighbor is None:
-                return False
-            else:
-                while self._is_del(neighbor):
-                    neighbor = self._get_n_strand(neighbor, direct)
-                return neighbor.h != base.h
 
         def get_co(bA: "nd.base",
                    bC: "nd.base",
@@ -272,12 +287,10 @@ class Linker(object):
             return key, co
 
         co_subparts = set()
-        for base in self.design.allbases:
-            if self._is_del(base):
-                continue
+        for base in self.design.allbases_clean:
             for direct in ["up", "down"]:
                 neighbor = self._get_n_strand(base, direct)
-                if is_co(base, neighbor, direct):
+                if self.is_co(base=base, neighbor=neighbor):
                     co_subparts.add(frozenset([base, neighbor]))
                     break
 
