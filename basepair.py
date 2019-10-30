@@ -36,14 +36,14 @@ class BasePair(object):
             self.is_ds = True
 
     def calculate_baseplanes(self):
-        self.sc_plane = (self._get_base_plane(self.sc)
+        self.sc_plane = (self._get_base_plane(res=self.sc, is_scaf=True)
                          if self.sc is not None else None)
-        self.st_plane = (self._get_base_plane(self.st)
+        self.st_plane = (self._get_base_plane(res=self.st, is_scaf=False)
                          if self.st is not None else None)
         self.plane = (self._get_bp_plane(sc=self.sc_plane, st=self.st_plane)
                       if self.is_ds else None)
 
-    def _get_base_plane(self, res: "mda.Residue") -> BasePlane:
+    def _get_base_plane(self, res: "mda.Residue", is_scaf: bool) -> BasePlane:
         P = dict()
         atom = []
         for atom_name in ["C2", "C4", "C6"]:
@@ -51,8 +51,9 @@ class BasePair(object):
             atom.append(A.position)
 
         n0 = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[0])))
-        if res.resname in ["CYT", "GUA"]:
-            # C2, C4, C6 ordered counterclockwise
+        if res.resname in ["ADE", "GUA"] and is_scaf:
+            n0 = -n0
+        elif res.resname in ["THY", "CYT"] and not is_scaf:
             n0 = -n0
 
         P["diazine"] = sum(atom) / 3.
@@ -69,6 +70,6 @@ class BasePair(object):
         n0 = (sc.n0 + st.n0) * 0.5
         for n in sc.P:
             P[n] = (sc.P[n] + st.P[n]) * 0.5
-            a[n] = sc.P[n] - st.P[n]
+            a[n] = st.P[n] - sc.P[n]
 
         return BasePairPlane(n0=n0, a=a, P=P)
