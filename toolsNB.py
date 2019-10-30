@@ -17,7 +17,7 @@ from project import Project
 # TODO: -low get dynamically from dicts
 CATEGORIES = ["co", "co_plus", "ss", "ds", "clean", "nick"]
 CO_CATEGORIES = ["single", "double", "end", "all"]
-PROP_TYPE = ["bp_geometry", "bp_quality",
+PROP_TYPE = ["bp_geometry_local", "bp_geometry_global", "bp_quality",
              "dh_quality", "distances", "localres"]
 WCGEOMETRY = ["twist", "rise", "tilt", "roll", "shift", "slide"]
 DIHEDRALS = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "xi"]
@@ -118,9 +118,20 @@ class DataPrep(object):
             categories.append(strand_type)
             id_prop_dict[resindex] = [tuple(categories), position]
 
+            sequence = self.link.FidSeq[resindex]
+            for i, _ in enumerate(sequence):
+                if "seq" + str(i) not in self.columns:
+                    self.columns.append("seq" + str(i))
+                id_prop_dict[resindex].append(sequence[:(i + 1)])
             if "sequence" not in self.columns:
                 self.columns.append("sequence")
-            id_prop_dict[resindex].append(self.link.FidSeq[resindex])
+            id_prop_dict[resindex].append(sequence)
+
+            num_HN = self.link.FidHN[resindex]
+            for i, _ in enumerate(num_HN):
+                if "num_HN" + str(i) not in self.columns:
+                    self.columns.append("num_HN" + str(i))
+                id_prop_dict[resindex].append(str(num_HN[i]))
 
             if "strand" not in self.columns:
                 self.columns.append("strand")
@@ -153,7 +164,7 @@ class DataPrep(object):
                         id_prop_dict[resindex].append(angle)
                         if ("dh-" + dh) not in self.columns:
                             self.columns.append("dh-" + dh)
-                elif prop == "bp_geometry":
+                elif prop in ["bp_geometry_local", "bp_geometry_global"]:
                     for geom in WCGEOMETRY:
                         try:
                             cent_ank = data[prop][resindex][geom]
