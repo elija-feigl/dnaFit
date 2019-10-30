@@ -10,6 +10,8 @@ from utils import _norm
 
 @attr.s(slots=True, frozen=True)
 class BasePairPlane(object):
+    """n0: plane-normal vector. always pointing in scaffold 5'->3' direction
+    """
     P: Dict[str, "np.ndarray"] = attr.ib()
     a: Dict[str, "np.ndarray"] = attr.ib()
     n0: "np.ndarray" = attr.ib()
@@ -17,6 +19,8 @@ class BasePairPlane(object):
 
 @attr.s(slots=True, frozen=True)
 class BasePlane(object):
+    """n0: plane-normal vector. always pointing in scaffold 5'->3' direction
+    """
     P: Dict[str, "np.ndarray"] = attr.ib()
     n0: "np.ndarray" = attr.ib()
 
