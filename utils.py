@@ -4,7 +4,7 @@ import numpy as np
 from typing import List
 
 C1P_BASEDIST: float = 10.7
-TOL: float = 10e6
+TOL: float = 10e-6
 WC_DICT: dict = {"DC": "DG", "DG": "DC", "DT": "DA", "DA": "DT",
                  "C": "G", "G": "C", "T": "A", "A": "T",
                  "CYT": "GUA", "GUA": "CYT", "THY": "ADE", "ADE": "THY"
