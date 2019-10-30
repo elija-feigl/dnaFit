@@ -26,9 +26,8 @@ class BDna(object):
         self.link.reverse()
         self.bps: Dict[Tuple[int, int], BasePair] = self._get_pot_bp()
         self.link.relink_crossover_basepairs(self.bps)
-        self.bp_quality_local: Dict[int, Any] = {}
+        self.bp_quality: Dict[int, Any] = {}
         self.bp_geometry_local: Dict[int, Any] = {}
-        self.bp_quality_global: Dict[int, Any] = {}
         self.bp_geometry_global: Dict[int, Any] = {}
         self.dh_quality: Dict[int, Any] = {}
         self.distances: Dict[int, Any] = {}
@@ -97,19 +96,18 @@ class BDna(object):
     def eval_bp(self) -> None:
         """ Affects
             -------
-                self.bp_quality_local
+                self.bp_quality
                 self.bp_geometry_local
-                self.bp_quality_global
                 self.bp_geometry_global
         """
-        # local: scaffold 5'->3'
         for bp in self.bps.values():
             if bp.sc is None or bp.st is None:
                 continue
             bp_qual = self._get_bp_quality(bp=bp)
             for resindex in [bp.sc.resindex, bp.st.resindex]:
-                self.bp_quality_local[resindex] = bp_qual
+                self.bp_quality[resindex] = bp_qual
 
+            # local: scaffold 5'->3'
             n_bp = self._get_n_bp(bp=bp, local=True)
             if n_bp is not None:
                 if n_bp.is_ds:
@@ -117,14 +115,7 @@ class BDna(object):
                     for resindex in [bp.sc.resindex, bp.st.resindex]:
                         self.bp_quality_local[resindex] = bp_geom
 
-        # global: even helix scaffold 5'->3', odd helix scaffold 3'->5'
-        for bp in self.bps.values():
-            if bp.sc is None or bp.st is None:
-                continue
-            bp_qual = self._get_bp_quality(bp=bp)
-            for resindex in [bp.sc.resindex, bp.st.resindex]:
-                self.bp_geometry_global[resindex] = bp_qual
-
+            # global: even helix scaffold 5'->3', odd helix scaffold 3'->5'
             n_bp = self._get_n_bp(bp=bp, local=False)
             if n_bp is not None:
                 if n_bp.is_ds:
