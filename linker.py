@@ -23,7 +23,8 @@ class Linker(object):
     DidFid: Dict[int, int] = dict()
     DhpsDid: Dict[Tuple[int, int, bool], int] = dict()
     Fnicks: Dict[int, int] = dict()
-    FidSeq: Dict[int, str] = dict()
+    FidSeq_local: Dict[int, str] = dict()
+    FidSeq_global: Dict[int, str] = dict()
     Dskips: Set[Tuple[int, int]] = set()
     Fco: Dict[str, Crossover] = dict()
 
@@ -34,13 +35,20 @@ class Linker(object):
     def _eval_sequence(self, steps=5) -> None:
         """ Affects
             -------
-                self.FidSeq
+                self.FidSeq_local
+                self.FidSeq_global
+
         """
         self.FidSeq: Dict[int, str] = dict()
         for base in self.design.allbases_clean:
+            # local: scaffold 5'->3'
             sequence = ""
-            for stp in range(-steps, steps + 1):
-                neighbor = self._get_n_strand(base, "down", steps=stp)
+            for stp in range(steps + 1):
+                neighbor = self._get_n_strand(base=base,
+                                              direct="down",
+                                              steps=stp,
+                                              local=True
+                                              )
                 if neighbor is None:
                     sequence += "N"
                 elif neighbor.h != base.h:
@@ -49,7 +57,25 @@ class Linker(object):
                     n_resindex = self.DidFid[neighbor.id]
                     sequence += self.fit.u.residues[n_resindex].resname[0]
             resindex = self.DidFid[base.id]
-            self.FidSeq[resindex] = sequence
+            self.FidSeq_local[resindex] = sequence
+
+            # global: even helix scaffold 5'->3', odd helix scaffold 3'->5'
+            sequence = ""
+            for stp in range(0, -(steps + 1), -1):
+                neighbor = self._get_n_strand(base=base,
+                                              direct="down",
+                                              steps=stp,
+                                              local=False
+                                              )
+                if neighbor is None:
+                    sequence += "N"
+                elif neighbor.h != base.h:
+                    sequence += "X"
+                else:
+                    n_resindex = self.DidFid[neighbor.id]
+                    sequence += self.fit.u.residues[n_resindex].resname[0]
+            resindex = self.DidFid[base.id]
+            self.FidSeq_global[resindex] = sequence
 
     def _eval_FidHelixneighbors(self, steps=5) -> None:
         """ Affects
@@ -125,7 +151,8 @@ class Linker(object):
                             Dskips=self.Dskips,
                             Fco=self.Fco,
                             Fnicks=self.Fnicks,
-                            FidSeq=self.FidSeq,
+                            FidSeq_local=self.FidSeq_local,
+                            FidSeq_global=self.FidSeq_global,
                             FidHN=self.FidHN,
                             u=self.fit.u,
                             )
@@ -222,15 +249,17 @@ class Linker(object):
                     }
         return self.Fbp
 
-    def _get_n_strand(self, base: "nd.base", direct: str, steps=1
+    def _get_n_strand(self, base: "nd.base", direct: str, steps=1, local=True
                       ) -> Optional["nd.base"]:
         """direct = ["up","down"]"""
         if steps == 0:
             return base
         if steps < 0:
             direct = "up" if direct == "down" else "down"
+        if (base.h % 2) == 1 and not local:
+            direct = "up" if direct == "down" else "down"
 
-        for _ in range(steps):
+        for _ in range(abs(steps)):
             base = (base.up if direct == "up" else base.down)
             if base is None:
                 return None
