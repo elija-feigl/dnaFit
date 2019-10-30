@@ -113,7 +113,7 @@ class BDna(object):
                 if n_bp.is_ds:
                     bp_geom = self._get_bp_geometry(bp=bp, n_bp=n_bp)
                     for resindex in [bp.sc.resindex, bp.st.resindex]:
-                        self.bp_quality_local[resindex] = bp_geom
+                        self.bp_geometry_local[resindex] = bp_geom
 
             # global: even helix scaffold 5'->3', odd helix scaffold 3'->5'
             n_bp = self._get_n_bp(bp=bp, local=False)
