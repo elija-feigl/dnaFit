@@ -50,7 +50,10 @@ class DataPrep(object):
         data = {}
         for pickle_name in PROP_TYPE + ["co_angles"]:
             if pickle_name == "localres":
-                nnn = "{}/{}__{}.p".format(self.project.output, self.name, pickle_name)
+                nnn = "{}/{}__{}.p".format(self.project.output,
+                                           self.name,
+                                           pickle_name,
+                                           )
                 try:
                     prop = pickle.load(open(nnn, "rb"))
                 except FileNotFoundError:
@@ -98,8 +101,8 @@ class DataPrep(object):
 
         id_all = id_ss | id_ds
         id_clean = id_all - (id_co | id_co_plus | id_ss)
-        id_nick = (list(self.link.Fnicks.values()) +
-                   list(self.link.Fnicks.keys()))
+        id_nick = [*self.link.Fnicks.values(),
+                   *self.link.Fnicks.keys()]
 
         return {"co": id_co, "co_plus": id_co_plus, "ss": id_ss, "ds": id_ds,
                 "all": id_all, "clean": id_clean, "nick": id_nick,
@@ -119,7 +122,7 @@ class DataPrep(object):
             id_prop_dict[resindex] = [tuple(categories), position]
 
             sequence = self.link.FidSeq[resindex]
-            for i, _ in enumerate(sequence):
+            for i, _ in enumerate(sequence, start=-int(len(sequence) / 2)):
                 if "seq" + str(i) not in self.columns:
                     self.columns.append("seq" + str(i))
                 id_prop_dict[resindex].append(sequence[:(i + 1)])
@@ -173,8 +176,12 @@ class DataPrep(object):
                                         "diazine": np.nan, "C6C8": np.nan}
                         for loc, value in cent_ank.items():
                             id_prop_dict[resindex].append(value)
-                            if (geom + "-" + loc) not in self.columns:
-                                self.columns.append(geom + "-" + loc)
+                            col_name = "{}-{}-{}".format(geom,
+                                                         loc,
+                                                         prop[12:15]
+                                                         )
+                            if (col_name) not in self.columns:
+                                self.columns.append(col_name)
                 elif prop == "distances":
                     for atom in ["C1'", "P"]:
                         dist_dicts = data[prop][resindex][atom]
