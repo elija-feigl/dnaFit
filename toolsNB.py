@@ -70,10 +70,6 @@ class DataPrep(object):
         return data, ts
 
     def _categorise(self, plus):
-        id_seq = {}
-        for X in ["A", "T", "G", "C"]:
-            id_seq[X] = set(resindex for resindex, Y in
-                            self.link.FidSeq.items() if Y == X)
         id_ds = set()
 
         for wc_id1, wc_id2 in self.link.Fbp.items():
@@ -105,9 +101,7 @@ class DataPrep(object):
                    *self.link.Fnicks.keys()]
 
         return {"co": id_co, "co_plus": id_co_plus, "ss": id_ss, "ds": id_ds,
-                "all": id_all, "clean": id_clean, "nick": id_nick,
-                "A": id_seq["A"], "T": id_seq["T"], "G": id_seq["G"],
-                "C": id_seq["C"]}
+                "all": id_all, "clean": id_clean, "nick": id_nick}
 
     def create_df(self, frame=0):
         data, ts = self._traj_frame(frame)
@@ -121,13 +115,22 @@ class DataPrep(object):
             categories.append(strand_type)
             id_prop_dict[resindex] = [tuple(categories), position]
 
-            sequence = self.link.FidSeq[resindex]
-            for i, _ in enumerate(sequence, start=-int(len(sequence) / 2)):
-                if "seq" + str(i) not in self.columns:
-                    self.columns.append("seq" + str(i))
+            sequence = self.link.FidSeq_local[resindex]
+            for i, _ in enumerate(sequence):
+                if "seq" + str(i) + "-loc" not in self.columns:
+                    self.columns.append("seq" + str(i) + "-loc")
                 id_prop_dict[resindex].append(sequence[:(i + 1)])
-            if "sequence" not in self.columns:
-                self.columns.append("sequence")
+            if "sequence-loc" not in self.columns:
+                self.columns.append("sequence-loc")
+            id_prop_dict[resindex].append(sequence)
+
+            sequence = self.link.FidSeq_global[resindex]
+            for i, _ in enumerate(sequence):
+                if "seq" + str(i) + "-glo" not in self.columns:
+                    self.columns.append("seq" + str(i) + "-glo")
+                id_prop_dict[resindex].append(sequence[:(i + 1)])
+            if "sequence-glo" not in self.columns:
+                self.columns.append("sequence-glo")
             id_prop_dict[resindex].append(sequence)
 
             num_HN = self.link.FidHN[resindex]
