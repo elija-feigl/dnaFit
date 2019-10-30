@@ -43,7 +43,7 @@ def write_pdb(u, bDNA, PDBs):
         for res in u.residues:
             try:
                 res.atoms.tempfactors = (
-                    bDNA.bp_geometry[res.resindex][cond]["center-C6C8"])
+                    bDNA.bp_geometry_local[res.resindex][cond]["center-C6C8"])
             except KeyError:
                 pass
         PDBs[cond].write(u.atoms)
@@ -157,7 +157,9 @@ def main():
         
         properties.append(bDNA)
         props_tuple = [
-            (bDNA.bp_geometry, "bp_geometry"), (bDNA.bp_quality, "bp_quality"),
+            (bDNA.bp_geometry_local, "bp_geometry_local"),
+            (bDNA.bp_geometry_global, "bp_geometry_global"),
+            (bDNA.bp_quality, "bp_quality"),
             (bDNA.dh_quality, "dh_quality"), (bDNA.distances, "distances"),
             (bDNA.co_angles, "co_angles")]
         for prop, prop_name in props_tuple:
