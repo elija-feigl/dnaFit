@@ -18,7 +18,8 @@ class Linkage(object):
     Dcolor: Dict[int, int] = {}
     Dskips: Set[Tuple[int, int]] = set()
     Fnicks: Dict[int, int] = {}
-    FidSeq: Dict[int, str] = {}
+    FidSeq_local: Dict[int, str] = dict()
+    FidSeq_global: Dict[int, str] = dict()
     FidHN: Dict[int, int] = {}
     Fco: Dict[str, Crossover] = {}
     u: "mda.universe" = None
