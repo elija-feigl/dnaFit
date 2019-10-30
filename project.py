@@ -19,3 +19,4 @@ class Project(object):
     halfmap: bool = attr.ib(default=False)
     localres: bool = attr.ib(default=False)
     star: bool = attr.ib(default=False)
+    relink: bool = attr.ib(default=False)

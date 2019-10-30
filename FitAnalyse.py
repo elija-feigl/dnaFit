@@ -100,12 +100,17 @@ def proc_input():
                         type=float,
                         default=0.1,
                         )
+    parser.add_argument("--relink",
+                        help="force relink fit",
+                        action="store_true"
+                        )
     args = parser.parse_args()
     project = Project(input=Path(args.folder),
                       output=Path(args.folder) / "analysis",
                       name=args.name,
                       frames=args.frames,
                       dev=args.dev,
+                      relink=args.relink,
                       )
 
     with ignored(FileExistsError):
@@ -116,15 +121,21 @@ def proc_input():
 def main():
     project = proc_input()
 
-    try:
-        link = Linkage()
-        link.load_linkage(project=project)
-        print("found linkage for {}".format(project.name))
-    except:
-        print("link_fit {}".format(project.name))
+    if project.relink:
+        print("relink_fit {}".format(project.name))
         linker = Linker(project)
         link = linker.create_linkage()
         link.dump_linkage(project)
+    else:
+        try:
+            link = Linkage()
+            link.load_linkage(project=project)
+            print("found linkage for {}".format(project.name))
+        except BaseException:
+            print("link_fit {}".format(project.name))
+            linker = Linker(project)
+            link = linker.create_linkage()
+            link.dump_linkage(project)
 
     if project.frames == 1:
         frames = [-1]
@@ -154,7 +165,7 @@ def main():
         print("eval_fit", project.name)
         bDNA = BDna(link)
         bDNA.sample()
-        
+
         properties.append(bDNA)
         props_tuple = [
             (bDNA.bp_geometry_local, "bp_geometry_local"),
@@ -168,7 +179,8 @@ def main():
                                                                i,
                                                                )
             pickle.dump((ts, prop), open(pickle_name, "wb"))
-        import ipdb; ipdb.set_trace()
+        import ipdb
+        ipdb.set_trace()
         print("write pdbs", project.name)
         write_pdb(link.u, bDNA, PDBs)
 
