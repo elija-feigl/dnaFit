@@ -39,7 +39,7 @@ class Linker(object):
         self.FidSeq: Dict[int, str] = dict()
         for base in self.design.allbases_clean:
             sequence = ""
-            for stp in range(steps + 1):
+            for stp in range(-steps, steps + 1):
                 neighbor = self._get_n_strand(base, "down", steps=stp)
                 if neighbor is None:
                     sequence += "N"
@@ -346,6 +346,7 @@ class Linker(object):
             bBbD = frozenset([bB, bD])
 
             if bBbD in co_subparts:
+                co_subparts.remove(bBbD)
                 typ = "full"
             elif (bB is not None) and (bD is not None):
                 typ = "half"
