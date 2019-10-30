@@ -26,8 +26,10 @@ class BDna(object):
         self.link.reverse()
         self.bps: Dict[Tuple[int, int], BasePair] = self._get_pot_bp()
         self.link.relink_crossover_basepairs(self.bps)
-        self.bp_quality: Dict[int, Any] = {}
-        self.bp_geometry: Dict[int, Any] = {}
+        self.bp_quality_local: Dict[int, Any] = {}
+        self.bp_geometry_local: Dict[int, Any] = {}
+        self.bp_quality_global: Dict[int, Any] = {}
+        self.bp_geometry_global: Dict[int, Any] = {}
         self.dh_quality: Dict[int, Any] = {}
         self.distances: Dict[int, Any] = {}
         self.co_angles: Dict[str, Any] = {}
@@ -69,12 +71,12 @@ class BDna(object):
                 done.add(self.link.Fbp_full[resindex])
         return bps
 
-    def _get_n_bp(self, bp: BasePair, steps: int = 1
+    def _get_n_bp(self, bp: BasePair, steps: int = 1, local=True,
                   ) -> Optional[BasePair]:
         if steps == 0:
             return bp
         helix, position = bp.hp
-        if (helix % 2) == 1:  # scaffold 5->3: even l->r odd r->l
+        if (helix % 2) == 1 and local:
             steps = -steps
 
         stp = np.sign(steps)
@@ -95,22 +97,40 @@ class BDna(object):
     def eval_bp(self) -> None:
         """ Affects
             -------
-                self.bp_quality
-                self.bp_geometry
+                self.bp_quality_local
+                self.bp_geometry_local
+                self.bp_quality_global
+                self.bp_geometry_global
         """
+        # local: scaffold 5'->3'
         for bp in self.bps.values():
             if bp.sc is None or bp.st is None:
                 continue
             bp_qual = self._get_bp_quality(bp=bp)
             for resindex in [bp.sc.resindex, bp.st.resindex]:
-                self.bp_quality[resindex] = bp_qual
+                self.bp_quality_local[resindex] = bp_qual
 
-            n_bp = self._get_n_bp(bp=bp)
+            n_bp = self._get_n_bp(bp=bp, local=True)
             if n_bp is not None:
                 if n_bp.is_ds:
                     bp_geom = self._get_bp_geometry(bp=bp, n_bp=n_bp)
                     for resindex in [bp.sc.resindex, bp.st.resindex]:
-                        self.bp_geometry[resindex] = bp_geom
+                        self.bp_quality_local[resindex] = bp_geom
+
+        # global: even helix scaffold 5'->3', odd helix scaffold 3'->5'
+        for bp in self.bps.values():
+            if bp.sc is None or bp.st is None:
+                continue
+            bp_qual = self._get_bp_quality(bp=bp)
+            for resindex in [bp.sc.resindex, bp.st.resindex]:
+                self.bp_geometry_global[resindex] = bp_qual
+
+            n_bp = self._get_n_bp(bp=bp, local=False)
+            if n_bp is not None:
+                if n_bp.is_ds:
+                    bp_geom = self._get_bp_geometry(bp=bp, n_bp=n_bp)
+                    for resindex in [bp.sc.resindex, bp.st.resindex]:
+                        self.bp_geometry_global[resindex] = bp_geom
 
     def _get_bp_quality(self, bp: BasePair) -> Dict[str, Any]:
         quality = dict()
@@ -139,7 +159,7 @@ class BDna(object):
 
         return quality
 
-    def _get_bp_geometry(self, bp: BasePair, n_bp: BasePair
+    def _get_bp_geometry(self, bp: BasePair, n_bp: BasePair,
                          ) -> Dict[str, Any]:
         """ Returns
             -------
@@ -337,10 +357,11 @@ class BDna(object):
 
     def _get_distance(self, bp: BasePair, name: str
                       ) -> Tuple[Dict[str, float], Dict[str, float]]:
-        def try_position(res: "mda.residue", atom_name: str
-                         ) -> Optional["np.ndarray"]:
+        def try_pos(res: "mda.residue",
+                    name: str,
+                    ) -> Optional["np.ndarray"]:
             try:
-                return res.atoms.select_atoms(atom_name)[0].position
+                return res.atoms.select_atoms(name)[0].position
             except (AttributeError, IndexError):
                 return None
 
@@ -348,35 +369,32 @@ class BDna(object):
         st_dist: Dict[str, float] = dict()
         atom_name = "name {}".format(name)
 
-        n_bp = self._get_n_bp(bp)
-        SC, ST = list(), list()
-        if n_bp is None:
-            X = try_position(res=bp.sc, atom_name=atom_name)
-            Y = try_position(res=bp.st, atom_name=atom_name)
-            if X is not None and Y is not None:
-                for dist in [sc_dist, st_dist]:
+        n_bp = self._get_n_bp(bp=bp, steps=1)
+        p_bp = self._get_n_bp(bp=bp, steps=-1)
+        for s, x_bp, dist in [("sc", n_bp, sc_dist), ("st", p_bp, st_dist)]:
+            if x_bp is None:
+                X = try_pos(res=bp.sc, name=atom_name)
+                Y = try_pos(res=bp.st, name=atom_name)
+                if X is not None and Y is not None:
                     dist["pair"] = np.linalg.norm(Y - X)
                     dist["stack"] = np.nan
                     dist["crossstack"] = np.nan
-            else:
-                for dist in [sc_dist, st_dist]:
+                else:
                     for typ in ["pair", "stack", "crossstack"]:
                         dist[typ] = np.nan
-        else:
-            for x in [bp, n_bp]:
-                SC.append(try_position(res=x.sc, atom_name=atom_name))
-                ST.append(try_position(res=x.st, atom_name=atom_name))
-
-            for A, B, dist in [(SC, ST, sc_dist), (ST, SC, st_dist)]:
-                for X, Y, typ in [(A[0], B[0], "pair"),
-                                  (A[0], A[1], "stack"),
-                                  (A[0], B[1], "crossstack")
+            else:
+                SC = [try_pos(res=x.sc, name=atom_name) for x in [bp, x_bp]]
+                ST = [try_pos(res=x.st, name=atom_name) for x in [bp, x_bp]]
+                if s == "st":
+                    SC, ST = ST, SC
+                for X, Y, typ in [(SC[0], ST[0], "pair"),
+                                  (SC[0], ST[1], "stack"),
+                                  (SC[0], ST[1], "crossstack")
                                   ]:
                     if X is not None and Y is not None:
                         dist[typ] = np.linalg.norm(Y - X)
                     else:
                         dist[typ] = np.nan
-
         return sc_dist, st_dist
 
     def eval_co_angles(self) -> None:
