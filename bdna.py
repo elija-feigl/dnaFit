@@ -379,7 +379,7 @@ class BDna(object):
                 if s == "st":
                     SC, ST = ST, SC
                 for X, Y, typ in [(SC[0], ST[0], "pair"),
-                                  (SC[0], ST[1], "stack"),
+                                  (SC[0], SC[1], "stack"),
                                   (SC[0], ST[1], "crossstack")
                                   ]:
                     if X is not None and Y is not None:
