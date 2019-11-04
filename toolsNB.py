@@ -212,7 +212,7 @@ class DataPrep(object):
             strand_type = ("scaffold" if
                            data["co_angles"][co_id]["is_scaffold"]
                            else "staple")
-            id_co_dict[co_id] = [[co_type, strand_type]]
+            id_co_dict[co_id] = [co_type, strand_type]
 
             co_resids = data["co_angles"][co_id]["resindices"]
             if data["localres"] is not None:
@@ -232,12 +232,12 @@ class DataPrep(object):
         if data["localres"] is not None:
             self.df_co = pd.DataFrame.from_dict(
                 id_co_dict, orient='index',
-                columns=(["type", "localres"] + COANGLES)
+                columns=(["typ", "strand", "localres"] + COANGLES)
             )
         else:
             self.df_co = pd.DataFrame.from_dict(
                 id_co_dict, orient='index',
-                columns=(["type"] + COANGLES)
+                columns=(["type","strand"] + COANGLES)
             )
         return self.df, self.df_co, ts
 
