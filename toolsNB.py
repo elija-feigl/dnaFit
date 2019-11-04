@@ -237,7 +237,7 @@ class DataPrep(object):
         else:
             self.df_co = pd.DataFrame.from_dict(
                 id_co_dict, orient='index',
-                columns=(["type","strand"] + COANGLES)
+                columns=(["type", "strand"] + COANGLES)
             )
         return self.df, self.df_co, ts
 
