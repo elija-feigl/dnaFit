@@ -4,7 +4,6 @@ import numpy as np
 import os
 
 import pickle
-import contextlib
 import argparse
 # import attr
 
@@ -12,18 +11,10 @@ from pathlib import Path
 # from typing import Set, Dict, Tuple, Any
 
 from project import Project
-from utils import WC_PROPERTIES, DH_ATOMS
+from utils import WC_PROPERTIES, DH_ATOMS, ignored
 from bdna import BDna
 from linker import Linker
 from linkage import Linkage
-
-
-@contextlib.contextmanager
-def ignored(*exceptions):
-    try:
-        yield
-    except exceptions:
-        pass
 
 
 def write_pdb(u, bDNA, PDBs):

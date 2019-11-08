@@ -2,6 +2,7 @@
 
 import numpy as np
 from typing import List
+import contextlib
 
 C1P_BASEDIST: float = 10.7
 TOL: float = 10e-6
@@ -46,6 +47,14 @@ WC_PROPERTIES: list = ["rise", "slide", "shift", "twist", "tilt", "roll"]
 class UnexpectedCaseError(Exception):
     """Raised when a case occurs that makes no sense in the programs context"""
     pass
+
+
+@contextlib.contextmanager
+def ignored(*exceptions):
+    try:
+        yield
+    except exceptions:
+        pass
 
 
 def _norm(vector):

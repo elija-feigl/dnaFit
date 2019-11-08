@@ -3,76 +3,12 @@ import mrcfile as mrc
 import numpy as np
 import MDAnalysis as mda
 import pickle
-import argparse
-import attr
-import os
-import contextlib
+# import attr
 
-from pathlib import Path
 from typing import List, Set, Dict, Tuple, Any, FrozenSet
-from itertools import chain
 
-
-class UnexpectedCaseError(Exception):
-    """Raised when a case occurs that makes no sense in the programs context"""
-    pass
-
-
-@contextlib.contextmanager
-def ignored(*exceptions):
-    try:
-        yield
-    except exceptions:
-        pass
-
-
-@attr.s(slots=True)
-class Project(object):
-    input: Path = attr.ib()
-    output: Path = attr.ib()
-    name: str = attr.ib()
-    # specific
-    context: int = attr.ib()
-    range: int = attr.ib()
-    halfmap: bool = attr.ib()
-    localres: bool = attr.ib()
-    star: bool = attr.ib()
-
-
-@attr.s(auto_attribs=True)
-class Linkage(object):
-    Fbp: Dict[int, int] = {}
-    DidFid: Dict[int, int] = {}
-    DhpsDid: Dict[Tuple[int, int, bool], int] = {}
-    Dcolor: Dict[int, int] = {}
-    Dskips: Set[Tuple[int, int, bool]] = set()
-    Fnicks: Dict[int, int] = {}
-    FidSeq: Dict[int, str] = {}
-    Fco: Dict[int, Any] = {}
-    universe: Tuple[str, str] = ("", "")
-
-    def dump_linkage(self, project: Project) -> None:
-        for name, link in vars(self).items():
-            output = project.output / "{}__{}.p".format(project.name, name)
-            pickle.dump(link, open(output, "wb"))
-        return
-
-    def load_linkage(self, project: Project) -> None:
-        for name in vars(self).keys():
-            input = project.output / "{}__{}.p".format(project.name, name)
-            value = pickle.load(open(input, "rb"))
-            setattr(self, name, value)
-        return
-
-    def reverse(self) -> None:
-        def reverse_d(dict: dict) -> dict:
-            return {v: k for k, v in iter(dict.items())}
-
-        self.FidDid = reverse_d(self.DidFid)
-        self.DidDhps = reverse_d(self.DhpsDid)
-        self.Fbp_rev = reverse_d(self.Fbp)
-        self.Fbp_full = {**self.Fbp, **self.Fbp_rev}
-        return
+from utils import UnexpectedCaseError, ignored
+from linkage import Linkage
 
 
 def mrc_segment(atoms: "mda.atomgroup",
@@ -276,64 +212,6 @@ def categorise(link: Linkage,
     return co_plus, nick_plus
 
 
-def get_description() -> str:
-    return """cut subset from map according to atoms belongign to sepcific
-              motif. Also produces minimal box map. can also segment halfmaps
-              and evaluate local-resolution per residue -> dict and pdb
-              """
-
-
-def proc_input() -> Project:
-    parser = argparse.ArgumentParser(
-        description=get_description(),
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument("--folder",
-                        help="input folder",
-                        type=str,
-                        default="./",
-                        )
-    parser.add_argument("--name",
-                        help="name of design and files",
-                        type=str,
-                        required=True,
-                        default=argparse.SUPPRESS,
-                        )
-    parser.add_argument("--context",
-                        help="context aroud atom in Angstrom",
-                        type=int,
-                        default=5,
-                        )
-    parser.add_argument("--range",
-                        help="number of addit. basepairs in helix of motif",
-                        type=int,
-                        default=10,
-                        )
-    parser.add_argument("--halfmap",
-                        help="also segment halfmaps",
-                        action="store_true"
-                        )
-    parser.add_argument("--localres",
-                        help="compute localres per molecule",
-                        action="store_true"
-                        )
-    parser.add_argument("--star",
-                        help="create starfile",
-                        action="store_true"
-                        )
-    args = parser.parse_args()
-    project = Project(input=Path(args.folder),
-                      output=Path(args.folder) / "analysis",
-                      name=args.name,
-                      context=args.context,
-                      range=args.range,
-                      halfmap=args.halfmap,
-                      localres=args.localres,
-                      star=args.star,
-                      )
-    return project
-
-
 def mask_minimal_box(u, project):
     path_in = project.input / "{}.mrc".format(project.name)
     path_out = project.output / "{}-masked.mrc".format(project.name)
@@ -342,7 +220,6 @@ def mask_minimal_box(u, project):
                 path_out=path_out,
                 context=project.context,
                 )
-    return
 
 
 def local_res(u, path_color, project):
@@ -359,74 +236,3 @@ def local_res(u, path_color, project):
     for res in u.residues:
         res.atoms.tempfactors = dict_localres[res.resindex]
     pdb.write(u.atoms)
-    return
-
-
-def main():
-    # TODO: include in argparse?
-    H1 = "_unfil_half1"
-    H2 = "_unfil_half2"
-    LOCRES = "_localres"
-    project = proc_input()
-
-    print("input from ", project.input)
-    linkage = Linkage()
-    linkage.load_linkage(project=project)
-    co, nick = categorise(link=linkage, plus=project.range)
-    u = mda.Universe(*linkage.universe)
-    u.trajectory[-1]
-
-    print("mask minimal box")
-    mask_minimal_box(u, project)
-
-    if project.localres:
-        print("compute per residue resolution")
-        path_color = project.input / "{}{}.mrc".format(project.name, LOCRES)
-        local_res(u, path_color, project)
-
-    motifs = {"co": co, "nick": nick}
-    if project.halfmap:
-        print("segmenting halfmaps")
-    for motif_name, motif in motifs.items():
-        path_motif = project.output / motif_name
-        print("output to ", path_motif)
-        with ignored(FileExistsError):
-            os.mkdir(path_motif)
-
-        for index, subset in enumerate(motif):
-            if motif_name == "co":
-                base_selection, index, typ = subset  # TODO: co-index
-                atoms_select = mda.AtomGroup([], u)
-                for resindex in base_selection:
-                    atoms_select += u.residues[resindex].atoms
-            elif motif_name == "nick":
-                typ = ""
-                atoms_select = mda.AtomGroup([], u)
-                for base_id in subset:
-                    atoms_select += u.residues[base_id].atoms
-
-            if project.halfmap:
-                specs = {"": "", H1: "h1-", H2: "h2-"}
-            else:
-                specs = {"": ""}
-            for inp, out in specs.items():
-                path_in = project.input / "{}{}.mrc".format(project.name,
-                                                            inp,
-                                                            )
-                path_out = path_motif / "{}__{}{}{}{}.mrc".format(project.name,
-                                                                  out,
-                                                                  typ,
-                                                                  motif_name,
-                                                                  index,
-                                                                  )
-                mrc_segment(atoms=atoms_select,
-                            path_in=path_in,
-                            path_out=path_out,
-                            context=project.context,
-                            star=project.star,
-                            )
-    return
-
-
-if __name__ == "__main__":
-    main()

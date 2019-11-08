@@ -12,6 +12,7 @@ class Project(object):
     # specific FitAnalysis
     frames: int = attr.ib(default=1)
     dev: float = attr.ib(default=0.)
+    relink: bool = attr.ib(default=False)
     # specific FitLinker
     ENmodify: bool = attr.ib(default=False)
     EN: str = attr.ib(default="11111110")
@@ -21,4 +22,3 @@ class Project(object):
     halfmap: bool = attr.ib(default=False)
     localres: bool = attr.ib(default=False)
     star: bool = attr.ib(default=False)
-    relink: bool = attr.ib(default=False)
