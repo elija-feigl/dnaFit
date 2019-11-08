@@ -3,6 +3,7 @@
 
 import numpy as np
 import MDAnalysis as mda
+import mrcfile as mrc
 from MDAnalysis.lib import mdamath
 
 import attr
@@ -464,3 +465,39 @@ class BDna(object):
                                    "center-co": co_data["center-co"],
                                    "resindices": co_data["resindices"],
                                    }
+
+    def _mrc_localres(self, path_in: str) -> Dict[int, float]:
+        def get_localres(atoms: "mda.atomgroup",
+                         data: np.ndarray,
+                         origin: np.ndarray,
+                         voxel_size: np.ndarray,
+                         ) -> float:
+            locres = 0.
+            for atom in atoms:
+                atom_voxel = np.rint((atom.position - origin) / voxel_size)
+                locres += data[tuple(atom_voxel.astype(int))]
+            locres /= len(atoms)
+            return locres
+
+        self.link.u.trajectory[-1]
+        with mrc.open(path_in, mode='r') as mrc_in:
+            o = np.array(mrc_in.header["origin"])
+            origin = np.array([o["x"], o["y"], o["z"]])
+            c = np.array(mrc_in.header["cella"])
+            cellA = np.array([c["x"], c["y"], c["z"]])
+            shape = np.array([mrc_in.header["nx"],
+                              mrc_in.header["ny"],
+                              mrc_in.header["nz"],
+                              ])
+            voxel_size = cellA / shape
+            data = np.swapaxes(mrc_in.data, 0, 2)
+
+        dict_localres = {}
+        for res in self.link.u.atoms.residues:
+            localres = get_localres(atoms=res.atoms,
+                                    data=data,
+                                    origin=origin,
+                                    voxel_size=voxel_size,
+                                    )
+            dict_localres[res.resindex] = localres
+        return dict_localres

@@ -57,6 +57,25 @@ def write_pdb(u, bDNA, PDBs):
     PDBs["bp"].write(u.atoms)
 
 
+def local_res(link: Linkage, bDNA: BDna, project: Project) -> None:
+    path_color = project.input / "{}_localres.mrc".format(project.name)
+    localres = bDNA._mrc_localres(atoms=link.u.atoms,
+                                  path_in=path_color,
+                                  )
+    output = project.output / "{}__localres.p".format(project.name)
+    pickle.dump(localres, open(output, "wb"))
+
+    # TODO: move to pdb_write
+    path_colorpdb = project.output / "{}_localres.pdb".format(project.name)
+    pdb = mda.Writer(path_colorpdb, multiframe=True)
+    empty_TopoAttr = np.zeros(len(link.u.atoms))
+    link.u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(empty_TopoAttr))
+    link.u.atoms.tempfactors = -1.
+    for res in link.u.u.residues:
+        res.atoms.tempfactors = localres[res.resindex]
+    pdb.write(link.u.atoms)
+
+
 def get_description():
     return """computes watson crick base pairs.
     they are returned as to dictionaries. this process is repeated for each
@@ -95,6 +114,14 @@ def proc_input():
                         help="force relink fit",
                         action="store_true"
                         )
+    parser.add_argument("--localres",
+                        help="compute localres per molecule",
+                        action="store_true"
+                        )
+    parser.add_argument("--pdb",
+                        help="create colored pdb file (slow)",
+                        action="store_true"
+                        )
     args = parser.parse_args()
     project = Project(input=Path(args.folder),
                       output=Path(args.folder) / "analysis",
@@ -102,6 +129,8 @@ def proc_input():
                       frames=args.frames,
                       dev=args.dev,
                       relink=args.relink,
+                      localres=args.localres,
+                      pdb=args.pdb,
                       )
 
     with ignored(FileExistsError):
@@ -133,20 +162,22 @@ def main():
     else:
         frames_step = int(len(link.u.trajectory) / project.frames)
         frames = list((range(len(link.u.trajectory) - 1), 0, -frames_step))
-
     properties = []
     traj_out = project.output / "frames"
     with ignored(FileExistsError):
         os.mkdir(traj_out)
 
-    # open PDB files
-    PDBs = {}
-    for name in [*WC_PROPERTIES, "bp", "qual"]:
-        pdb_name = project.output / "{}__bp_{}.pdb".format(project.name, name)
-        PDBs[name] = mda.Writer(pdb_name, multiframe=True)
-    for name in DH_ATOMS:
-        pdb_name = project.output / "{}__dh_{}.pdb".format(project.name, name)
-        PDBs[name] = mda.Writer(pdb_name, multiframe=True)
+    if project.pdb:
+        # open PDB files
+        PDBs = {}
+        for name in [*WC_PROPERTIES, "bp", "qual"]:
+            pdb_name = project.output / "{}__bp_{}.pdb".format(project.name,
+                                                               name)
+            PDBs[name] = mda.Writer(pdb_name, multiframe=True)
+        for name in DH_ATOMS:
+            pdb_name = project.output / "{}__dh_{}.pdb".format(project.name,
+                                                               name)
+            PDBs[name] = mda.Writer(pdb_name, multiframe=True)
 
     # loop over selected frames
     for i, ts in enumerate([link.u.trajectory[i] for i in frames]):
@@ -157,6 +188,12 @@ def main():
         bDNA = BDna(link)
         bDNA.sample()
 
+        # TODO: every frame?
+        if project.localres:
+            print("compute per residue resolution")
+            local_res(link=link, bDNA=bDNA, project=project)
+
+        # TODO: every frame?
         properties.append(bDNA)
         props_tuple = [
             (bDNA.bp_geometry_local, "bp_geometry_local"),
@@ -170,14 +207,13 @@ def main():
                                                                i,
                                                                )
             pickle.dump((ts, prop), open(pickle_name, "wb"))
-        import ipdb
-        ipdb.set_trace()
-        print("write pdbs", project.name)
-        write_pdb(link.u, bDNA, PDBs)
+        if project.pdb:
+            print("write pdbs", project.name)
+            write_pdb(link.u, bDNA, PDBs)
 
-    # close PDB files
-    for _, PDB in PDBs.items():
-        PDB.close()
+    if project.pdb:
+        for _, PDB in PDBs.items():
+            PDB.close()
 
 
 if __name__ == "__main__":

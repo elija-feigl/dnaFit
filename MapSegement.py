@@ -9,7 +9,7 @@ from pathlib import Path
 from project import Project
 from utils import ignored
 from linkage import Linkage
-from segmentation import categorise, mrc_segment, local_res, mask_minimal_box
+from segmentation import categorise, mrc_segment, mask_minimal_box
 
 
 def get_description() -> str:
@@ -49,10 +49,6 @@ def proc_input() -> Project:
                         help="also segment halfmaps",
                         action="store_true"
                         )
-    parser.add_argument("--localres",
-                        help="compute localres per molecule",
-                        action="store_true"
-                        )
     parser.add_argument("--star",
                         help="create starfile",
                         action="store_true"
@@ -64,7 +60,6 @@ def proc_input() -> Project:
                       context=args.context,
                       range=args.range,
                       halfmap=args.halfmap,
-                      localres=args.localres,
                       star=args.star,
                       )
     return project
@@ -73,7 +68,7 @@ def proc_input() -> Project:
 def main():
     H1 = "_unfil_half1"
     H2 = "_unfil_half2"
-    LOCRES = "_localres"
+
     project = proc_input()
 
     print("input from ", project.input)
@@ -85,11 +80,6 @@ def main():
 
     print("mask minimal box")
     mask_minimal_box(u, project)
-
-    if project.localres:
-        print("compute per residue resolution")
-        path_color = project.input / "{}{}.mrc".format(project.name, LOCRES)
-        local_res(u, path_color, project)
 
     motifs = {"co": co, "nick": nick}
     if project.halfmap:

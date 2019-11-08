@@ -2,10 +2,9 @@
 import mrcfile as mrc
 import numpy as np
 import MDAnalysis as mda
-import pickle
 # import attr
 
-from typing import List, Set, Dict, Tuple, FrozenSet
+from typing import List, Set, Tuple, FrozenSet
 from itertools import chain
 
 from utils import UnexpectedCaseError, ignored
@@ -92,45 +91,6 @@ def mrc_segment(atoms: "mda.atomgroup",
             star_out.write(star_header)
             star_out.write("{}.star {} {} {}".format(path_star, *center_small))
     return
-
-
-def _mrc_localres(atoms: "mda.atomgroup", path_in: str) -> Dict[int, float]:
-    def get_localres(atoms: "mda.atomgroup",
-                     data: np.ndarray,
-                     origin: np.ndarray,
-                     voxel_size: np.ndarray,
-                     ) -> float:
-        locres = 0.
-        for atom in atoms:
-            atom_voxel = np.rint((atom.position - origin) / voxel_size)
-            locres += data[tuple(atom_voxel.astype(int))]
-        locres /= len(atoms)
-        return locres
-
-    if not len(atoms):
-        raise UnexpectedCaseError("no atoms in this selection")
-
-    u = atoms.universe
-    u.trajectory[-1]
-
-    with mrc.open(path_in, mode='r') as mrc_in:
-        o = np.array(mrc_in.header["origin"])
-        origin = np.array([o["x"], o["y"], o["z"]])
-        c = np.array(mrc_in.header["cella"])
-        cellA = np.array([c["x"], c["y"], c["z"]])
-        shape = np.array([mrc_in.header["nx"],
-                          mrc_in.header["ny"],
-                          mrc_in.header["nz"]
-                          ])
-        voxel_size = cellA / shape
-        data = np.swapaxes(mrc_in.data, 0, 2)
-
-    dict_localres = {}
-    for res in atoms.residues:
-        localres = get_localres(res.atoms, data, origin, voxel_size)
-        dict_localres[res.resindex] = localres
-
-    return dict_localres
 
 
 def categorise(link: Linkage,
@@ -221,19 +181,3 @@ def mask_minimal_box(u, project):
                 path_out=path_out,
                 context=project.context,
                 )
-
-
-def local_res(u, path_color, project):
-    dict_localres = _mrc_localres(atoms=u.atoms,
-                                  path_in=path_color,
-                                  )
-    path_colorpickle = project.output / "{}__localres.p".format(project.name)
-    pickle.dump(dict_localres, open(path_colorpickle, "wb"))
-    path_colorpdb = project.output / "{}_localres.pdb".format(project.name)
-    pdb = mda.Writer(path_colorpdb, multiframe=True)
-    empty_TopologyAttr = np.zeros(len(u.atoms))
-    u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(empty_TopologyAttr))
-    u.atoms.tempfactors = -1.
-    for res in u.residues:
-        res.atoms.tempfactors = dict_localres[res.resindex]
-    pdb.write(u.atoms)
