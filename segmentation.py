@@ -5,7 +5,8 @@ import MDAnalysis as mda
 import pickle
 # import attr
 
-from typing import List, Set, Dict, Tuple, Any, FrozenSet
+from typing import List, Set, Dict, Tuple, FrozenSet
+from itertools import chain
 
 from utils import UnexpectedCaseError, ignored
 from linkage import Linkage
