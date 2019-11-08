@@ -117,18 +117,18 @@ class Linker(object):
             resindex = self.DidFid[base.id]
             self.FidHN[resindex] = nhelices
 
-    def _eval_skips(self) -> Set[Tuple[int, int]]:
+    def _is_del(self, base: "nd.base") -> bool:
+        return base.num_deletions != 0
+
+    def _eval_skips(self) -> None:
         """ Affects
             -------
                 self.Dskips
         """
-        return set((base.h, base.p)
-                   for base in self.design.allbases
-                   if self._is_del(base)
-                   )
-
-    def _is_del(self, base: "nd.base") -> bool:
-        return base.num_deletions != 0
+        self.Dskips = set((base.h, base.p)
+                          for base in self.design.allbases
+                          if self._is_del(base)
+                          )
 
     def create_linkage(self) -> Linkage:
         """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping
@@ -264,12 +264,10 @@ class Linker(object):
             if base is None:
                 return None
             else:
-                n_position = (base.h, base.p)
-                while n_position in self.Dskips:
+                while self._is_del(base):
                     base = (base.up if direct == "up" else base.down)
                     if base is None:
                         return None
-                    n_position = (base.h, base.p)
         return base
 
     def _get_n_helix(self, base: "nd.base", direct: int, steps=1
