@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-
-import numpy as np
-from typing import List
 import contextlib
+import numpy as np
+
+from typing import List
+
 
 C1P_BASEDIST: float = 10.7
 TOL: float = 10e-6
