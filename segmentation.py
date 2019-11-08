@@ -171,13 +171,3 @@ def categorise(link: Linkage,
         nick_plus.add(_expand_nick(n=n, link=link))
 
     return co_plus, nick_plus
-
-
-def mask_minimal_box(u, project):
-    path_in = project.input / "{}.mrc".format(project.name)
-    path_out = project.output / "{}-masked.mrc".format(project.name)
-    mrc_segment(atoms=u.atoms,
-                path_in=path_in,
-                path_out=path_out,
-                context=project.context,
-                )

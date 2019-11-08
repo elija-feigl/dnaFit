@@ -8,8 +8,18 @@ from pathlib import Path
 
 from project import Project
 from utils import ignored
-from linkage import Linkage
-from segmentation import categorise, mrc_segment, mask_minimal_box
+from linkage import get_linkage
+from segmentation import categorise, mrc_segment
+
+
+def mask_minimal_box(u, project):
+    path_in = project.input / "{}.mrc".format(project.name)
+    path_out = project.output / "{}-masked.mrc".format(project.name)
+    mrc_segment(atoms=u.atoms,
+                path_in=path_in,
+                path_out=path_out,
+                context=project.context,
+                )
 
 
 def get_description() -> str:
@@ -53,6 +63,10 @@ def proc_input() -> Project:
                         help="create starfile",
                         action="store_true"
                         )
+    parser.add_argument("--relink",
+                        help="force relink fit",
+                        action="store_true"
+                        )
     args = parser.parse_args()
     project = Project(input=Path(args.folder),
                       output=Path(args.folder) / "analysis",
@@ -61,6 +75,7 @@ def proc_input() -> Project:
                       range=args.range,
                       halfmap=args.halfmap,
                       star=args.star,
+                      relink=args.relink,
                       )
     return project
 
@@ -70,16 +85,13 @@ def main():
     H2 = "_unfil_half2"
 
     project = proc_input()
+    link = get_linkage(project)
 
-    print("input from ", project.input)
-    link = Linkage()
-    link.load_linkage(project=project)
     co, nick = categorise(link=link, plus=project.range)
-    u = link.u
-    u.trajectory[-1]
+    link.u.trajectory[-1]
 
     print("mask minimal box")
-    mask_minimal_box(u, project)
+    mask_minimal_box(link.u, project)
 
     motifs = {"co": co, "nick": nick}
     if project.halfmap:
@@ -93,14 +105,14 @@ def main():
         for index, subset in enumerate(motif):
             if motif_name == "co":
                 base_selection, index, typ = subset  # TODO: co-index
-                atoms_select = mda.AtomGroup([], u)
+                atoms_select = mda.AtomGroup([], link.u)
                 for resindex in base_selection:
-                    atoms_select += u.residues[resindex].atoms
+                    atoms_select += link.u.residues[resindex].atoms
             elif motif_name == "nick":
                 typ = ""
-                atoms_select = mda.AtomGroup([], u)
+                atoms_select = mda.AtomGroup([], link.u)
                 for base_id in subset:
-                    atoms_select += u.residues[base_id].atoms
+                    atoms_select += link.u.residues[base_id].atoms
 
             if project.halfmap:
                 specs = {"": "", H1: "h1-", H2: "h2-"}
@@ -122,7 +134,6 @@ def main():
                             context=project.context,
                             star=project.star,
                             )
-    return
 
 
 if __name__ == "__main__":
