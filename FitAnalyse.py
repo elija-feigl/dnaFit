@@ -13,7 +13,7 @@ from pathlib import Path
 from project import Project
 from utils import WC_PROPERTIES, DH_ATOMS, ignored
 from bdna import BDna
-from Linker import get_linkage
+from linker import get_linkage
 
 
 def write_pdb(u, bDNA, PDBs):
