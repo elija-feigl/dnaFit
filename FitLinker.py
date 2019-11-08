@@ -68,12 +68,10 @@ def main():
 
     linker = Linker(project)
     linkage = linker.create_linkage()
+    print("linkage output to {}".format(project.output))
+    linkage.dump_linkage(project=project)
 
-    if not project.ENmodify:
-        print("linkage output to {}".format(project.output))
-        linkage.dump_linkage(project=project)
-
-    else:
+    if project.ENmodify:
         print("modifying extrabonds")
         en = ElaticNetwortModifier(linker)
         en.write_en()

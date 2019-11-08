@@ -152,14 +152,14 @@ class ElaticNetwortModifier(object):
 
     def _change_modify_logic(self) -> None:
         logic_string = self.linker.project.EN
-        self.modify_logic = Logic(long=bool(logic_string[0]),
-                                  strand=bool(logic_string[1]),
-                                  Hbond=bool(logic_string[2]),
-                                  crossstack=bool(logic_string[3]),
-                                  nick=bool(logic_string[4]),
-                                  co=bool(logic_string[5]),
-                                  ssDNA=bool(logic_string[6]),
-                                  dihedral=bool(logic_string[7]),
+        self.modify_logic = Logic(long=bool(int(logic_string[0])),
+                                  strand=bool(int(logic_string[1])),
+                                  Hbond=bool(int(logic_string[2])),
+                                  crossstack=bool(int(logic_string[3])),
+                                  nick=bool(int(logic_string[4])),
+                                  co=bool(int(logic_string[5])),
+                                  ssDNA=bool(int(logic_string[6])),
+                                  dihedral=bool(int(logic_string[7])),
                                   )
 
     def _modify_en(self) -> set:
