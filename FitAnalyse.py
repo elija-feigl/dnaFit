@@ -13,8 +13,7 @@ from pathlib import Path
 from project import Project
 from utils import WC_PROPERTIES, DH_ATOMS, ignored
 from bdna import BDna
-from linker import Linker
-from linkage import Linkage
+from linkage import get_linkage
 
 
 def write_pdb(u, bDNA, PDBs):
@@ -57,9 +56,9 @@ def write_pdb(u, bDNA, PDBs):
     PDBs["bp"].write(u.atoms)
 
 
-def local_res(link: Linkage, bDNA: BDna, project: Project) -> None:
+def local_res(u: "mda.universe", bDNA: BDna, project: Project) -> None:
     path_color = project.input / "{}_localres.mrc".format(project.name)
-    localres = bDNA._mrc_localres(atoms=link.u.atoms,
+    localres = bDNA._mrc_localres(atoms=u.atoms,
                                   path_in=path_color,
                                   )
     output = project.output / "{}__localres.p".format(project.name)
@@ -68,12 +67,12 @@ def local_res(link: Linkage, bDNA: BDna, project: Project) -> None:
     # TODO: move to pdb_write
     path_colorpdb = project.output / "{}_localres.pdb".format(project.name)
     pdb = mda.Writer(path_colorpdb, multiframe=True)
-    empty_TopoAttr = np.zeros(len(link.u.atoms))
-    link.u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(empty_TopoAttr))
-    link.u.atoms.tempfactors = -1.
-    for res in link.u.u.residues:
+    empty_TopoAttr = np.zeros(len(u.atoms))
+    u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(empty_TopoAttr))
+    u.atoms.tempfactors = -1.
+    for res in u.residues:
         res.atoms.tempfactors = localres[res.resindex]
-    pdb.write(link.u.atoms)
+    pdb.write(u.atoms)
 
 
 def get_description():
@@ -140,22 +139,7 @@ def proc_input():
 
 def main():
     project = proc_input()
-
-    if project.relink:
-        print("relink_fit {}".format(project.name))
-        linker = Linker(project)
-        link = linker.create_linkage()
-        link.dump_linkage(project)
-    else:
-        try:
-            link = Linkage()
-            link.load_linkage(project=project)
-            print("found linkage for {}".format(project.name))
-        except BaseException:
-            print("link_fit {}".format(project.name))
-            linker = Linker(project)
-            link = linker.create_linkage()
-            link.dump_linkage(project)
+    link = get_linkage(project)
 
     if project.frames == 1:
         frames = [-1]
@@ -191,7 +175,7 @@ def main():
         # TODO: every frame?
         if project.localres:
             print("compute per residue resolution")
-            local_res(link=link, bDNA=bDNA, project=project)
+            local_res(u=link.u, bDNA=bDNA, project=project)
 
         # TODO: every frame?
         properties.append(bDNA)
