@@ -409,3 +409,22 @@ class Linker(object):
                        for candi in end_bases
                        if is_nick(candidate=candi, base=start)
                        }
+
+
+def get_linkage(project: Project) -> Linkage:
+    if project.relink:
+        print("relink_fit {}".format(project.name))
+        linker = Linker(project)
+        link = linker.create_linkage()
+        link.dump_linkage(project)
+    else:
+        try:
+            link = Linkage()
+            link.load_linkage(project=project)
+            print("found linkage for {}".format(project.name))
+        except BaseException:
+            print("link_fit {}".format(project.name))
+            linker = Linker(project)
+            link = linker.create_linkage()
+            link.dump_linkage(project)
+    return link

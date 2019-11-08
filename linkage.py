@@ -8,7 +8,6 @@ import MDAnalysis as mda
 from project import Project
 from crossover import Crossover, CrossoverPicklable
 from basepair import BasePair
-from linker import Linker
 
 
 @attr.s(auto_attribs=True)
@@ -86,22 +85,3 @@ class Linkage(object):
             for L in co.Ls:
                 Ls_relinked.append(bps[L.hp] if L is not None else None)
             co.Ls = Ls_relinked
-
-
-def get_linkage(project: Project) -> Linkage:
-    if project.relink:
-        print("relink_fit {}".format(project.name))
-        linker = Linker(project)
-        link = linker.create_linkage()
-        link.dump_linkage(project)
-    else:
-        try:
-            link = Linkage()
-            link.load_linkage(project=project)
-            print("found linkage for {}".format(project.name))
-        except BaseException:
-            print("link_fit {}".format(project.name))
-            linker = Linker(project)
-            link = linker.create_linkage()
-            link.dump_linkage(project)
-    return link
