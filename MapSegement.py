@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 import MDAnalysis as mda
 import argparse
-import os
+import os, sys
 
 
 from pathlib import Path
 
 from project import Project
 from utils import ignored
-from linkage import get_linkage
+from linker import get_linkage
 from segmentation import categorise, mrc_segment
 
 
@@ -20,6 +20,21 @@ def mask_minimal_box(u, project):
                 path_out=path_out,
                 context=project.context,
                 )
+
+
+def check_abort() -> None:
+    yes = {"yes", "y", "ye"}
+    no = {"no", "n"}
+    choice = ""
+    print("abort without segmentation?")
+    while choice not in yes.union(no):
+        choice = input().lower()
+        if choice in yes:
+            sys.exit(0)
+        elif choice in no:
+            return
+        else:
+            print("Please respond with 'yes' or 'no'")
 
 
 def get_description() -> str:
@@ -86,16 +101,17 @@ def main():
 
     project = proc_input()
     link = get_linkage(project)
-
-    co, nick = categorise(link=link, plus=project.range)
     link.u.trajectory[-1]
 
     print("mask minimal box")
     mask_minimal_box(link.u, project)
 
-    motifs = {"co": co, "nick": nick}
     if project.halfmap:
         print("segmenting halfmaps")
+
+    check_abort()
+    co, nick = categorise(link=link, plus=project.range)
+    motifs = {"co": co, "nick": nick}
     for motif_name, motif in motifs.items():
         path_motif = project.output / motif_name
         print("output to ", path_motif)
