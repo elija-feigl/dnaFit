@@ -62,6 +62,7 @@ class Design(object):
                                         )
         else:
             raise FileNotFoundError
+        converter.dna_structure.compute_aux_data()
         return converter.dna_structure
 
     def _create_helix_order(self) -> Dict[int, int]:
