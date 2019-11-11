@@ -58,21 +58,20 @@ def write_pdb(u, bDNA, PDBs):
 
 def local_res(u: "mda.universe", bDNA: BDna, project: Project) -> None:
     path_color = project.input / "{}_localres.mrc".format(project.name)
-    localres = bDNA._mrc_localres(atoms=u.atoms,
-                                  path_in=path_color,
-                                  )
+    localres = bDNA._mrc_localres(path_in=path_color)
     output = project.output / "{}__localres.p".format(project.name)
     pickle.dump(localres, open(output, "wb"))
 
     # TODO: move to pdb_write
-    path_colorpdb = project.output / "{}_localres.pdb".format(project.name)
-    pdb = mda.Writer(path_colorpdb, multiframe=True)
-    empty_TopoAttr = np.zeros(len(u.atoms))
-    u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(empty_TopoAttr))
-    u.atoms.tempfactors = -1.
-    for res in u.residues:
-        res.atoms.tempfactors = localres[res.resindex]
-    pdb.write(u.atoms)
+    if project.pdb:
+        path_colorpdb = project.output / "{}_localres.pdb".format(project.name)
+        pdb = mda.Writer(path_colorpdb, multiframe=True)
+        empty_TopoAttr = np.zeros(len(u.atoms))
+        u.add_TopologyAttr(mda.core.topologyattrs.Tempfactors(empty_TopoAttr))
+        u.atoms.tempfactors = -1.
+        for res in u.residues:
+            res.atoms.tempfactors = localres[res.resindex]
+        pdb.write(u.atoms)
 
 
 def get_description():

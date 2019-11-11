@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import MDAnalysis as mda
 import argparse
-import os, sys
+import os
+import sys
 
 
 from pathlib import Path
