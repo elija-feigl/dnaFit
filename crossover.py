@@ -42,7 +42,7 @@ class CrossoverPicklable(object):
 class Crossover(object):
     Ps: List[Optional[BasePair]] = attr.ib()
     Ls: List[Optional[BasePair]] = attr.ib()
-    typ: str = attr.ib()
+    typ: str = attr.ib()  # full, half, end
     is_scaf: bool = attr.ib()
 
     def transform2picklable(self):
