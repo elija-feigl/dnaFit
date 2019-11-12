@@ -127,8 +127,8 @@ def categorise(link: Linkage,
 
         co_res_plus = _expand_selection(selection=co_res, link=link, plus=plus)
         typ = "co-{}".format(co.typ)
-        identifier = key.strip("[]")
-        identifier.replace(" ", "").replace(",", "-").replace(")-(", "_")
+        idf = key.strip("[]").replace(" ", "").replace(",", "-")
+        identifier = idf.replace(")-(", "_").strip("()")
         co_segment.add(tuple([co_res_plus, identifier, typ]))
     categories["co"] = co_segment
 
