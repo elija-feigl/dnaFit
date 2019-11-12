@@ -18,7 +18,6 @@ class Linker(object):
     """
     # TODO: move categorize to linker?
     project: Project = attr.ib()
-
     Fbp: Dict[int, int] = dict()
     DidFid: Dict[int, int] = dict()
     DhpsDid: Dict[Tuple[int, int, bool], int] = dict()
@@ -427,4 +426,5 @@ def get_linkage(project: Project) -> Linkage:
             linker = Linker(project)
             link = linker.create_linkage()
             link.dump_linkage(project)
+    link.reverse()
     return link

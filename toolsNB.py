@@ -12,7 +12,9 @@ from statistics import mean
 import ipywidgets as widgets
 
 from linkage import Linkage
+from linker import get_linkage
 from project import Project
+
 
 # TODO: -low get dynamically from dicts
 CATEGORIES = ["co", "co_plus", "ss", "ds", "clean", "nick"]
@@ -24,6 +26,7 @@ DIHEDRALS = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "xi"]
 COANGLES = ["co_alpha1", "co_alpha2", "co_gamma1", "co_gamma2", "co_beta"]
 
 
+# TODO: Attrs
 class DataPrep(object):
     def __init__(self, path, name, plus=3):
         self.name = name
@@ -36,13 +39,12 @@ class DataPrep(object):
         self.df_co = None
 
     def _load_linkage(self):
+        # TODO: move projec to constructot
         self.project = Project(input=Path(self.path),
                                output=Path(self.path) / "analysis",
                                name=self.name,
                                )
-        link = Linkage()
-        link.load_linkage(project=self.project)
-        link.reverse()
+        link: Linkage = get_linkage(self.project)
         return link
 
     def _traj_frame(self, frame):
