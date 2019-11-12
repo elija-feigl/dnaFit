@@ -155,7 +155,7 @@ def categorise(link: Linkage,
     for domain in design.design.domain_list:
         bases = domain.base_list
         across_id = domain.connected_domain
-        is_long_ds_staple = (len(bases) > 10
+        is_long_ds_staple = (len(bases) >= 14
                              and across_id != -1
                              and not bases[0].is_scaf
                              )
