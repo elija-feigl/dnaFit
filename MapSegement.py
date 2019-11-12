@@ -110,7 +110,7 @@ def main():
     if project.halfmap:
         print("segmenting halfmaps")
 
-    #check_abort()
+    check_abort()
     motifs = categorise(link=link, project=project)
     for motif_name, motif in motifs.items():
         path_motif = project.output / motif_name
@@ -129,14 +129,16 @@ def main():
             else:
                 specs = {"": ""}
             for inp, out in specs.items():
-                path_in = project.input / "{}{}.mrc".format(project.name,
-                                                            inp,
-                                                            )
-                path_out = path_motif / "{}__{}{}_{}.mrc".format(project.name,
-                                                                 out,
-                                                                 typ,
-                                                                 key,
-                                                                 )
+                in_suffix = "{}{}.mrc".format(project.name,
+                                              inp,
+                                              )
+                out_suffix = "{}__{}{}_{}.mrc".format(project.name,
+                                                      out,
+                                                      typ,
+                                                      key,
+                                                      )
+                path_in = project.input / in_suffix
+                path_out = path_motif / out_suffix
                 mrc_segment(atoms=atoms_select,
                             path_in=path_in,
                             path_out=path_out,
