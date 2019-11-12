@@ -133,10 +133,10 @@ def main():
                                                             inp,
                                                             )
                 path_out = path_motif / "{}__{}{}_{}.mrc".format(project.name,
-                                                                out,
-                                                                typ,
-                                                                key,
-                                                                )
+                                                                 out,
+                                                                 typ,
+                                                                 key,
+                                                                 )
                 mrc_segment(atoms=atoms_select,
                             path_in=path_in,
                             path_out=path_out,
