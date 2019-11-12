@@ -24,6 +24,8 @@ class BDna(object):
     link: Linkage = attr.ib()
 
     def __attrs_post_init__(self) -> None:
+        if not self.link.reversed:
+            self.link.reverse()
         self.bps: Dict[Tuple[int, int], BasePair] = self._get_pot_bp()
         self.link.relink_crossover_basepairs(self.bps)
         self.bp_quality: Dict[int, Any] = {}

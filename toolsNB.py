@@ -45,6 +45,8 @@ class DataPrep(object):
                                name=self.name,
                                )
         link: Linkage = get_linkage(self.project)
+        if not link.reversed:
+            link.reverse()
         return link
 
     def _traj_frame(self, frame):
