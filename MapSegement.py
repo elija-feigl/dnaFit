@@ -110,26 +110,19 @@ def main():
     if project.halfmap:
         print("segmenting halfmaps")
 
-    check_abort()
-    co, nick = categorise(link=link, plus=project.range)
-    motifs = {"co": co, "nick": nick}
+    #check_abort()
+    motifs = categorise(link=link, project=project)
     for motif_name, motif in motifs.items():
         path_motif = project.output / motif_name
         print("output to ", path_motif)
         with ignored(FileExistsError):
             os.mkdir(path_motif)
 
-        for index, subset in enumerate(motif):
-            if motif_name == "co":
-                base_selection, index, typ = subset  # TODO: co-index
-                atoms_select = mda.AtomGroup([], link.u)
-                for resindex in base_selection:
-                    atoms_select += link.u.residues[resindex].atoms
-            elif motif_name == "nick":
-                typ = ""
-                atoms_select = mda.AtomGroup([], link.u)
-                for base_id in subset:
-                    atoms_select += link.u.residues[base_id].atoms
+        for subset in motif:
+            base_selection, key, typ = subset
+            atoms_select = mda.AtomGroup([], link.u)
+            for resindex in base_selection:
+                atoms_select += link.u.residues[resindex].atoms
 
             if project.halfmap:
                 specs = {"": "", H1: "h1-", H2: "h2-"}
@@ -139,12 +132,11 @@ def main():
                 path_in = project.input / "{}{}.mrc".format(project.name,
                                                             inp,
                                                             )
-                path_out = path_motif / "{}__{}{}{}{}.mrc".format(project.name,
-                                                                  out,
-                                                                  typ,
-                                                                  motif_name,
-                                                                  index,
-                                                                  )
+                path_out = path_motif / "{}__{}{}_{}.mrc".format(project.name,
+                                                                out,
+                                                                typ,
+                                                                key,
+                                                                )
                 mrc_segment(atoms=atoms_select,
                             path_in=path_in,
                             path_out=path_out,
