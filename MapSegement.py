@@ -128,12 +128,12 @@ def main():
                 specs = {"": "", H1: "h1-", H2: "h2-"}
             else:
                 specs = {"": ""}
-            for inp, out in specs.items():
+            for halfmap_inp, halfmap_out in specs.items():
                 in_suffix = "{}{}.mrc".format(project.name,
-                                              inp,
+                                              halfmap_inp,
                                               )
                 out_suffix = "{}__{}{}_{}.mrc".format(project.name,
-                                                      out,
+                                                      halfmap_out,
                                                       typ,
                                                       key,
                                                       )
