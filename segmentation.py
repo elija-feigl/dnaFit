@@ -4,11 +4,12 @@ import numpy as np
 import MDAnalysis as mda
 # import attr
 
-from typing import List, Set, Tuple, FrozenSet
-from itertools import chain
+from typing import Dict, Set, Tuple, FrozenSet
 
 from utils import UnexpectedCaseError, ignored
 from linkage import Linkage
+from project import Project
+from design import Design
 
 
 def mrc_segment(atoms: "mda.atomgroup",
@@ -94,80 +95,83 @@ def mrc_segment(atoms: "mda.atomgroup",
 
 
 def categorise(link: Linkage,
-               plus: int = 3
-               ) -> Tuple[Set[Tuple[FrozenSet[int], int, str]],
-                          Set[FrozenSet[int]]
-                          ]:
+               project: Project,
+               ) -> Dict[str, Tuple[FrozenSet[int], str, str]]:
 
-    def _get_co(res: int, link: Linkage) -> List[int]:
-        ser = link.Fco[res]["co"]
-        res_bp = link.Fbp_full[res]
-        ser_bp = link.Fbp_full[ser]
-        return [res, ser, res_bp, ser_bp]
-
-    def _expand_co(co: Tuple[List[int], int, str],
-                   link: Linkage,
-                   ) -> Tuple[FrozenSet[int], int, str]:
-        bases = co[0][:len(co)]
-        co_plus = _expand_selection(selection=bases, link=link)
-        return (frozenset(co_plus), co[1], co[2])
-
-    def _expand_nick(n: Tuple[int, int, int, int],
-                     link: Linkage
-                     ) -> FrozenSet[int]:
-        n_plus = _expand_selection(selection=list(n), link=link)
-        return frozenset(n_plus)
-
-    def _expand_selection(selection: List[int], link: Linkage) -> Set[int]:
+    def _expand_selection(selection: Set[int],
+                          link: Linkage,
+                          plus: int,
+                          ) -> FrozenSet[int]:
         expand = set()
         for resindex in selection:
             h, p, is_scaf = link.DidDhps[link.FidDid[resindex]]
             for i in range(-plus, plus):
                 position = (h, p + i, is_scaf)
-                with ignored(KeyError):
+                with ignored(KeyError):  # could contain skips
                     expand.add(link.DidFid[link.DhpsDid[position]])
-        return expand
+        return frozenset(expand)
 
-    link.reverse()
-    ds = set(chain.from_iterable((a, b) for a, b in iter(link.Fbp.items())))
-    ss = set(link.DidFid.values()) - ds
+    categories = dict()
 
-    co = set()
-    co_plus = set()
-    co_done: Set[int] = set()
-    co_init = set(resid for resid in link.Fco.keys() if resid not in ss)
-    for res in co_init:
-        if res in co_done:
-            continue
+    plus = project.range
+    co_segment = set()
+    for key, co in link.Fco.items():
+        co_res = set()
+        for bp in co.Ps:
+            if bp is None:
+                continue
+            if bp.sc is not None:
+                co_res.add(bp.sc.resindex)
+            if bp.st is not None:
+                co_res.add(bp.st.resindex)
 
-        typ = link.Fco[res]["type"][0]
-        co_index = link.Fco[res]["co_index"]
+        co_res_plus = _expand_selection(selection=co_res, link=link, plus=plus)
+        typ = "co-{}".format(co.typ)
+        identifier = key.strip("[]")
+        identifier.replace(" ", "").replace(",", "-").replace(")-(", "_")
+        co_segment.add(tuple([co_res_plus, identifier, typ]))
+    categories["co"] = co_segment
 
-        half = _get_co(res=res, link=link)
-
-        if typ == "double":
-            f_res = link.Fco[res]["type"][1]
-            flah = _get_co(res=f_res, link=link)
-            full = half[:2] + flah[:2] + half[2:] + flah[2:]
-            crossover = (frozenset(full), co_index, typ)
-            co_done.update(full[:4])
-        else:
-            crossover = (frozenset(half), co_index, typ)
-            co_done.update(half[:2])
-        co.add(crossover)
-        co_plus.add(_expand_co(co=(half, co_index, typ), link=link))
-
-    nick = set()
-    nick_plus = set()
+    nick_segment = set()
     nick_done: Set[int] = set()
     for res, ser in iter(link.Fnicks.items()):
         if res in nick_done:
             continue
         nick_done.update([res, ser])
+
         res_bp = link.Fbp_full[res]
         ser_bp = link.Fbp_full[ser]
-        n = (res, ser, res_bp, ser_bp)
-        nick.add(frozenset(n))
-        nick_plus.add(_expand_nick(n=n, link=link))
+        nick = set([res, ser, res_bp, ser_bp])
 
-    return co_plus, nick_plus
+        nick_plus = _expand_selection(selection=nick, link=link, plus=plus)
+        h, p, _ = link.DidDhps[link.FidDid[res]]
+        idenifier = "{}-{}".format(h, p)
+        typ = "nick"
+        nick_segment.add(tuple([nick_plus, idenifier, typ]))
+    categories["nick"] = nick_segment
+
+    design = Design(project)
+    ds_domain = set()
+    for domain in design.design.domain_list:
+        bases = domain.base_list
+        across_id = domain.connected_domain
+        is_long_ds_staple = (len(bases) > 10
+                             and across_id != -1
+                             and not bases[0].is_scaf
+                             )
+        if not is_long_ds_staple:
+            continue
+        else:
+            across = design.design.domain_list[across_id]
+            bases += across.base_list
+            domain_resindices = frozenset({link.DidFid[base.id]
+                                           for base in bases
+                                           if base.id in link.DidFid  # !skip
+                                           }
+                                          )
+            idenifier = str(domain.id)
+            typ = "ds_domain"
+            ds_domain.add(tuple([domain_resindices, idenifier, typ]))
+    categories["ds"] = ds_domain
+
+    return categories
