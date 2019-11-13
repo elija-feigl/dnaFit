@@ -58,7 +58,7 @@ def write_pdb(u, bDNA, PDBs):
 
 def local_res(u: "mda.universe", bDNA: BDna, project: Project) -> None:
     path_color = project.input / "{}_localres.mrc".format(project.name)
-    localres = bDNA._mrc_localres(path_in=path_color)
+    localres = bDNA._mrc_localres(path_in=str(path_color))
     output = project.output / "{}__localres.p".format(project.name)
     pickle.dump(localres, open(output, "wb"))
 
