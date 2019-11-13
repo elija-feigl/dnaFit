@@ -16,11 +16,12 @@ from segmentation import categorise, mrc_segment
 def mask_minimal_box(u, project):
     path_in = project.input / "{}.mrc".format(project.name)
     path_out = project.output / "{}-masked.mrc".format(project.name)
-    mrc_segment(atoms=u.atoms,
-                path_in=path_in,
-                path_out=path_out,
-                context=project.context,
-                )
+    mrc_segment(
+        atoms=u.atoms,
+        path_in=path_in,
+        path_out=path_out,
+        context=project.context,
+    )
 
 
 def check_abort() -> None:
@@ -113,6 +114,8 @@ def main():
     check_abort()
     motifs = categorise(link=link, project=project)
     for motif_name, motif in motifs.items():
+        if motif_name != "ds":
+            continue
         path_motif = project.output / motif_name
         print("output to ", path_motif)
         with ignored(FileExistsError):
@@ -139,12 +142,13 @@ def main():
                                                       )
                 path_in = project.input / in_suffix
                 path_out = path_motif / out_suffix
-                mrc_segment(atoms=atoms_select,
-                            path_in=path_in,
-                            path_out=path_out,
-                            context=project.context,
-                            star=project.star,
-                            )
+                mrc_segment(
+                    atoms=atoms_select,
+                    path_in=path_in,
+                    path_out=path_out,
+                    context=project.context,
+                    star=project.star,
+                )
 
 
 if __name__ == "__main__":

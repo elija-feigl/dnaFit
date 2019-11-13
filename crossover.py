@@ -61,10 +61,11 @@ class Crossover(object):
                     Xs_new.append((sc_index, st_index))
                     X_pos.append(P.hp)
 
-        return CrossoverPicklable(Ps=Ps,
-                                  Ls=Ls,
-                                  P_pos=P_pos,
-                                  L_pos=L_pos,
-                                  typ=self.typ,
-                                  is_scaf=self.is_scaf,
-                                  )
+        return CrossoverPicklable(
+            Ps=Ps,
+            Ls=Ls,
+            P_pos=P_pos,
+            L_pos=L_pos,
+            typ=self.typ,
+            is_scaf=self.is_scaf,
+        )

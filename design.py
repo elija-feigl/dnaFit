@@ -46,9 +46,10 @@ class Design(object):
     def _clean_staple(self, strands: List["nd.base"]) -> List[List["nd.base"]]:
         # TODO: -low- insertions
         staples = [s.tour for s in strands if not s.is_scaffold]
-        staples_clean = [[b for b in s if not self._is_del(b)]
-                         for s in staples
-                         ]
+        staples_clean = [
+            [b for b in s if not self._is_del(b)]
+            for s in staples
+        ]
         return staples_clean
 
     def _get_design(self) -> Any:
@@ -56,10 +57,11 @@ class Design(object):
         seq = self.infile.with_suffix(".seq")
         converter = Converter()
         if fil.exists() and seq.exists():
-            converter.read_cadnano_file(file_name=str(fil),
-                                        seq_file_name=str(seq),
-                                        seq_name=None,
-                                        )
+            converter.read_cadnano_file(
+                file_name=str(fil),
+                seq_file_name=str(seq),
+                seq_name=None,
+            )
         else:
             raise FileNotFoundError
         converter.dna_structure.compute_aux_data()
@@ -91,8 +93,9 @@ class Design(object):
                 for s in self.staples
                 ]
         Dhps_sorted = sorted(Dhps, key=lambda x: (x[0], x[1]))
-        order_ND = [Dhps.index(Dhps_sorted[i])
-                    for i, _ in enumerate(Dhps)
-                    ]
+        order_ND = [
+            Dhps.index(Dhps_sorted[i])
+            for i, _ in enumerate(Dhps)
+        ]
         stapleorder = {nd: idx for (idx, nd) in enumerate(order_ND)}
         return stapleorder

@@ -43,11 +43,12 @@ class Linker(object):
             # local: scaffold 5'->3'
             sequence = ""
             for stp in range(steps + 1):
-                neighbor = self._get_n_strand(base=base,
-                                              direct="down",
-                                              steps=stp,
-                                              local=True
-                                              )
+                neighbor = self._get_n_strand(
+                    base=base,
+                    direct="down",
+                    steps=stp,
+                    local=True
+                )
                 if neighbor is None:
                     sequence += "N"
                 elif neighbor.h != base.h:
@@ -61,11 +62,12 @@ class Linker(object):
             # global: even helix scaffold 5'->3', odd helix scaffold 3'->5'
             sequence = ""
             for stp in range(0, -(steps + 1), -1):
-                neighbor = self._get_n_strand(base=base,
-                                              direct="down",
-                                              steps=stp,
-                                              local=False
-                                              )
+                neighbor = self._get_n_strand(
+                    base=base,
+                    direct="down",
+                    steps=stp,
+                    local=False,
+                )
                 if neighbor is None:
                     sequence += "N"
                 elif neighbor.h != base.h:
@@ -124,10 +126,11 @@ class Linker(object):
             -------
                 self.Dskips
         """
-        self.Dskips = set((base.h, base.p)
-                          for base in self.design.allbases
-                          if self._is_del(base)
-                          )
+        self.Dskips = set(
+            (base.h, base.p)
+            for base in self.design.allbases
+            if self._is_del(base)
+        )
 
     def create_linkage(self) -> Linkage:
         """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping
@@ -143,18 +146,19 @@ class Linker(object):
         self._identify_nicks()
         self._eval_sequence()
         self._eval_FidHelixneighbors()
-        self.link = Linkage(Fbp=self.Fbp,
-                            DidFid=self.DidFid,
-                            DhpsDid=self.DhpsDid,
-                            Dcolor=self.Dcolor,
-                            Dskips=self.Dskips,
-                            Fco=self.Fco,
-                            Fnicks=self.Fnicks,
-                            FidSeq_local=self.FidSeq_local,
-                            FidSeq_global=self.FidSeq_global,
-                            FidHN=self.FidHN,
-                            u=self.fit.u,
-                            )
+        self.link = Linkage(
+            Fbp=self.Fbp,
+            DidFid=self.DidFid,
+            DhpsDid=self.DhpsDid,
+            Dcolor=self.Dcolor,
+            Dskips=self.Dskips,
+            Fco=self.Fco,
+            Fnicks=self.Fnicks,
+            FidSeq_local=self.FidSeq_local,
+            FidSeq_global=self.FidSeq_global,
+            FidHN=self.FidHN,
+            u=self.fit.u,
+        )
         return self.link
 
     def _link(self) -> Tuple[Dict[int, int],
@@ -242,10 +246,11 @@ class Linker(object):
             self.Fbp
                 fit-id -> fit-id
         """
-        self.Fbp = {self.DidFid[base.id]: self.DidFid[base.across.id]
-                    for base in self.design.scaffold
-                    if base.across is not None
-                    }
+        self.Fbp = {
+            self.DidFid[base.id]: self.DidFid[base.across.id]
+            for base in self.design.scaffold
+            if base.across is not None
+        }
         return self.Fbp
 
     def _get_n_strand(self, base: "nd.base", direct: str, steps=1, local=True
@@ -346,11 +351,12 @@ class Linker(object):
                 if bP is not None:
                     co_pos.append((bP.h, bP.p))
                 Ls.append(self._get_bp(base=bL))
-            co = Crossover(Ps=Ps,
-                           Ls=Ls,
-                           typ=typ,
-                           is_scaf=bA.is_scaf,
-                           )
+            co = Crossover(
+                Ps=Ps,
+                Ls=Ls,
+                typ=typ,
+                is_scaf=bA.is_scaf,
+            )
             key = str(sorted(co_pos))
             return key, co
 
@@ -403,11 +409,12 @@ class Linker(object):
         start_bases = [s[0] for s in self.design.staples]
         end_bases = [s[-1] for s in self.design.staples]
 
-        self.Fnicks = {Fid(start.id): Fid(candi.id)
-                       for start in start_bases
-                       for candi in end_bases
-                       if is_nick(candidate=candi, base=start)
-                       }
+        self.Fnicks = {
+            Fid(start.id): Fid(candi.id)
+            for start in start_bases
+            for candi in end_bases
+            if is_nick(candidate=candi, base=start)
+        }
 
 
 def get_linkage(project: Project) -> Linkage:

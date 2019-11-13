@@ -134,8 +134,11 @@ class BDna(object):
         atoms = []
         for b in [bp.sc, bp.st]:
             C1p.append(b.atoms.select_atoms("name {}".format(atom_name))[0])
-            atoms.append(b.atoms.select_atoms(
-                "name " + ' or name '.join(map(str, WC_HBONDS[b.resname]))))
+            atoms.append(
+                b.atoms.select_atoms(
+                    "name " + ' or name '.join(map(str, WC_HBONDS[b.resname]))
+                )
+            )
 
         c1p_dist = mdamath.norm(C1p[0].position - C1p[1].position)
         c1p_dev = abs(c1p_dist - C1P_BASEDIST) / C1P_BASEDIST
@@ -214,13 +217,14 @@ class BDna(object):
                 roll[key] = _save_arccos_deg(proj)
             return roll
 
-        geometry = {"rise": _get_rise(bp=bp, n_bp=n_bp),
-                    "slide": _get_slide(bp=bp, n_bp=n_bp),
-                    "shift": _get_shift(bp=bp, n_bp=n_bp),
-                    "twist": _get_twist(bp=bp, n_bp=n_bp),
-                    "tilt": _get_tilt(bp=bp, n_bp=n_bp),
-                    "roll": _get_roll(bp=bp, n_bp=n_bp),
-                    }
+        geometry = {
+            "rise": _get_rise(bp=bp, n_bp=n_bp),
+            "slide": _get_slide(bp=bp, n_bp=n_bp),
+            "shift": _get_shift(bp=bp, n_bp=n_bp),
+            "twist": _get_twist(bp=bp, n_bp=n_bp),
+            "tilt": _get_tilt(bp=bp, n_bp=n_bp),
+            "roll": _get_roll(bp=bp, n_bp=n_bp),
+        }
         return geometry
 
     def eval_dh(self) -> None:
@@ -450,22 +454,24 @@ class BDna(object):
                                "co_gamma1": gamma1,
                                "co_gamma2": gamma2,
                                "co_alpha1": alpha1,
-                               "co_alpha2": alpha2},
+                               "co_alpha2": alpha2,
+                               },
                     "center-co": center,
                     "plane": n0,
-                    "resindices": resindices
+                    "resindices": resindices,
                     }
 
         for key, co in self.link.Fco.items():
             co_data = get_co_angles(co=co)
 
-            self.co_angles[key] = {"co": key,
-                                   "type": co.typ,
-                                   "is_scaffold": co.is_scaf,
-                                   "angles": co_data["angles"],
-                                   "center-co": co_data["center-co"],
-                                   "resindices": co_data["resindices"],
-                                   }
+            self.co_angles[key] = {
+                "co": key,
+                "type": co.typ,
+                "is_scaffold": co.is_scaf,
+                "angles": co_data["angles"],
+                "center-co": co_data["center-co"],
+                "resindices": co_data["resindices"],
+            }
 
     def _mrc_localres(self, path_in: str) -> Dict[int, float]:
         def get_localres(atoms: "mda.atomgroup",
@@ -495,10 +501,11 @@ class BDna(object):
 
         dict_localres = {}
         for res in self.link.u.atoms.residues:
-            localres = get_localres(atoms=res.atoms,
-                                    data=data,
-                                    origin=origin,
-                                    voxel_size=voxel_size,
-                                    )
+            localres = get_localres(
+                atoms=res.atoms,
+                data=data,
+                origin=origin,
+                voxel_size=voxel_size,
+            )
             dict_localres[res.resindex] = localres
         return dict_localres

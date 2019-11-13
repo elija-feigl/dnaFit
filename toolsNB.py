@@ -40,10 +40,11 @@ class DataPrep(object):
 
     def _load_linkage(self):
         # TODO: move projec to constructot
-        self.project = Project(input=Path(self.path),
-                               output=Path(self.path) / "analysis",
-                               name=self.name,
-                               )
+        self.project = Project(
+            input=Path(self.path),
+            output=Path(self.path) / "analysis",
+            name=self.name,
+        )
         link: Linkage = get_linkage(self.project)
         if not link.reversed:
             link.reverse()
@@ -104,8 +105,14 @@ class DataPrep(object):
         id_nick = [*self.link.Fnicks.values(),
                    *self.link.Fnicks.keys()]
 
-        return {"co": id_co, "co_plus": id_co_plus, "ss": id_ss, "ds": id_ds,
-                "all": id_all, "clean": id_clean, "nick": id_nick}
+        return {"co": id_co,
+                "co_plus": id_co_plus,
+                "ss": id_ss,
+                "ds": id_ds,
+                "all": id_all,
+                "clean": id_clean,
+                "nick": id_nick,
+                }
 
     def create_df(self, frame=0):
         data, ts = self._traj_frame(frame)
@@ -213,9 +220,11 @@ class DataPrep(object):
                 co_type = data["co_angles"][co_id]["type"]
             except KeyError:
                 continue  # running index not continuos
-            strand_type = ("scaffold" if
-                           data["co_angles"][co_id]["is_scaffold"]
-                           else "staple")
+            strand_type = (
+                "scaffold" if
+                data["co_angles"][co_id]["is_scaffold"]
+                else "staple"
+            )
             id_co_dict[co_id] = [co_type, strand_type]
 
             co_resids = data["co_angles"][co_id]["resindices"]
@@ -289,13 +298,15 @@ class FileBrowser(object):
         if self.files:
             button = widgets.Button(description='..',
                                     background_color='#d0d0ff',
-                                    layout=layout_button)
+                                    layout=layout_button,
+                                    )
             button.on_click(on_click)
             buttons.append(button)
         for f in self.dirs:
             button = widgets.Button(description=f,
                                     background_color='#d0d0ff',
-                                    layout=layout_button)
+                                    layout=layout_button,
+                                    )
             button.on_click(on_click)
             buttons.append(button)
         # for f in self.files:

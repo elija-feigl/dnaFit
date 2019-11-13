@@ -7,16 +7,18 @@ from typing import List
 
 C1P_BASEDIST: float = 10.7
 TOL: float = 10e-6
-WC_DICT: dict = {"DC": "DG", "DG": "DC", "DT": "DA", "DA": "DT",
-                 "C": "G", "G": "C", "T": "A", "A": "T",
-                 "CYT": "GUA", "GUA": "CYT", "THY": "ADE", "ADE": "THY"
-                 }
-WC_HBONDS: dict = {"DA": ("N6", "N1"), "A": ("N6", "N1"), "ADE": ("N6", "N1"),
-                   "DT": ("O4", "N3"), "T": ("O4", "N3"), "THY": ("O4", "N3"),
-                   "DG": ("O6", "N1", "N2"), "G": ("O6", "N1", "N2"),
-                   "GUA": ("O6", "N1", "N2"), "DC": ("N4", "N3", "O2"),
-                   "C": ("N4", "N3", "O2"), "CYT": ("N4", "N3", "O2")
-                   }
+WC_DICT: dict = {
+    "DC": "DG", "DG": "DC", "DT": "DA", "DA": "DT",
+    "C": "G", "G": "C", "T": "A", "A": "T",
+    "CYT": "GUA", "GUA": "CYT", "THY": "ADE", "ADE": "THY"
+}
+WC_HBONDS: dict = {
+    "DA": ("N6", "N1"), "A": ("N6", "N1"), "ADE": ("N6", "N1"),
+    "DT": ("O4", "N3"), "T": ("O4", "N3"), "THY": ("O4", "N3"),
+    "DG": ("O6", "N1", "N2"), "G": ("O6", "N1", "N2"),
+    "GUA": ("O6", "N1", "N2"), "DC": ("N4", "N3", "O2"),
+    "C": ("N4", "N3", "O2"), "CYT": ("N4", "N3", "O2")
+}
 (N6O4, N1N3_AT) = (2.95, 2.88)
 (O6N4, N1N3_GC, N2O2) = (2.85, 2.85, 2.85)
 WC_HBONDS_DIST: dict = {
@@ -34,9 +36,10 @@ DH_ATOMS: dict = {
     "delta": ("C5'", "C4'", "C3'", "O3'"),
     "epsilon": ("C4'", "C3'", "O3'", "P +"),
     "zeta": ("C3'", "O3'", "P +", "O5' +"),
-    "xi": {"pyr": ("C4'", "C1'", "N1", "C2"),
-           "pur": ("C4'", "C1'", "N9", "C4")
-           }
+    "xi": {
+        "pyr": ("C4'", "C1'", "N1", "C2"),
+        "pur": ("C4'", "C1'", "N9", "C4"),
+    },
 }
 BB_ATOMS: list = ["C1'", "O3'", "C3'", "C4'", "O5'", "C5'", "P"]
 PYR_ATOMS: list = ["N1", "C2"]

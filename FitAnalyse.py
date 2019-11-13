@@ -121,15 +121,16 @@ def proc_input():
                         action="store_true"
                         )
     args = parser.parse_args()
-    project = Project(input=Path(args.folder),
-                      output=Path(args.folder) / "analysis",
-                      name=args.name,
-                      frames=args.frames,
-                      dev=args.dev,
-                      relink=args.relink,
-                      localres=args.localres,
-                      pdb=args.pdb,
-                      )
+    project = Project(
+        input=Path(args.folder),
+        output=Path(args.folder) / "analysis",
+        name=args.name,
+        frames=args.frames,
+        dev=args.dev,
+        relink=args.relink,
+        localres=args.localres,
+        pdb=args.pdb,
+    )
 
     with ignored(FileExistsError):
         os.mkdir(project.output)
@@ -183,7 +184,8 @@ def main():
             (bDNA.bp_geometry_global, "bp_geometry_global"),
             (bDNA.bp_quality, "bp_quality"),
             (bDNA.dh_quality, "dh_quality"), (bDNA.distances, "distances"),
-            (bDNA.co_angles, "co_angles")]
+            (bDNA.co_angles, "co_angles")
+        ]
         for prop, prop_name in props_tuple:
             pickle_name = traj_out / "{}__bDNA-{}-{}.p".format(project.name,
                                                                prop_name,
