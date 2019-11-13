@@ -126,9 +126,9 @@ def main():
                 atoms_select += link.u.residues[resindex].atoms
 
             if project.halfmap:
-                specs = {"": "", H1: "h1-", H2: "h2-"}
+                specs = {"-segment": "", H1: "h1-", H2: "h2-"}
             else:
-                specs = {"": ""}
+                specs = {"-segment": ""}
             for halfmap_inp, halfmap_out in specs.items():
                 in_suffix = "{}{}.mrc".format(project.name,
                                               halfmap_inp,
