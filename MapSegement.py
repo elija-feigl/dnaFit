@@ -114,8 +114,6 @@ def main():
     check_abort()
     motifs = categorise(link=link, project=project)
     for motif_name, motif in motifs.items():
-        if motif_name != "ds":
-            continue
         path_motif = project.output / motif_name
         print("output to ", path_motif)
         with ignored(FileExistsError):
