@@ -12,6 +12,10 @@ from project import Project
 from design import Design
 
 
+STAR_HEADER = """data_\nloop_\n_rlnMicrographName #1\n_rlnCoordinateX #2
+_rlnCoordinateY #3\n_rlnCoordinateZ #4"""
+
+
 def mrc_segment(atoms: "mda.atomgroup",
                 path_in: str,
                 path_out: str,
@@ -79,24 +83,17 @@ def mrc_segment(atoms: "mda.atomgroup",
         mrc_out.header["origin"] = tuple(origin_small)
 
     if star:
-        path_out_split = path_out.split("/")
-        path_star = "Tomograms/seg-co/" + path_out_split[-1]
-        star_header = """data_\n
-                        loop_
-                        _rlnMicrographName #1
-                        _rlnCoordinateX #2
-                        _rlnCoordinateY #3
-                        _rlnCoordinateZ #4
-                        """.replace(" ", "")
-        with open(path_out + ".star", mode="w") as star_out:
-            star_out.write(star_header)
-            star_out.write("{}.star {} {} {}".format(path_star, *center_small))
+        path_star = "Tomograms/seg-co/" + path_out.stem + ".star"
+        path_out_star = path_out.parent / (path_out.stem + ".star")
+        with open(path_out_star, mode="w") as star_out:
+            star_out.write(STAR_HEADER)
+            star_out.write("{} {} {} {}".format(path_star, *center_small))
     return
 
 
 def categorise(link: Linkage,
                project: Project,
-               ) -> Dict[str, Tuple[FrozenSet[int], str, str]]:
+               ) -> Dict[str, Set[Tuple[FrozenSet[int], str, str]]]:
 
     def _expand_selection(selection: Set[int],
                           link: Linkage,
