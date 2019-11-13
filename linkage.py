@@ -2,7 +2,7 @@
 import pickle
 import attr
 
-from typing import Set, Dict, Tuple
+from typing import Set, Dict, Tuple, List
 import MDAnalysis as mda
 
 from project import Project
@@ -20,7 +20,7 @@ class Linkage(object):
     Fnicks: Dict[int, int] = {}
     FidSeq_local: Dict[int, str] = dict()
     FidSeq_global: Dict[int, str] = dict()
-    FidHN: Dict[int, int] = {}
+    FidHN: Dict[int, List[int]] = {}
     Fco: Dict[str, Crossover] = {}
     u: "mda.universe" = None
 
