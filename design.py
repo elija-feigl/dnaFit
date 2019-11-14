@@ -3,7 +3,7 @@ import attr
 
 from typing import List, Dict, Any
 from nanodesign.converters import Converter
-from nanodesign.data import DnaBase
+from nanodesign.data.base import DnaBase
 
 from project import Project
 

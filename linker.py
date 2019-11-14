@@ -2,7 +2,7 @@
 import attr
 import nanodesign as nd
 
-from nanodesign.data import DnaBase
+from nanodesign.data.base import DnaBase
 from typing import Dict, Tuple, Optional, List
 
 from project import Project

@@ -219,7 +219,7 @@ class DataPrep(object):
             try:
                 co_type = data["co_angles"][co_id]["type"]
             except KeyError:
-                continue  # running index not continuos
+                continue
             strand_type = (
                 "scaffold" if
                 data["co_angles"][co_id]["is_scaffold"]

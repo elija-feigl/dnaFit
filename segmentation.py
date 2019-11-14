@@ -6,7 +6,7 @@ import MDAnalysis as mda
 
 from typing import Dict, Set, Tuple, FrozenSet
 
-from utils import UnexpectedCaseError, ignored
+from utils import UnexpectedCaseError
 from linkage import Linkage
 from project import Project
 from design import Design
@@ -104,8 +104,7 @@ def categorise(link: Linkage,
             h, p, is_scaf = link.DidDhps[link.FidDid[resindex]]
             for i in range(-plus, plus):
                 position = (h, p + i, is_scaf)
-                with ignored(KeyError):  # could contain skips
-                    expand.add(link.DidFid[link.DhpsDid[position]])
+                expand.add(link.DidFid[link.DhpsDid[position]])
         return frozenset(expand)
 
     categories = dict()
