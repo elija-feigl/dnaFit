@@ -29,9 +29,18 @@ class Design(object):
             hps_base[position] = base
         return hps_base
 
+    def _close_strand(self, strand):
+        start = strand[0]
+        end = strand[-1]
+        start.up, end.down = end, start
+        self.design.strands[start.strand].is_circular = True
+        return strand
+
     def _scaffold(self) -> List[DnaBase]:
         # TODO: -low- multiscaffold
-        return [s.tour for s in self.design.strands if s.is_scaffold][0]
+        scaffold = [s.tour for s in self.design.strands if s.is_scaffold][0]
+        self._close_strand(strand=scaffold)
+        return scaffold
 
     def _staple(self) -> List[List[DnaBase]]:
         return [s.tour for s in self.design.strands if not s.is_scaffold]
