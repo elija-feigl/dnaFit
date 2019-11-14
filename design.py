@@ -1,10 +1,9 @@
 #!/usr/bin/env python3#
 import attr
-import nanodesign as nd
-
 
 from typing import List, Dict, Any
 from nanodesign.converters import Converter
+from nanodesign.data import DnaBase
 
 from project import Project
 
@@ -16,14 +15,11 @@ class Design(object):
     def __attrs_post_init__(self):
         self.infile = self.project.input / self.project.name
         self.design = self._get_design()
-        self.strands = self.design.strands
-        self.scaffold = self._clean_scaffold(self.strands)
-        self.excl = self.scaffold[0].strand
-        self.staples = self._clean_staple(self.strands)
+        self.scaffold = self._scaffold()
+        self.staples = self._staple()
         self.helixorder = self._create_helix_order()
         self.stapleorder = self._create_staple_order()
-        self.allbases = [b for s in self.strands for b in s.tour]
-        self.allbases_clean = [b for b in self.allbases if not self._is_del(b)]
+        self.allbases = [b for s in self.design.strands for b in s.tour]
         self.Dhps_base: dict = self._init_hps_base()
 
     def _init_hps_base(self):
@@ -33,24 +29,12 @@ class Design(object):
             hps_base[position] = base
         return hps_base
 
-    def _is_del(self, base: "nd.base") -> bool:
-        return base.num_deletions != 0
-
-    def _clean_scaffold(self, strands: List["nd.base"]) -> List["nd.base"]:
+    def _scaffold(self) -> List[DnaBase]:
         # TODO: -low- multiscaffold
-        # TODO: -low- insertions
-        scaffold = [s.tour for s in strands if s.is_scaffold][0]
-        scaffold_clean = [b for b in scaffold if not self._is_del(b)]
-        return scaffold_clean
+        return [s.tour for s in self.design.strands if s.is_scaffold][0]
 
-    def _clean_staple(self, strands: List["nd.base"]) -> List[List["nd.base"]]:
-        # TODO: -low- insertions
-        staples = [s.tour for s in strands if not s.is_scaffold]
-        staples_clean = [
-            [b for b in s if not self._is_del(b)]
-            for s in staples
-        ]
-        return staples_clean
+    def _staple(self) -> List[List[DnaBase]]:
+        return [s.tour for s in self.design.strands if not s.is_scaffold]
 
     def _get_design(self) -> Any:
         fil = self.infile.with_suffix(".json")

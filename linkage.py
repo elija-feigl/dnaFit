@@ -2,7 +2,7 @@
 import pickle
 import attr
 
-from typing import Set, Dict, Tuple, List
+from typing import Dict, Tuple, List
 import MDAnalysis as mda
 
 from project import Project
@@ -16,7 +16,6 @@ class Linkage(object):
     DidFid: Dict[int, int] = {}
     DhpsDid: Dict[Tuple[int, int, bool], int] = {}
     Dcolor: Dict[int, int] = {}
-    Dskips: Set[Tuple[int, int]] = set()
     Fnicks: Dict[int, int] = {}
     FidSeq_local: Dict[int, str] = dict()
     FidSeq_global: Dict[int, str] = dict()

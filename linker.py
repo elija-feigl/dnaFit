@@ -2,7 +2,8 @@
 import attr
 import nanodesign as nd
 
-from typing import Set, Dict, Tuple, Optional, List
+from nanodesign.data import DnaBase
+from typing import Dict, Tuple, Optional, List
 
 from project import Project
 from fit import Fit
@@ -24,7 +25,6 @@ class Linker(object):
     Fnicks: Dict[int, int] = dict()
     FidSeq_local: Dict[int, str] = dict()
     FidSeq_global: Dict[int, str] = dict()
-    Dskips: Set[Tuple[int, int]] = set()
     Fco: Dict[str, Crossover] = dict()
 
     def __attrs_post_init__(self) -> None:
@@ -39,7 +39,7 @@ class Linker(object):
 
         """
         self.FidSeq: Dict[int, str] = dict()
-        for base in self.design.allbases_clean:
+        for base in self.design.allbases:
             # local: scaffold 5'->3'
             sequence = ""
             for stp in range(steps + 1):
@@ -96,7 +96,7 @@ class Linker(object):
                 return False
 
         self.FidHN: Dict[int, List[int]] = dict()
-        for base in self.design.allbases_clean:
+        for base in self.design.allbases:
             HidH = self.design.design.structure_helices_map
             HrcH = self.design.design.structure_helices_coord_map
             h_col = HidH[base.h].lattice_col
@@ -118,20 +118,6 @@ class Linker(object):
             resindex = self.DidFid[base.id]
             self.FidHN[resindex] = nhelices
 
-    def _is_del(self, base: "nd.base") -> bool:
-        return base.num_deletions != 0
-
-    def _eval_skips(self) -> None:
-        """ Affects
-            -------
-                self.Dskips
-        """
-        self.Dskips = set(
-            (base.h, base.p)
-            for base in self.design.allbases
-            if self._is_del(base)
-        )
-
     def create_linkage(self) -> Linkage:
         """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping
             of every base design-id to fit-id as well as the basepair mapping.
@@ -139,7 +125,6 @@ class Linker(object):
             updates linker attributes corresponding to the respective mapping
             and returns them.
         """
-        self._eval_skips()
         self._link()
         self._identify_bp()
         self._identify_crossover()
@@ -151,7 +136,6 @@ class Linker(object):
             DidFid=self.DidFid,
             DhpsDid=self.DhpsDid,
             Dcolor=self.Dcolor,
-            Dskips=self.Dskips,
             Fco=self.Fco,
             Fnicks=self.Fnicks,
             FidSeq_local=self.FidSeq_local,
@@ -253,8 +237,8 @@ class Linker(object):
         }
         return self.Fbp
 
-    def _get_n_strand(self, base: "nd.base", direct: str, steps=1, local=True
-                      ) -> Optional["nd.base"]:
+    def _get_n_strand(self, base: DnaBase, direct: str, steps=1, local=True
+                      ) -> Optional[DnaBase]:
         """direct = ["up","down"]"""
         if steps == 0:
             return base
@@ -267,15 +251,10 @@ class Linker(object):
             base = (base.up if direct == "up" else base.down)
             if base is None:
                 return None
-            else:
-                while self._is_del(base):
-                    base = (base.up if direct == "up" else base.down)
-                    if base is None:
-                        return None
         return base
 
-    def _get_n_helix(self, base: "nd.base", direct: int, steps=1
-                     ) -> Optional["nd.base"]:
+    def _get_n_helix(self, base: DnaBase, direct: int, steps=1
+                     ) -> Optional[DnaBase]:
         """direct = [1,-1]"""
         if steps == 0:
             return base
@@ -284,17 +263,7 @@ class Linker(object):
         if steps < 0:
             steps = abs(steps)
             direct = -direct
-
-        n_skips = 0
-        for n in range(direct, direct * (steps + 1), direct):
-            n_position = position + n
-            if (helix, n_position) in self.Dskips:
-                n_skips += 1
-
-        n_position = position + direct * (steps + n_skips)
-        while (helix, n_position) in self.Dskips:
-            n_position += direct
-
+        n_position = position + direct * steps
         return self.design.Dhps_base.get((helix, n_position, is_scaf), None)
 
     def _get_bp(self, base: "nd.residue") -> Optional[BasePair]:
@@ -312,7 +281,7 @@ class Linker(object):
             hp = (base.h, base.p)
             return BasePair(sc=sc, st=st, hp=hp)
 
-    def is_co(self, base: "nd.base", neighbor: Optional["nd.base"]
+    def is_co(self, base: DnaBase, neighbor: Optional[DnaBase]
               ) -> bool:
         if neighbor is None:
             return False
@@ -324,17 +293,17 @@ class Linker(object):
             -------
                 self.Fco
         """
-        def get_co_leg(base: Optional["nd.base"], direct: int
-                       ) -> Optional["nd.base"]:
+        def get_co_leg(base: Optional[DnaBase], direct: int
+                       ) -> Optional[DnaBase]:
             if base is None:
                 return None
             else:
                 return self._get_n_helix(base=base, direct=direct, steps=2)
 
-        def get_co(bA: "nd.base",
-                   bC: "nd.base",
-                   bB: Optional["nd.base"],
-                   bD: Optional["nd.base"],
+        def get_co(bA: DnaBase,
+                   bC: DnaBase,
+                   bB: Optional[DnaBase],
+                   bD: Optional[DnaBase],
                    direct: int,
                    typ: str,
                    ) -> Tuple[str, Crossover]:
@@ -361,7 +330,7 @@ class Linker(object):
             return key, co
 
         co_subparts = set()
-        for base in self.design.allbases_clean:
+        for base in self.design.allbases:
             for direct in ["up", "down"]:
                 neighbor = self._get_n_strand(base, direct)
                 if self.is_co(base=base, neighbor=neighbor):
@@ -394,7 +363,7 @@ class Linker(object):
             -------
                 self.Fnicks
         """
-        def is_nick(candidate: "nd.base", base: "nd.base") -> bool:
+        def is_nick(candidate: DnaBase, base: DnaBase) -> bool:
             is_onhelix = (candidate.h == base.h)
             is_neighbor = (abs(base.p - candidate.p) <= 2)  # skip = 2
             is_base = (candidate is base)
