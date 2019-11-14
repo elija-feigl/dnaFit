@@ -55,7 +55,7 @@ class Design(object):
     def _get_design(self) -> Any:
         fil = self.infile.with_suffix(".json")
         seq = self.infile.with_suffix(".seq")
-        converter = Converter()
+        converter = Converter(modify=True)
         if fil.exists() and seq.exists():
             converter.read_cadnano_file(
                 file_name=str(fil),
