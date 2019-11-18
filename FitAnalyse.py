@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-3
 import MDAnalysis as mda
 import numpy as np
 import os
@@ -14,6 +15,15 @@ from project import Project
 from utils import WC_PROPERTIES, DH_ATOMS, ignored
 from bdna import BDna
 from linker import get_linkage
+
+_author__ = "Elija Feigl"
+__copyright__ = "Copyright 2019, Dietzlab (TUM)"
+__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
+__license__ = "None"
+__version__ = "0.4"
+__maintainer__ = "Elija Feigl"
+__email__ = "elija.feigl@tum.de"
+__status__ = "Development"
 
 
 def write_pdb(u, bDNA, PDBs):

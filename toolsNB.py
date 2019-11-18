@@ -1,4 +1,5 @@
-#!/usr/bin/env python3#
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-3#
 import sys
 import os
 
@@ -15,6 +16,14 @@ from linkage import Linkage
 from linker import get_linkage
 from project import Project
 
+_author__ = "Elija Feigl"
+__copyright__ = "Copyright 2019, Dietzlab (TUM)"
+__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
+__license__ = "None"
+__version__ = "0.4"
+__maintainer__ = "Elija Feigl"
+__email__ = "elija.feigl@tum.de"
+__status__ = "Development"
 
 # TODO: -low get dynamically from dicts
 CATEGORIES = ["co", "co_plus", "ss", "ds", "clean", "nick"]

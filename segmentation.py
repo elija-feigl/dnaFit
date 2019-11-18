@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import mrcfile as mrc
 import numpy as np
 import MDAnalysis as mda
@@ -10,6 +12,15 @@ from utils import UnexpectedCaseError
 from linkage import Linkage
 from project import Project
 from design import Design
+
+_author__ = "Elija Feigl"
+__copyright__ = "Copyright 2019, Dietzlab (TUM)"
+__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
+__license__ = "None"
+__version__ = "0.4"
+__maintainer__ = "Elija Feigl"
+__email__ = "elija.feigl@tum.de"
+__status__ = "Development"
 
 
 STAR_HEADER = """data_\nloop_\n_rlnMicrographName #1\n_rlnCoordinateX #2

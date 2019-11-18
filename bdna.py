@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-3
 # TODO: abkürzungsverzeichnis
 
 import numpy as np
@@ -17,6 +18,15 @@ from utils import (C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, BB_ATOMS,
                    _proj, _norm, _v_proj, _save_arccos_deg,
                    _dh_angle, _proj2plane
                    )
+
+_author__ = "Elija Feigl"
+__copyright__ = "Copyright 2019, Dietzlab (TUM)"
+__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
+__license__ = "None"
+__version__ = "0.4"
+__maintainer__ = "Elija Feigl"
+__email__ = "elija.feigl@tum.de"
+__status__ = "Development"
 
 
 @attr.s

@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import MDAnalysis as mda
 import argparse
 import os
@@ -11,6 +13,15 @@ from project import Project
 from utils import ignored
 from linker import get_linkage
 from segmentation import categorise, mrc_segment
+
+_author__ = "Elija Feigl"
+__copyright__ = "Copyright 2019, Dietzlab (TUM)"
+__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
+__license__ = "None"
+__version__ = "0.4"
+__maintainer__ = "Elija Feigl"
+__email__ = "elija.feigl@tum.de"
+__status__ = "Development"
 
 
 def mask_minimal_box(u, project):

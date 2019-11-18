@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-3
 
 import argparse
 import attr
@@ -6,6 +7,14 @@ import attr
 from pathlib import Path
 from typing import List, Tuple
 
+_author__ = "Elija Feigl"
+__copyright__ = "Copyright 2019, Dietzlab (TUM)"
+__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
+__license__ = "None"
+__version__ = "0.4"
+__maintainer__ = "Elija Feigl"
+__email__ = "elija.feigl@tum.de"
+__status__ = "Development"
 
 HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.3.0\n"
 NOMCLA = {" O1P": " OP1", " O2P": " OP2", " C5M": " C7 "}
@@ -183,8 +192,8 @@ class PDB_Corr(object):
             if molecule_number == self.current["old_molecule_number"]:
                 new_molecule_number = self.current["last_molecule_number"]
             else:
-                if (molecule_number ==
-                        self.current["old_molecule_number"] + 1):
+                if (molecule_number
+                        == self.current["old_molecule_number"] + 1):
                     new_molecule_number = (
                         self.current["last_molecule_number"] + 1)
                 else:
@@ -198,8 +207,8 @@ class PDB_Corr(object):
             if self.current["chain_id"] == "Z":
                 self.current["chain_id_repeats"] += 1
 
-        new_chain_str = (str(new_chain_id) +
-                         str(self.current["chain_id_repeats"]).rjust(3, "0"))
+        new_chain_str = (str(new_chain_id)
+                         + str(self.current["chain_id_repeats"]).rjust(3, "0"))
         if reset_numbers:
             new_molecule_number_str = number_to_hybrid36_number(
                 new_molecule_number, 4)
