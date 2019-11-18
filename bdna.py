@@ -89,8 +89,20 @@ class BDna(object):
         helix, position = bp.hp
         if (helix % 2) == 1 and local:
             steps = -steps
-
+        direct = np.sign(steps)
         n_position = position + steps
+
+        # first check the number of skips passed
+        n_skips = 0
+        for n in range(direct, direct * (steps + 1), direct):
+            n_position = position + n
+            if (helix, n_position, True) not in self.link.DhpsDid:
+                n_skips += 1
+        # move one position further if on skip
+        n_position = position + direct * (steps + n_skips)
+        if (helix, n_position, True) not in self.link.DhpsDid:
+            n_position += direct
+
         return self.bps.get((helix, n_position), None)
 
     def eval_bp(self) -> None:

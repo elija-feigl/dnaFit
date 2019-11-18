@@ -115,7 +115,8 @@ def categorise(link: Linkage,
             h, p, is_scaf = link.DidDhps[link.FidDid[resindex]]
             for i in range(-plus, plus):
                 position = (h, p + i, is_scaf)
-                expand.add(link.DidFid[link.DhpsDid[position]])
+                if position in link.DhpsDid:  # skips included as None
+                    expand.add(link.DidFid[link.DhpsDid[position]])
         return frozenset(expand)
 
     categories = dict()

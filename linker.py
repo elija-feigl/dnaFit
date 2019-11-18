@@ -269,11 +269,19 @@ class Linker(object):
         if steps == 0:
             return base
         helix, position, is_scaf = base.h, base.p, base.is_scaf
-
         if steps < 0:
             steps = abs(steps)
             direct = -direct
-        n_position = position + direct * steps
+        # first check the number of skips passed
+        n_skips = 0
+        for n in range(direct, direct * (steps + 1), direct):
+            n_position = position + n
+            if (helix, n_position, True) not in self.DhpsDid:
+                n_skips += 1
+        # move one position further if on skip
+        n_position = position + direct * (steps + n_skips)
+        if (helix, n_position, True) not in self.DhpsDid:
+            n_position += direct
         return self.design.Dhps_base.get((helix, n_position, is_scaf), None)
 
     def _get_bp(self, base: "nd.residue") -> Optional[BasePair]:
