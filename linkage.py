@@ -3,7 +3,7 @@
 import pickle
 import attr
 
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Set
 import MDAnalysis as mda
 
 from project import Project
@@ -31,6 +31,7 @@ class Linkage(object):
     FidSeq_global: Dict[int, str] = dict()
     FidHN: Dict[int, List[int]] = {}
     Fco: Dict[str, Crossover] = {}
+    Dhp_skips: Set[Tuple[int, int]] = set()
     u: "mda.universe" = None
 
     def __attrs_post_init__(self) -> None:

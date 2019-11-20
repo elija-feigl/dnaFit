@@ -96,11 +96,11 @@ class BDna(object):
         n_skips = 0
         for n in range(direct, direct * (steps + 1), direct):
             n_position = position + n
-            if (helix, n_position, True) not in self.link.DhpsDid:
+            if (helix, n_position) in self.link.Dhp_skips:
                 n_skips += 1
         # move one position further if on skip
         n_position = position + direct * (steps + n_skips)
-        if (helix, n_position, True) not in self.link.DhpsDid:
+        if (helix, n_position) in self.link.Dhp_skips:
             n_position += direct
 
         return self.bps.get((helix, n_position), None)

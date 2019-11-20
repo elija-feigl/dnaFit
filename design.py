@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-3#
 import attr
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Set, Tuple
 from nanodesign.converters import Converter
 from nanodesign.data.base import DnaBase
 
@@ -31,6 +31,7 @@ class Design(object):
         self.stapleorder = self._create_staple_order()
         self.allbases = [b for s in self.design.strands for b in s.tour]
         self.Dhps_base: dict = self._init_hps_base()
+        self.Dhp_skips: Set[Tuple[int, int]] = set()
 
     def _init_hps_base(self):
         hps_base = dict()
@@ -68,6 +69,7 @@ class Design(object):
         else:
             raise FileNotFoundError
         converter.dna_structure.compute_aux_data()
+        self.Dhp_skips = converter.dna_structure.Dhp_skips
         return converter.dna_structure
 
     def _create_helix_order(self) -> Dict[int, int]:

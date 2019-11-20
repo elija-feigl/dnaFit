@@ -4,7 +4,7 @@ import attr
 import nanodesign as nd
 
 from nanodesign.data.base import DnaBase
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, Tuple, Optional, List, Set
 
 from project import Project
 from fit import Fit
@@ -40,6 +40,7 @@ class Linker(object):
     def __attrs_post_init__(self) -> None:
         self.fit: Fit = Fit(self.project)
         self.design: Design = Design(self.project)
+        self.Dhp_skips: Set[Tuple[int, int]] = self.design.Dhp_skips
 
     def _eval_sequence(self, steps=5) -> None:
         """ Affects
@@ -152,6 +153,7 @@ class Linker(object):
             FidSeq_global=self.FidSeq_global,
             FidHN=self.FidHN,
             u=self.fit.u,
+            Dhp_skips=self.Dhp_skips
         )
         return self.link
 
@@ -276,11 +278,11 @@ class Linker(object):
         n_skips = 0
         for n in range(direct, direct * (steps + 1), direct):
             n_position = position + n
-            if (helix, n_position, True) not in self.DhpsDid:
+            if (helix, n_position) in self.design.Dhp_skips:
                 n_skips += 1
         # move one position further if on skip
         n_position = position + direct * (steps + n_skips)
-        if (helix, n_position, True) not in self.DhpsDid:
+        if (helix, n_position) in self.design.Dhp_skips:
             n_position += direct
         return self.design.Dhps_base.get((helix, n_position, is_scaf), None)
 
