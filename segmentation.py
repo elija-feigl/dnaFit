@@ -23,8 +23,8 @@ __email__ = "elija.feigl@tum.de"
 __status__ = "Development"
 
 
-STAR_HEADER = """data_\nloop_\n_rlnMicrographName #1\n_rlnCoordinateX #2
-_rlnCoordinateY #3\n_rlnCoordinateZ #4"""
+STAR_HEADER = """data_\n\nloop_\n_rlnMicrographName #1\n_rlnCoordinateX #2
+_rlnCoordinateY #3\n_rlnCoordinateZ #4\n"""
 
 
 def mrc_segment(atoms: "mda.atomgroup",
