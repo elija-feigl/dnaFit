@@ -35,7 +35,7 @@ class Linkage(object):
     u: "mda.universe" = None
 
     def __attrs_post_init__(self) -> None:
-        self.reversed = False
+        self._reverse()
 
     def dump_linkage(self, project: Project) -> None:
         def pickle_universe(u: "mda.universe") -> Tuple[str, str]:
@@ -77,7 +77,7 @@ class Linkage(object):
                 value = unpickle_Fco(value, self.u)
             setattr(self, name, value)
 
-    def reverse(self) -> None:
+    def _reverse(self) -> None:
         def reverse_d(dict: dict) -> dict:
             return {v: k for k, v in iter(dict.items())}
 
@@ -85,7 +85,6 @@ class Linkage(object):
         self.DidDhps = reverse_d(self.DhpsDid)
         self.Fbp_rev = reverse_d(self.Fbp)
         self.Fbp_full = {**self.Fbp, **self.Fbp_rev}
-        self.reversed = True
 
     def relink_crossover_basepairs(self, bps: Dict[Tuple[int, int], BasePair]
                                    ) -> None:

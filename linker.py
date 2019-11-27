@@ -422,5 +422,4 @@ def get_linkage(project: Project) -> Linkage:
             linker = Linker(project)
             link = linker.create_linkage()
             link.dump_linkage(project)
-    link.reverse()
     return link
