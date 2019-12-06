@@ -160,7 +160,6 @@ class BDna(object):
             bnd = WC_HBONDS[bp.sc.resname][idx] + WC_HBONDS[bp.st.resname][idx]
             quality[bnd] = (hbond_dev if hbond_dist > hbond_should
                             else -hbond_dev)
-
         return quality
 
     def _get_bp_geometry(self, bp: BasePair, n_bp: BasePair,

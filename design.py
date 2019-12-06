@@ -5,6 +5,7 @@ import attr
 from typing import List, Dict, Any, Set, Tuple
 from nanodesign.converters import Converter
 from nanodesign.data.base import DnaBase
+from nanodesign.data.dna_structure import DnaStructure
 
 from project import Project
 
@@ -56,7 +57,7 @@ class Design(object):
     def _staple(self) -> List[List[DnaBase]]:
         return [s.tour for s in self.design.strands if not s.is_scaffold]
 
-    def _get_design(self) -> Any:
+    def _get_design(self) -> DnaStructure:
         fil = self.infile.with_suffix(".json")
         seq = self.infile.with_suffix(".seq")
         converter = Converter(modify=True)
