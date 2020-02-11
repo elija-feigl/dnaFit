@@ -16,7 +16,7 @@ __maintainer__ = "Elija Feigl"
 __email__ = "elija.feigl@tum.de"
 __status__ = "Development"
 
-HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.3.0\n"
+HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.4.0\n"
 NOMCLA = {" O1P": " OP1", " O2P": " OP2", " C5M": " C7 "}
 NOMCLA_REV = {" OP1": " O1P", " OP2": " O2P", " C7 ": " C5M"}
 NOMCLA_BASE = {"CYT": " DC", "GUA": " DG", "THY": " DT",
@@ -24,6 +24,11 @@ NOMCLA_BASE = {"CYT": " DC", "GUA": " DG", "THY": " DT",
                "DT5": " DT", "DT3": " DT", "DG5": " DG",
                "DG3": " DG", "DC5": " DC", "DC3": " DC"}
 NOMCLA_BASE_REV = {" DC": "CYT", " DG": "GUA", " DT": "THY", " DA": "ADE"}
+POS_CHAR = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+POS_CHAIN_IDS = []
+for c1 in POS_CHAR:
+    for c2 in POS_CHAR:
+        POS_CHAIN_IDS.append(c1 + c2)
 
 
 def number_to_hybrid36_number(number: int, width: int) -> str:
@@ -65,6 +70,7 @@ class Project(object):
     reverse: bool = attr.ib()
     reshuffle: bool = attr.ib()
     header: bool = attr.ib()
+    cif: bool = attr.ib()
 
 
 @attr.s(slots=True, auto_attribs=True)
@@ -89,7 +95,7 @@ class PDB_Corr(object):
         self.current = {"atom_number": 1,
                         "old_molecule_number": 1,
                         "last_molecule_number": 1,
-                        "chain_id": "A",
+                        "chain_id": "AA",
                         "chain_id_repeats": 1,
                         "chain": None,
                         }
@@ -134,6 +140,29 @@ class PDB_Corr(object):
                         line = self.correct_atomtype(line=line)
                     if logic.remove_H:
                         line = self.remove_H(line=line)
+                    if is_ter:
+                        body.append("TER\n")
+                    body.append(line)
+
+        body.append("TER\nEND\n")
+        return "".join(body)
+
+    def prep_cif(self, pdb_file: List[str]) -> str:
+        body = []
+        for line in pdb_file:
+            lineType = line[0:6]
+            if lineType == "ATOM  ":
+                no_atom_check = line[13:15]
+                if not(no_atom_check == "  "):
+                    line = self.correct_nomenclature(line=line)
+                    line, is_ter = self.correct_molecule_chain_cif(
+                        line=line,
+                    )
+                    line = self.correct_atom_number(line=line)
+                    line = self.correct_occupancy(line=line)
+                    line = self.correct_atomtype(line=line)
+                    # if logic.remove_H:
+                    #    line = self.remove_H(line=line)
                     if is_ter:
                         body.append("TER\n")
                     body.append(line)
@@ -192,8 +221,8 @@ class PDB_Corr(object):
             if molecule_number == self.current["old_molecule_number"]:
                 new_molecule_number = self.current["last_molecule_number"]
             else:
-                if (molecule_number
-                        == self.current["old_molecule_number"] + 1):
+                consec_nr = self.current["old_molecule_number"] + 1
+                if (molecule_number == consec_nr):
                     new_molecule_number = (
                         self.current["last_molecule_number"] + 1)
                 else:
@@ -207,8 +236,10 @@ class PDB_Corr(object):
             if self.current["chain_id"] == "Z":
                 self.current["chain_id_repeats"] += 1
 
-        new_chain_str = (str(new_chain_id)
-                         + str(self.current["chain_id_repeats"]).rjust(3, "0"))
+        new_chain_str = (
+            str(new_chain_id)
+            + str(self.current["chain_id_repeats"]).rjust(3, "0")
+        )
         if reset_numbers:
             new_molecule_number_str = number_to_hybrid36_number(
                 new_molecule_number, 4)
@@ -217,6 +248,67 @@ class PDB_Corr(object):
                 molecule_number, 4)
 
         newline = "".join([line[0:21],
+                           new_chain_id,
+                           new_molecule_number_str,
+                           line[26:67],
+                           " " * 5,
+                           new_chain_str,
+                           line[76:],
+                           ])
+
+        self.current["chain_id"] = new_chain_id
+        self.current["chain"] = chain
+        self.current["old_molecule_number"] = molecule_number
+        self.current["last_molecule_number"] = new_molecule_number
+
+        return newline, is_ter
+
+    def correct_molecule_chain_cif(
+        self,
+        line: str,
+    ) -> Tuple[str, bool]:
+
+        def increase_chain_id(current_chain_id: str) -> str:
+            pos = POS_CHAIN_IDS.index(current_chain_id)
+            return POS_CHAIN_IDS[pos + 1]
+
+        chain = line[72:76]
+        is_ter = False
+        molecule_number_str = line[22:26]
+        molecule_number = int(molecule_number_str.replace(" ", ""))
+
+        if self.current["chain"] is None:
+            self.current["chain"] = chain
+            new_chain_id = self.current["chain_id"]
+            new_molecule_number = 1
+        elif chain == self.current["chain"]:
+            new_chain_id = self.current["chain_id"]
+            if molecule_number == self.current["old_molecule_number"]:
+                new_molecule_number = self.current["last_molecule_number"]
+            else:
+                consec_nr = self.current["old_molecule_number"] + 1
+                if (molecule_number == consec_nr):
+                    new_molecule_number = (
+                        self.current["last_molecule_number"] + 1)
+                else:
+                    new_molecule_number = (
+                        self.current["last_molecule_number"] + 10)
+                    is_ter = True
+        else:
+            new_chain_id = increase_chain_id(self.current["chain_id"])
+            is_ter = True
+            new_molecule_number = 1
+            if self.current["chain_id"] == "Z":
+                self.current["chain_id_repeats"] += 1
+
+        new_chain_str = (
+            str(new_chain_id)
+            + str(self.current["chain_id_repeats"]).rjust(3, "0")
+        )
+        new_molecule_number_str = number_to_hybrid36_number(
+            new_molecule_number, 4)
+
+        newline = "".join([line[0:20],
                            new_chain_id,
                            new_molecule_number_str,
                            line[26:67],
@@ -281,12 +373,17 @@ def proc_input() -> Project:
                         help="keep header",
                         action="store_true"
                         )
+    parser.add_argument("--cif",
+                        help="prep for cif-generation (overrides others)",
+                        action="store_true"
+                        )
     args = parser.parse_args()
     project = Project(input=Path(args.input),
                       output=Path(args.output),
                       reverse=args.reverse,
                       reshuffle=args.reshuffle,
                       header=args.header,
+                      cif=args.cif,
                       )
     return project
 
@@ -296,15 +393,24 @@ def main():
     logic = Logic(header=project.header,
                   remove_H=False,
                   )
-    pdb_Corr = PDB_Corr(reverse=project.reverse)
+    if project.cif:
+        pdb_Corr = PDB_Corr(reverse=False)
+        project.reshuffle = False
+    else:
+        pdb_Corr = PDB_Corr(reverse=project.reverse)
+
     with open(project.input, "r") as file_init:
         if project.reshuffle:
             file_list = pdb_Corr.reshuffle_pdb(file_init)
         else:
             file_list = file_init
-        newFile = pdb_Corr.correct_pdb(pdb_file=file_list,
-                                       logic=logic,
-                                       )
+
+        if project.cif:
+            newFile = pdb_Corr.prep_cif(pdb_file=file_list)
+        else:
+            newFile = pdb_Corr.correct_pdb(pdb_file=file_list,
+                                           logic=logic,
+                                           )
     with open(project.output, "w") as file_corr:
         file_corr.write(newFile)
     return
