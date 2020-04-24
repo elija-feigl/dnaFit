@@ -2,21 +2,22 @@
 # -*- coding: utf-8 -*-3#
 import attr
 
-from typing import List, Dict, Any, Set, Tuple
+from typing import List, Dict, Set, Tuple
 from nanodesign.converters import Converter
 from nanodesign.data.base import DnaBase
 from nanodesign.data.dna_structure import DnaStructure
 
 from project import Project
 
-_author__ = "Elija Feigl"
-__copyright__ = "Copyright 2019, Dietzlab (TUM)"
-__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
-__license__ = "None"
-__version__ = "0.4"
-__maintainer__ = "Elija Feigl"
-__email__ = "elija.feigl@tum.de"
-__status__ = "Development"
+""" DESCR:
+    Design Class manageing cadnano design. The autodesk/nanodesign package is
+    used to read the json file. Some modifiactions and additions are necessary
+    to the nanodesign functionaly.
+
+    COMMENTS:
+    20.11.2020 A modified version of nanodesign is used (available on github)
+    03.12.2020 anticipates circular scaffold structures
+"""
 
 
 @attr.s

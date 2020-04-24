@@ -15,55 +15,45 @@ from project import Project
 from utils import WC_PROPERTIES, DH_ATOMS, ignored
 from bdna import BDna
 from linker import get_linkage
+from version import __version__, __authors__
 
-_author__ = "Elija Feigl"
-__copyright__ = "Copyright 2019, Dietzlab (TUM)"
-__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
-__license__ = "None"
-__version__ = "0.4"
-__maintainer__ = "Elija Feigl"
-__email__ = "elija.feigl@tum.de"
-__status__ = "Development"
+
+__descr__ = """
+    computes watson crick base pairs.
+    they are returned as to dictionaries. this process is repeated for each
+    Hbond-deviation criterion.
+    subsequently universe and dicts are stored into a pickle. each deviation
+    criterion is stored in one pickle.
+    creates multiframe pdbs with the respective properties as temp-factors.
+"""
 
 
 def write_pdb(u, bDNA, PDBs):
     u.add_TopologyAttr(
         mda.core.topologyattrs.Tempfactors(np.zeros(len(u.atoms))))
-
+    u.trajectory[0]
     u.atoms.tempfactors = -1.
+    co_keys = list(bDNA.link.Fco.keys())
     for res in u.residues:
-        try:
-            res.atoms.tempfactors = bDNA.bp_quality[res.resindex]["C1'C1'"]
-        except KeyError:
-            pass
-    PDBs["qual"].write(u.atoms)
 
-    for cond in WC_PROPERTIES:
-        u.atoms.tempfactors = -1.
-        for res in u.residues:
-            try:
-                res.atoms.tempfactors = (
-                    bDNA.bp_geometry_local[res.resindex][cond]["center-C6C8"])
-            except KeyError:
-                pass
-        PDBs[cond].write(u.atoms)
+        is_nick = (res.resindex in bDNA.link.Fnicks.keys()
+                   or res.resindex in bDNA.link.Fnicks.values()
+                   )
+        h, p, is_scaff = bDNA.link.DidDhps[bDNA.link.FidDid[res.resindex]]
+        cond = len(
+            [True for key in co_keys if ("({}, {})".format(h, p) in key)]
+        ) > 0
+        is_co = True if cond else False
 
-    for dh in DH_ATOMS:
-        u.atoms.tempfactors = -1.
-        for res in u.residues:
-            try:
-                res.atoms.tempfactors = bDNA.dh_quality[res.resindex][dh]
-            except KeyError:
-                pass
-        PDBs[dh].write(u.atoms)
-
-    u.atoms.tempfactors = -1.
-    ing = 0.00
-    for resindex, resindex_wc in bDNA.d_Fbp.items():
-        u.residues[resindex].atoms.tempfactors = ing
-        u.residues[resindex_wc].atoms.tempfactors = ing
-        ing += 0.01
-    PDBs["bp"].write(u.atoms)
+        if is_co and is_scaff:
+            res.atoms.tempfactors = 50.
+        elif is_co and not is_scaff:
+            res.atoms.tempfactors = 90.
+        elif is_nick:
+            res.atoms.tempfactors = 20.
+        else:
+            res.atoms.tempfactors = 10.
+    PDBs["co_markup"].write(u.atoms)
 
 
 def local_res(u: "mda.universe", bDNA: BDna, project: Project) -> None:
@@ -84,15 +74,9 @@ def local_res(u: "mda.universe", bDNA: BDna, project: Project) -> None:
         pdb.write(u.atoms)
 
 
-def get_description():
-    return """computes watson crick base pairs.
-    they are returned as to dictionaries. this process is repeated for each
-     Hbond-deviation criterion
-    subsequently universe and dicts are stored into a pickle. each deviation
-    criterion is stored in one pickle"""
-
-
 def proc_input():
+    def get_description() -> str:
+        return "{}\n {}\n {}".format(__descr__, __version__, __authors__)
     parser = argparse.ArgumentParser(
         description=get_description(),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -164,7 +148,7 @@ def main():
     if project.pdb:
         # open PDB files
         PDBs = {}
-        for name in [*WC_PROPERTIES, "bp", "qual"]:
+        for name in [*WC_PROPERTIES, "bp", "qual", "co_markup"]:
             pdb_name = project.output / "{}__bp_{}.pdb".format(project.name,
                                                                name)
             PDBs[name] = mda.Writer(pdb_name, multiframe=True)

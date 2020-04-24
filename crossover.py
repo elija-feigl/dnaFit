@@ -8,14 +8,12 @@ import MDAnalysis as mda
 
 from basepair import BasePair
 
-_author__ = "Elija Feigl"
-__copyright__ = "Copyright 2019, Dietzlab (TUM)"
-__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
-__license__ = "None"
-__version__ = "0.4"
-__maintainer__ = "Elija Feigl"
-__email__ = "elija.feigl@tum.de"
-__status__ = "Development"
+
+""" DESCR:
+    Crossover Classes represent holiday-junction in DNA-Origami. As MDAnalysis
+    universe adn its subcalles are not picklable, two versions of the Crossover
+    class exists with functionality two alternate between them.
+"""
 
 
 @attr.s

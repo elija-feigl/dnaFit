@@ -9,15 +9,15 @@ from pathlib import Path
 from project import Project
 from linker import Linker
 from elastic_network import ElaticNetwortModifier
+from version import __version__, __authors__
 
-_author__ = "Elija Feigl"
-__copyright__ = "Copyright 2019, Dietzlab (TUM)"
-__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
-__license__ = "None"
-__version__ = "0.4"
-__maintainer__ = "Elija Feigl"
-__email__ = "elija.feigl@tum.de"
-__status__ = "Development"
+__descr__ = """
+    links structural information of the cadnano designfile
+    [design.json] to fitted atomic model [design.psf, design.dcd].
+    stores dictionaries as pickles containg mapping for motifs,
+    residue-id, lattice position and base-pairing.
+    allows modification of Elastic Network of enrgMD simulation
+"""
 
 
 @contextlib.contextmanager
@@ -28,14 +28,9 @@ def ignored(*exceptions):
         pass
 
 
-def get_description() -> str:
-    return """links structural information of the cadnano designfile
-              [design.json] to fitted atomic model [design.psf, design.dcd].
-              stores dictionaries as pickles containg mapping for motifs,
-              residue-id, lattice position and base-pairing."""
-
-
 def proc_input() -> Project:
+    def get_description() -> str:
+        return "{}\n {}\n {}".format(__descr__, __version__, __authors__)
     parser = argparse.ArgumentParser(
         description=get_description(),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter

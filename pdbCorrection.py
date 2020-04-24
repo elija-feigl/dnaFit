@@ -7,14 +7,14 @@ import attr
 from pathlib import Path
 from typing import List, Tuple
 
-_author__ = "Elija Feigl"
-__copyright__ = "Copyright 2019, Dietzlab (TUM)"
-__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
-__license__ = "None"
-__version__ = "0.4"
-__maintainer__ = "Elija Feigl"
-__email__ = "elija.feigl@tum.de"
-__status__ = "Development"
+__authors__ = "[Thomas Martin, Ana Casanal, Elija Feigl]"
+""" DESCR:
+    modify pdb-file for use in UCSF Chimera, VDM, or RSCB-upload (cif-prep())
+
+    COMMENTS:
+    basic functionality by @Thomas Martin, @Ana Casanal for COOT
+    13.06.2019 @Elija Feigl: modifications to fit UCSF Chimera and RSCB-upload
+"""
 
 HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.4.0\n"
 NOMCLA = {" O1P": " OP1", " O2P": " OP2", " C5M": " C7 "}
@@ -77,7 +77,6 @@ class Project(object):
 class Logic(object):
     """ Logic base class for PDB_Corr
     """
-    header: bool = True
     nomenclature: bool = True
     molecule_chain: bool = True
     atom_number: bool = True
@@ -85,6 +84,7 @@ class Logic(object):
     atomtype: bool = True
     remove_H: bool = True
     reset_numbers: bool = True
+    keep_header: bool = True
 
 
 @attr.s
@@ -95,7 +95,7 @@ class PDB_Corr(object):
         self.current = {"atom_number": 1,
                         "old_molecule_number": 1,
                         "last_molecule_number": 1,
-                        "chain_id": "AA",
+                        "chain_id": "A",
                         "chain_id_repeats": 1,
                         "chain": None,
                         }
@@ -115,7 +115,7 @@ class PDB_Corr(object):
 
     def correct_pdb(self, pdb_file: List[str], logic: Logic) -> str:
         body = []
-        if logic.header:
+        if logic.keep_header:
             body.append(HEADER)
 
         for line in pdb_file:
@@ -149,6 +149,7 @@ class PDB_Corr(object):
 
     def prep_cif(self, pdb_file: List[str]) -> str:
         body = []
+        self.current["chain_id"] = "AA"
         for line in pdb_file:
             lineType = line[0:6]
             if lineType == "ATOM  ":
@@ -390,7 +391,7 @@ def proc_input() -> Project:
 
 def main():
     project = proc_input()
-    logic = Logic(header=project.header,
+    logic = Logic(keep_header=project.header,
                   remove_H=False,
                   )
     if project.cif:

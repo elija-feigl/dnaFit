@@ -9,6 +9,15 @@ from typing import Dict, Tuple
 from utils import _norm
 
 
+""" DESCR:
+    BasePair Class represents a watson-crick baspair of two nanodesign base
+    object. Important Attributes are their position in the design-file and
+    their spatial orientation in real space (BasePlane and BasePairPlane class)
+
+    COMMENTS:
+"""
+
+
 @attr.s(slots=True, frozen=True)
 class BasePairPlane(object):
     """n0: plane-normal vector. always pointing in scaffold 5'->3' direction

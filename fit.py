@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-3#
-
-import MDAnalysis as mda  # type:ignore
+import MDAnalysis as mda
 import attr
 
 from operator import attrgetter
@@ -10,14 +9,13 @@ from pathlib import Path
 
 from project import Project
 
-_author__ = "Elija Feigl"
-__copyright__ = "Copyright 2019, Dietzlab (TUM)"
-__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
-__license__ = "None"
-__version__ = "0.4"
-__maintainer__ = "Elija Feigl"
-__email__ = "elija.feigl@tum.de"
-__status__ = "Development"
+""" DESCR:
+    Design Class manageing Mdanalyis structure for a given trajectory and
+    configuration file of a namd simulation.
+
+    COMMENTS:
+    16.11.2020 not covering multi-scaffold structures
+"""
 
 
 @attr.s

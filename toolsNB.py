@@ -16,14 +16,12 @@ from linkage import Linkage
 from linker import get_linkage
 from project import Project
 
-_author__ = "Elija Feigl"
-__copyright__ = "Copyright 2019, Dietzlab (TUM)"
-__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
-__license__ = "None"
-__version__ = "0.4"
-__maintainer__ = "Elija Feigl"
-__email__ = "elija.feigl@tum.de"
-__status__ = "Development"
+""" DESCR:
+    collection of scripts for viewing and analysing BDna data.
+
+    COMMENTS:
+    code not well maintained
+"""
 
 # TODO: -low get dynamically from dicts
 CATEGORIES = ["co", "co_plus", "ss", "ds", "clean", "nick"]
@@ -40,7 +38,12 @@ class DataPrep(object):
     def __init__(self, path, name, plus=3):
         self.name = name
         self.path = path
-        self.link = self._load_linkage()
+        self.project = Project(
+            input=Path(self.path),
+            output=Path(self.path) / "analysis",
+            name=self.name,
+        )
+        self.link = get_linkage(self.project)
         self.categories = self._categorise(plus)
         self.columns = ["categories", "position"]
 
@@ -48,15 +51,7 @@ class DataPrep(object):
         self.df_co = None
 
     def _load_linkage(self):
-        # TODO: move projec to constructot
-        self.project = Project(
-            input=Path(self.path),
-            output=Path(self.path) / "analysis",
-            name=self.name,
-        )
         link: Linkage = get_linkage(self.project)
-        if not link.reversed:
-            link.reverse()
         return link
 
     def _traj_frame(self, frame):
@@ -212,14 +207,18 @@ class DataPrep(object):
                             id_prop_dict[resindex].append(dist)
                             if (atom + "-" + loc) not in self.columns:
                                 self.columns.append(atom + "-" + loc)
-                elif prop == "localres" and data[prop] is not None:
-                    try:  # not all are basepaired
-                        localres = data[prop][resindex]
-                    except KeyError:
+                elif prop == "localres":
+                    if data[prop] is not None:
+                        try:  # not all are basepaired
+                            localres = data[prop][resindex]
+                        except KeyError:
+                            localres = np.nan
+                    else:
                         localres = np.nan
                     id_prop_dict[resindex].append(localres)
                     if prop not in self.columns:
                         self.columns.append(prop)
+
         self.df = pd.DataFrame.from_dict(
             id_prop_dict, orient='index', columns=self.columns)
 
@@ -254,7 +253,7 @@ class DataPrep(object):
         if data["localres"] is not None:
             self.df_co = pd.DataFrame.from_dict(
                 id_co_dict, orient='index',
-                columns=(["typ", "strand", "localres"] + COANGLES)
+                columns=(["type", "strand", "localres"] + COANGLES)
             )
         else:
             self.df_co = pd.DataFrame.from_dict(

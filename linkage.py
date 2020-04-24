@@ -10,14 +10,13 @@ from project import Project
 from crossover import Crossover, CrossoverPicklable
 from basepair import BasePair
 
-_author__ = "Elija Feigl"
-__copyright__ = "Copyright 2019, Dietzlab (TUM)"
-__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
-__license__ = "None"
-__version__ = "0.4"
-__maintainer__ = "Elija Feigl"
-__email__ = "elija.feigl@tum.de"
-__status__ = "Development"
+
+""" DESCR:
+    Linkage class stores the translation from cadnano base-indexing to
+    namd-indexing of bases.
+
+    COMMENTS:
+"""
 
 
 @attr.s(auto_attribs=True)

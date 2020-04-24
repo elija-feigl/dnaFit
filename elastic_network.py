@@ -1,12 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-3#
-import MDAnalysis as mda  # type:ignore
+import MDAnalysis as mda
 import attr
 
 from typing import Set, Dict, TextIO
 
 from linker import Linker
 from utils import UnexpectedCaseError
+
+""" DESCR:
+    The EN is the colletcion of harmonic bonds for the elastic network in a
+    namd simulation of DNA-origami (1). ENBond Class represent one such bond.
+    The ElaticNetwortModifier class creates a new network wich is a subset of
+    the full EN given by a selection class Logic.
+
+    REFERENCES:
+    1) Maffeo, C., Yoo, J., & Aksimentiev, A. (2016). De novo reconstruction of
+        DNA origami structures through atomistic molecular dynamics simulation.
+        Nucleic Acids Research, 44(7), 3013–3019
+"""
 
 
 @attr.s(slots=True, cmp=False, auto_attribs=True)

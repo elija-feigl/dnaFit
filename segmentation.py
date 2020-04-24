@@ -4,23 +4,21 @@
 import mrcfile as mrc
 import numpy as np
 import MDAnalysis as mda
-# import attr
 
 from typing import Dict, Set, Tuple, FrozenSet
+from pathlib import Path
 
 from utils import UnexpectedCaseError
 from linkage import Linkage
 from project import Project
 from design import Design
 
-_author__ = "Elija Feigl"
-__copyright__ = "Copyright 2019, Dietzlab (TUM)"
-__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
-__license__ = "None"
-__version__ = "0.4"
-__maintainer__ = "Elija Feigl"
-__email__ = "elija.feigl@tum.de"
-__status__ = "Development"
+""" DESCR:
+    collection of scripts to allow creating subsets of a cryo-EM map.
+
+    COMMENTS:
+    code not well maintained
+"""
 
 
 STAR_HEADER = """data_\n\nloop_\n_rlnMicrographName #1\n_rlnCoordinateX #2
@@ -28,8 +26,8 @@ _rlnCoordinateY #3\n_rlnCoordinateZ #4\n"""
 
 
 def mrc_segment(atoms: "mda.atomgroup",
-                path_in: str,
-                path_out: str,
+                path_in: Path,
+                path_out: Path,
                 context: int = 3,
                 star: bool = False,
                 ) -> None:

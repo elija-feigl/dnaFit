@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-3
-# TODO: abkürzungsverzeichnis
-
 import numpy as np
 import MDAnalysis as mda
 import mrcfile as mrc
@@ -13,20 +11,18 @@ from typing import Dict, Tuple, Any, Optional, List, Set
 from linker import Linkage
 from basepair import BasePair
 from crossover import Crossover
-from utils import (C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, BB_ATOMS,
-                   PUR_ATOMS, PYR_ATOMS, DH_ATOMS,
-                   _proj, _norm, _v_proj, _save_arccos_deg,
-                   _dh_angle, _proj2plane
-                   )
+from utils import (
+    C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, BB_ATOMS,
+    PUR_ATOMS, PYR_ATOMS, DH_ATOMS,
+    _proj, _norm, _v_proj, _save_arccos_deg,
+    _dh_angle, _proj2plane
+)
 
-_author__ = "Elija Feigl"
-__copyright__ = "Copyright 2019, Dietzlab (TUM)"
-__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
-__license__ = "None"
-__version__ = "0.4"
-__maintainer__ = "Elija Feigl"
-__email__ = "elija.feigl@tum.de"
-__status__ = "Development"
+
+""" DESCR:
+    BDna Class handles evaluation of B-DNA properties and local-resolution of
+    cryo em reconstruction of specific bases
+"""
 
 
 @attr.s
