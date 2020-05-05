@@ -192,7 +192,7 @@ class PDB_Corr(object):
         return "".join([line[0:12], atom, " ", base, line[20:]])
 
     def correct_occupancy(self, line: str) -> str:
-        return "{}  1.00  9.99{}".format(line[:54], line[66:])
+        return "{}  1.00  {}".format(line[:54], line[62:])
 
     def correct_molecule_chain(self,
                                line: str,
