@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-3
 import MDAnalysis as mda
 import numpy as np
 import os
@@ -11,11 +9,12 @@ import argparse
 from pathlib import Path
 # from typing import Set, Dict, Tuple, Any
 
-from project import Project
-from utils import WC_PROPERTIES, DH_ATOMS, ignored
-from bdna import BDna
-from linker import get_linkage
-from version import __version__, __authors__
+from ..core.project import Project
+from ..core.utils import WC_PROPERTIES, DH_ATOMS, ignored
+
+from ..analysis.bdna import BDna
+from ..link.linker import get_linkage
+from ..version import get_version, get_authors
 
 
 __descr__ = """
@@ -76,7 +75,7 @@ def local_res(u: "mda.universe", bDNA: BDna, project: Project) -> None:
 
 def proc_input():
     def get_description() -> str:
-        return "{}\n {}\n {}".format(__descr__, __version__, __authors__)
+        return "{}\n {}\n {}".format(__descr__, get_version, get_authors)
     parser = argparse.ArgumentParser(
         description=get_description(),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter

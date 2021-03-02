@@ -1,17 +1,16 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-3#
 import attr
 import nanodesign as nd
 
 from nanodesign.data.base import DnaBase
 from typing import Dict, Tuple, Optional, List, Set
 
-from project import Project
-from fit import Fit
-from design import Design
-from crossover import Crossover
-from linkage import Linkage
-from basepair import BasePair
+from .linkage import Linkage
+
+from ..core.project import Project
+from ..data.fit import Fit
+from ..data.design import Design
+from ..data.crossover import Crossover
+from ..data.basepair import BasePair
 
 """ DESCR:
     create Linkage. first loads pickled linkage if available.

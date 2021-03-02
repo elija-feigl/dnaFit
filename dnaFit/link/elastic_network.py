@@ -1,12 +1,10 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-3#
 import MDAnalysis as mda
 import attr
 
 from typing import Set, Dict, TextIO
 
-from linker import Linker
-from utils import UnexpectedCaseError
+from .linker import Linker
+from ..core.utils import UnexpectedCaseError
 
 """ DESCR:
     The EN is the colletcion of harmonic bonds for the elastic network in a

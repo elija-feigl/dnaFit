@@ -1,27 +1,23 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import MDAnalysis as mda
 import argparse
 import os
 import sys
 
-
 from pathlib import Path
 
-from project import Project
-from utils import ignored
-from linker import get_linkage
-from segmentation import categorise, mrc_segment
 
-_author__ = "Elija Feigl"
-__copyright__ = "Copyright 2019, Dietzlab (TUM)"
-__credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
-__license__ = "None"
-__version__ = "0.4"
-__maintainer__ = "Elija Feigl"
-__email__ = "elija.feigl@tum.de"
-__status__ = "Development"
+from ..core.project import Project
+from ..core.utils import ignored
+from ..link.linker import get_linkage
+from ..analysis.segmentation import categorise, mrc_segment
+
+from ..version import get_version, get_authors
+
+__descr__ = """
+    cut subset from map according to atoms belongign to sepcific
+    motif. Also produces minimal box map. can also segment halfmaps
+    and evaluate local-resolution per residue -> dict and pdb
+"""
 
 
 def mask_minimal_box(u, project):
@@ -50,14 +46,9 @@ def check_abort() -> None:
             print("Please respond with 'yes' or 'no'")
 
 
-def get_description() -> str:
-    return """cut subset from map according to atoms belongign to sepcific
-              motif. Also produces minimal box map. can also segment halfmaps
-              and evaluate local-resolution per residue -> dict and pdb
-              """
-
-
 def proc_input() -> Project:
+    def get_description() -> str:
+        return "{}\n {}\n {}".format(__descr__, get_version, get_authors)
     parser = argparse.ArgumentParser(
         description=get_description(),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter

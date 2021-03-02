@@ -1,13 +1,11 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-3#
+
 import MDAnalysis as mda
 import attr
-
 from operator import attrgetter
 from typing import List, Tuple
 from pathlib import Path
 
-from project import Project
+from ..core.project import Project
 
 """ DESCR:
     Design Class manageing Mdanalyis structure for a given trajectory and

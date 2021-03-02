@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import mrcfile as mrc
 import numpy as np
 import MDAnalysis as mda
@@ -8,10 +5,10 @@ import MDAnalysis as mda
 from typing import Dict, Set, Tuple, FrozenSet
 from pathlib import Path
 
-from utils import UnexpectedCaseError
-from linkage import Linkage
-from project import Project
-from design import Design
+from ..core.utils import UnexpectedCaseError
+from ..core.project import Project
+from ..link.linkage import Linkage
+from ..data.design import Design
 
 """ DESCR:
     collection of scripts to allow creating subsets of a cryo-EM map.

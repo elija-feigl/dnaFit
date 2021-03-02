@@ -1,14 +1,12 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-3#
-import pickle
+import pickle  # TODO: remove pickle
 import attr
 
 from typing import Dict, Tuple, List, Set
 import MDAnalysis as mda
 
-from project import Project
-from crossover import Crossover, CrossoverPicklable
-from basepair import BasePair
+from ..core.project import Project
+from ..data.crossover import Crossover, CrossoverPicklable
+from ..data.basepair import BasePair
 
 
 """ DESCR:

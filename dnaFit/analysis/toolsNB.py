@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-3#
 import sys
 import os
 
@@ -12,15 +10,16 @@ from statistics import mean
 
 import ipywidgets as widgets
 
-from linkage import Linkage
-from linker import get_linkage
-from project import Project
+from ..link.linkage import Linkage
+from ..link.linker import get_linkage
+from ..core.project import Project
 
 """ DESCR:
     collection of scripts for viewing and analysing BDna data.
 
     COMMENTS:
     code not well maintained
+    deprecated 01.01.2021
 """
 
 # TODO: -low get dynamically from dicts

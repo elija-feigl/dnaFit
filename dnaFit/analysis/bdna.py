@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-3
 import numpy as np
 import MDAnalysis as mda
 import mrcfile as mrc
@@ -8,10 +6,10 @@ from MDAnalysis.lib import mdamath
 import attr
 from typing import Dict, Tuple, Any, Optional, List, Set
 
-from linker import Linkage
-from basepair import BasePair
-from crossover import Crossover
-from utils import (
+from ..link.linker import Linkage
+from ..data.basepair import BasePair
+from ..data.crossover import Crossover
+from ..core.utils import (
     C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, BB_ATOMS,
     PUR_ATOMS, PYR_ATOMS, DH_ATOMS,
     _proj, _norm, _v_proj, _save_arccos_deg,

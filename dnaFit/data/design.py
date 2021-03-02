@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-3#
 import attr
 
 from typing import List, Dict, Set, Tuple
@@ -7,7 +5,7 @@ from nanodesign.converters import Converter
 from nanodesign.data.base import DnaBase
 from nanodesign.data.dna_structure import DnaStructure
 
-from project import Project
+from ..core.project import Project
 
 """ DESCR:
     Design Class manageing cadnano design. The autodesk/nanodesign package is

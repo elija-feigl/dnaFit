@@ -1,12 +1,10 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-3
+
 import numpy as np
 import MDAnalysis as mda
-
 import attr
 from typing import Dict, Tuple
 
-from utils import _norm
+from ..core.utils import _norm
 
 
 """ DESCR:

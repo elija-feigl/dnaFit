@@ -1,12 +1,10 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-3#
+
 import attr
+import MDAnalysis as mda
 
 from typing import Tuple, List, Optional
 
-import MDAnalysis as mda
-
-from basepair import BasePair
+from .basepair import BasePair
 
 
 """ DESCR:

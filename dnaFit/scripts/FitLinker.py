@@ -1,15 +1,13 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-3#
 import os
 import contextlib
 import argparse
-
 from pathlib import Path
 
-from project import Project
-from linker import Linker
-from elastic_network import ElaticNetwortModifier
-from version import __version__, __authors__
+from ..core.project import Project
+from ..link.linker import Linker
+from ..link.elastic_network import ElaticNetwortModifier
+from ..version import get_version, get_authors
+
 
 __descr__ = """
     links structural information of the cadnano designfile
@@ -30,7 +28,7 @@ def ignored(*exceptions):
 
 def proc_input() -> Project:
     def get_description() -> str:
-        return "{}\n {}\n {}".format(__descr__, __version__, __authors__)
+        return "{}\n {}\n {}".format(__descr__, get_version, get_authors)
     parser = argparse.ArgumentParser(
         description=get_description(),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
