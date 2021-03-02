@@ -1,15 +1,19 @@
-.vscode**
-__pychache__
+#python
+__pycache__/
 *.pyc
-*.json
-pointer
-test*
-temp
-*.pyc
-*.coor
-*.psf
-*.dcd
-*.ipynb*
-*.p
-*.pdb
-*mypy*
+
+# dist
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+
+
+# editor & testing
+.vscode/
+.mypy_cache/

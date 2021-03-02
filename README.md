@@ -7,7 +7,6 @@ this repository contains a collection of scripts related to the fitting of pseud
 comming soon
 
  * `MapSegement.py`
- * `pdbCorrection.py`
  * `FitAnalyse.py`
  * `FitLinker.py`
 
