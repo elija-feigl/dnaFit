@@ -1,0 +1,15 @@
+.vscode**
+__pychache__
+*.pyc
+*.json
+pointer
+test*
+temp
+*.pyc
+*.coor
+*.psf
+*.dcd
+*.ipynb*
+*.p
+*.pdb
+*mypy*
