@@ -15,7 +15,6 @@ __authors__ = "[Thomas Martin, Ana Casanal, Elija Feigl]"
     basic functionality by @Thomas Martin, @Ana Casanal for COOT
     13.06.2019 @Elija Feigl: modifications to fit UCSF Chimera and RSCB-upload
 """
-
 HEADER = "AUTHORS:     Martin, Casanal, Feigl        VERSION: 0.4.0\n"
 NOMCLA = {" O1P": " OP1", " O2P": " OP2", " C5M": " C7 "}
 NOMCLA_REV = {" OP1": " O1P", " OP2": " O2P", " C7 ": " C5M"}
@@ -95,10 +94,15 @@ class PDB_Corr(object):
         self.current = {"atom_number": 1,
                         "old_molecule_number": 1,
                         "last_molecule_number": 1,
+                        "old_molecule_number_str": "1",
+                        "last_molecule_number_str": "1",
                         "chain_id": "A",
                         "chain_id_repeats": 1,
                         "chain": None,
                         }
+        self.hb126flag = False
+        self.seq = ""
+        self.strandid = 1
 
     def reshuffle_pdb(self, pdb_file: List[str]) -> List[str]:
         unshuff_file = []
@@ -167,7 +171,7 @@ class PDB_Corr(object):
                     if is_ter:
                         body.append("TER\n")
                     body.append(line)
-
+        print("{} polydeoxyribonucleotide {}\n;{}\n;".format(self.strandid, self.current["chain_id"], self.seq))
         body.append("TER\nEND\n")
         return "".join(body)
 
@@ -211,6 +215,7 @@ class PDB_Corr(object):
         chain = line[72:76]
         is_ter = False
         molecule_number_str = line[22:26]
+
         molecule_number = int(molecule_number_str.replace(" ", ""))
 
         if self.current["chain"] is None:
@@ -274,28 +279,40 @@ class PDB_Corr(object):
             return POS_CHAIN_IDS[pos + 1]
 
         chain = line[72:76]
+
+        if chain == "S032":
+            self.hb126flag = True
+        if chain == "S033" and self.hb126flag:
+            chain = "S032"
+
         is_ter = False
         molecule_number_str = line[22:26]
-        molecule_number = int(molecule_number_str.replace(" ", ""))
+
+        #molecule_number = int(molecule_number_str.replace(" ", ""))
 
         if self.current["chain"] is None:
             self.current["chain"] = chain
             new_chain_id = self.current["chain_id"]
             new_molecule_number = 1
+            self.seq = line[19:20]
         elif chain == self.current["chain"]:
             new_chain_id = self.current["chain_id"]
-            if molecule_number == self.current["old_molecule_number"]:
+            if molecule_number_str == self.current["old_molecule_number_str"]:
                 new_molecule_number = self.current["last_molecule_number"]
             else:
-                consec_nr = self.current["old_molecule_number"] + 1
-                if (molecule_number == consec_nr):
-                    new_molecule_number = (
-                        self.current["last_molecule_number"] + 1)
-                else:
-                    new_molecule_number = (
-                        self.current["last_molecule_number"] + 10)
-                    is_ter = True
+                #consec_nr = self.current["old_molecule_number"] + 1
+                #if (molecule_number == consec_nr):
+                new_molecule_number = (
+                    self.current["last_molecule_number"] + 1)
+                self.seq += line[19:20]
+                #else:
+                 #   new_molecule_number = (
+                 #       self.current["last_molecule_number"] + 10)
+                 #   is_ter = True
         else:
+            print("{} polydeoxyribonucleotide {}\n;{}\n;".format(self.strandid, self.current["chain_id"], self.seq))
+            self.seq = line[19:20]
+            self.strandid += 1
             new_chain_id = increase_chain_id(self.current["chain_id"])
             is_ter = True
             new_molecule_number = 1
@@ -317,10 +334,10 @@ class PDB_Corr(object):
                            new_chain_str,
                            line[76:],
                            ])
-
         self.current["chain_id"] = new_chain_id
         self.current["chain"] = chain
-        self.current["old_molecule_number"] = molecule_number
+        #self.current["old_molecule_number"] = molecule_number
+        self.current["old_molecule_number_str"] = molecule_number_str
         self.current["last_molecule_number"] = new_molecule_number
 
         return newline, is_ter
