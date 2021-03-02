@@ -30,7 +30,14 @@ class Fit(object):
     def _get_universe(self) -> "mda.universe":
         top = self.infile.with_suffix(".psf")
         trj = self.infile.with_suffix(".dcd")
-        # TODO: -mid- if pdb, try invoke vmd animate write dcd
+        if not trj.exists():
+            trj = self.infile.with_suffix(".coor")
+            print("try to use  coor file instead")
+        if not trj.exists():
+            trj = self.infile.with_suffix(".pdb")
+            print("try to use  pdb file instead")
+
+        # TODO: use logger
         if top.exists() and trj.exists():
             u = mda.Universe(str(top), str(trj))
         else:
