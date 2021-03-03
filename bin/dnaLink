@@ -1,0 +1,7 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+
+# TODO: potential main script for generating some persisetn linkage file (no
+# pickle, as it might not be as portable. readable base-pair list would also be
+# great for other scripts)

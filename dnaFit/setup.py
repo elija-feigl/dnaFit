@@ -24,6 +24,7 @@ setuptools.setup(
     url="https://github.com/elija-feigl/DNA_Fit",
     packages=setuptools.find_packages(),
     include_package_data=True,
+    scripts=['bin/dnaFit', 'bin/dnaLink'],
     install_requires=(
         'numpy>=1.14',
         'attrs>=19.3',
