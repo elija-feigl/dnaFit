@@ -1,5 +1,49 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from pathlib import Path
+import argparse
 
-# TODO: main script for fit prep goes here.
+from dnaFit.version import get_version
+
+
+""" __doc__ """
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        prog="dnaFit",
+        description=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(get_version()),
+                        help='Print the version of dnaFit')
+    parser.add_argument('--sequence-file', type=str, default=None,
+                        help='Sequence of longest strand.')
+    parser.add_argument('input_json', type=str,
+                        help="Cadnano JSON file")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    infile = Path(args.input_file)
+    try:
+        extension = infile.suffix
+    except:
+        raise Exception("Unrecognized input file '{}'".format(infile))
+
+    if extension == '.json':
+        raise Exception("Unrecognized input file '{}'".format(infile))
+
+    # TODO: either call mrnda or "copy" mrdna main code (get model obeject)
+    # GOAL: provide start .psf, .pdb, .exb, -SR.exb, -HO.exb (in folder)
+    # GOAL: persistent (minimum = Fbp, FidDid) linkage
+    # TODO: setup fitting script and call it
+    # GOAL: finished fit
+    # NOTE: -> cadcaded mrDNA-driven MD flexible fitting
+
+
+if __name__ == '__main__':
+    main()
