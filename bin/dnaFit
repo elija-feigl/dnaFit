@@ -1,8 +1,13 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from mrdna.readers import read_cadnano as read_model
+from mrdna.model.dna_sequence import read_sequence_file
 from pathlib import Path
 import argparse
+import subprocess
+import os
+import sys
 
 from dnaFit.version import get_version
 
@@ -19,30 +24,77 @@ def parse_args():
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(get_version()),
                         help='Print the version of dnaFit')
-    parser.add_argument('--sequence-file', type=str, default=None,
-                        help='Sequence of longest strand.')
-    parser.add_argument('input_json', type=str,
+    parser.add_argument('-s', '--sequence', type=str, default=None,
+                        help='scaffold strand sequence')
+    parser.add_argument('-o', '--output-prefix', type=str, default=None,
+                        help="short design name")
+    parser.add_argument('-g', '--gpu', type=int, default=0,
+                        help='GPU used for simulation')
+    parser.add_argument('input_cad', type=str,
                         help="Cadnano JSON file")
     return parser.parse_args()
 
 
+def get_mrDNA():
+    # TODO: pathlib only
+    for path in os.environ["PATH"].split(os.pathsep):
+        mrDNA = os.path.join(path.strip('"'), "mrdna")
+        if os.path.isfile(mrDNA) and os.access(mrDNA, os.X_OK):
+            return mrDNA
+        else:
+            raise Exception("mrDNA was not found")
+
+
+def run_mrDNA(cad_file, seq_file, directory: str = "mrDNA", gpu: int = 0):
+    home_directory = os.getcwd()
+    try:
+        Path(directory).mkdir(parents=True, exist_ok=True)
+        os.chdir(directory)
+        mrDNA = get_mrDNA()
+
+        input_mrDNA = (
+            "-o {directory} -d {directory} -g {gpu} --run-enrg-md\
+            --sequence-file {seq_file} {cad_file}".format(**locals())
+        )
+        cmd = (str(mrDNA), input_mrDNA)
+
+        # TODO: logger: "Starting mrDNA with {}".format(cmd)
+        process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, universal_newlines=True)
+        for line in process.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+
+        # TODO: check successful finish
+        mrdna_file_stem = None
+        if mrdna_file_stem is None:
+            raise Exception("mrDNA incomplete")
+    finally:
+        os.chdir(home_directory)
+
+
 def main():
     args = parse_args()
-    infile = Path(args.input_file)
+    cad_file = Path(args.input_cad)
     try:
-        extension = infile.suffix
+        extension = cad_file.suffix
     except:
-        raise Exception("Unrecognized input file '{}'".format(infile))
-
+        raise Exception("Unrecognized input file '{}'".format(cad_file))
     if extension == '.json':
-        raise Exception("Unrecognized input file '{}'".format(infile))
+        raise Exception("Unrecognized input file '{}'".format(cad_file))
 
-    # TODO: either call mrnda or "copy" mrdna main code (get model obeject)
-    # GOAL: provide start .psf, .pdb, .exb, -SR.exb, -HO.exb (in folder)
-    # GOAL: persistent (minimum = Fbp, FidDid) linkage
+    # NOTE: assuming modified mrDNA, (split .exb files)
+    run_mrDNA(cad_file, args.sequence, directory="mrDNA", gpu=args.gpu)
+    # TODO: check for mrDNA modification and adapt in case of regular mrDNA
+    #       TODO: either call mrnda or copy mrdna main code (get model object)
+    #       GOAL: provide start .psf, .pdb, .exb, -SR.exb, -HO.exb (in folder)
+    #       GOAL: persistent (Fbp, FidDid) linkage (required for .exb)
+
+    # TODO: rearrange mrDAN output files
+
     # TODO: setup fitting script and call it
     # GOAL: finished fit
-    # NOTE: -> cadcaded mrDNA-driven MD flexible fitting
+    # NOTE: -> cascaded mrDNA-driven MD flexible fitting
 
 
 if __name__ == '__main__':
