@@ -1,0 +1,224 @@
+############################################################################
+#   NAMD template file for:
+#   Cascaded mrDNA-driven MDff for DNA Origami -- shrink wrap fitting
+#
+#   Authors: Elija Feigl <elija.feigl@tum.de>
+#
+############################################################################
+#
+#   based on:
+#   (C) Copyright 1995-2009 The Board of Trustees of the
+#                        University of Illinois
+#                         All Rights Reserved
+#   NAMD template file for MDFF simulations.
+#   Authors: Leonardo Trabuco <ltrabuco@ks.uiuc.edu>
+#            Elizabeth Villa <villa@ks.uiuc.edu>
+#            Kwok-Yan Chan <yanchanky@ks.uiuc.edu>
+#
+############################################################################
+
+set PREFIX {DESIGNNAME}
+set TS {TSTEP}
+set MS 0
+
+set GRIDON {1}
+set DIEL {DIEL}
+set GSCALE {GSCALE}
+set GRIDFILE {GRIDFILE}.dx
+set GRIDPDB grid.pdb
+
+set ENRGMDON {on}
+set ENRGMDBONDS $PREFIX.exb
+
+set OUTPUTNAME $N/$PREFIX
+
+############################################################################
+#   Cascade reference
+############################################################################
+
+set TSLAST 0
+set N 0
+set PREVIOUS -1
+
+############################################################################
+#   Set General Parameters
+############################################################################
+
+
+set TIMESTEP 2.0 ;#fs
+set RIGIDBONDS all ;#needed for 2fs
+set CUTOFF 10.
+set PAIRLISTDIST 12.
+set SWITCHDIST 8.
+set TDAMPING 0.1 ;#less friction for faster relaxation
+set MARGIN 30
+
+set SCALING_1_4 1.0
+set ITEMP 300
+set FTEMP 300
+
+set EXTRAB 0 
+set CONSPDB 0
+set FIXPDB  0
+set BOX 1000
+
+
+############################################################################
+#   Load Environment
+############################################################################
+ 
+structure $PREFIX.psf
+coordinates $PREFIX.pdb
+ 
+paraTypeCharmm on
+parameters          charmm36.nbfix/par_all36_na.prm
+parameters	    charmm36.nbfix/par_water_ions_na.prm
+
+wrapAll             off
+
+
+if {$N < 0} {
+  temperature $ITEMP
+}
+ 
+firsttimestep   $TSLAST
+
+
+############################################################################
+#   Load Setup
+############################################################################
+
+# Force-Field Parameters
+exclude             scaled1-4
+1-4scaling          $SCALING_1_4
+switching           on
+switchdist          $SWITCHDIST
+dielectric          $DIEL
+margin              $MARGIN 
+cutoff              $CUTOFF
+pairlistdist        $PAIRLISTDIST
+
+# Integrator Parameters
+timestep            $TIMESTEP 
+rigidBonds          $RIGIDBONDS
+nonbondedFreq       1
+fullElectFrequency  3  
+stepspercycle       12
+
+# Constant Temperature Control 
+if {$ITEMP == $FTEMP} {
+  langevin            on    ;# do langevin dynamics
+  langevinDamping     $TDAMPING     ;# damping coefficient (gamma) of 5/ps
+  langevinTemp        $FTEMP
+  langevinHydrogen    off    ;# don't couple langevin bath to hydrogens
+} else {
+  reassignFreq 1000
+  if {$FTEMP > $ITEMP} {
+    reassignIncr 10 
+  } else {
+    reassignIncr -10 
+  }
+  reassignTemp $ITEMP
+  reassignHold $FTEMP
+}
+    
+
+############################################################################
+#   	Output
+############################################################################
+
+outputName         $OUTPUTNAME
+useGroupPressure   yes
+xstFreq            1200
+restartfreq        1200
+dcdfreq             600
+outputEnergies      600
+outputPressure      600
+
+
+############################################################################
+#   	enrgMD constraints
+############################################################################
+
+# extraBonds (secondary structure restraints)
+extraBonds $ENRGMDON
+extraBondsFile $ENRGMDBONDS
+
+
+############################################################################
+#  	further restrains
+############################################################################
+
+#if {$EXTRAB != 0} {
+#  foreach fil $EXTRAB {
+#    extraBondsFile $fil
+#  }
+##}
+
+# Positional restraints
+#if {$CONSPDB != 0} {
+#  Constraints                    yes
+#  ConsExp                        2
+#  ConsRef                        $CONSPDB
+#  ConsKFile                      $CONSPDB
+#  ConskCol                       $CONSCOL
+#}
+
+# Fixed atoms
+#if {$FIXPDB != 0} {
+#  fixedAtoms                yes
+#  fixedAtomsFile            $FIXPDB
+#  fixedAtomsCol             $FIXCOL
+#}
+
+
+
+############################################################################
+#	set MDFF parameters 
+############################################################################
+if {$GRIDON} {
+  mgridForce               on
+  for {set i 0} {$i < [llength $GRIDFILE]} {incr i} {
+    mgridForceFile $i      [lindex $GRIDPDB $i]
+    mgridForceCol $i       O
+    mgridForceChargeCol $i B
+    mgridForcePotFile $i   [lindex $GRIDFILE $i]
+    mgridForceScale $i     [lindex $GSCALE $i] [lindex $GSCALE $i] [lindex $GSCALE $i] 
+  }
+}
+
+
+############################################################################
+############################################################################
+#
+#   Execution
+#
+############################################################################
+############################################################################
+
+#set cell
+cellBasisVector1 $BOX 0 0
+cellBasisVector2 0 $BOX 0 
+cellBasisVector3 0 0 $BOX
+
+
+#continue run
+if {$N >= 0} {
+  bincoordinates $PREVIOUS/$PREFIX.coor
+  binvelocities  $PREVIOUS/$PREFIX.vel
+}
+
+
+#perform minimisation if specified
+if {$MS != 0} {
+  minimize $MS
+  reinitvels $ITEMP
+}
+
+#reset temperature if necessary
+if {$ITEMP != $FTEMP} {
+  run [expr abs($FTEMP-$ITEMP)*100]
+}
+
+
+run $TS
