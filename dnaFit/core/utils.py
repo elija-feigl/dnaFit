@@ -1,4 +1,5 @@
 import contextlib
+import os
 import numpy as np
 
 from typing import List
@@ -109,3 +110,13 @@ def _dh_angle(p: list, as_rad=False):  # slow
     angle = - np.arctan2(y, x)
 
     return angle if as_rad else np.rad2deg(angle)
+
+
+def _get_executable(name: str):
+    # TODO: use pathlib only
+    for path in os.environ["PATH"].split(os.pathsep):
+        exe = os.path.join(path.strip('"'), "name")
+        if os.path.isfile(exe) and os.access(exe, os.X_OK):
+            return exe
+        else:
+            raise Exception("{} was not found".format(name))
