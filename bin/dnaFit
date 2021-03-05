@@ -10,9 +10,12 @@ import os
 import sys
 
 from dnaFit.version import get_version
+from dnaFit.fit.mrC_mdff import mrCascade
+from dnaFit.code.utils import _get_executable
 
 
-""" __doc__ """
+""" cascaded mrDNA-driven MD flexible fitting
+"""
 
 
 def parse_args():
@@ -35,22 +38,12 @@ def parse_args():
     return parser.parse_args()
 
 
-def get_mrDNA():
-    # TODO: pathlib only
-    for path in os.environ["PATH"].split(os.pathsep):
-        mrDNA = os.path.join(path.strip('"'), "mrdna")
-        if os.path.isfile(mrDNA) and os.access(mrDNA, os.X_OK):
-            return mrDNA
-        else:
-            raise Exception("mrDNA was not found")
-
-
 def run_mrDNA(cad_file, seq_file, directory: str = "mrDNA", gpu: int = 0):
     home_directory = os.getcwd()
     try:
         Path(directory).mkdir(parents=True, exist_ok=True)
         os.chdir(directory)
-        mrDNA = get_mrDNA()
+        mrDNA = _get_executable("mrdna")
 
         input_mrDNA = (
             "-o {directory} -d {directory} -g {gpu} --run-enrg-md\
@@ -73,8 +66,30 @@ def run_mrDNA(cad_file, seq_file, directory: str = "mrDNA", gpu: int = 0):
         os.chdir(home_directory)
 
 
+def prep_cascaded_fitting():
+    home_directory = os.getcwd()
+    try:
+        Path("dnaFit").mkdir(parents=True, exist_ok=True)
+        os.chdir("dnaFit")
+
+        # TODO: either rearrange prep files or create class
+        ...
+
+        # TODO: rearrange mrDNA output files
+
+    finally:
+        os.chdir(home_directory)
+
+
+def check_docked_pdb():
+    is_docked = True
+    return is_docked
+
+
 def main():
     args = parse_args()
+    # TODO: provide fitting presets: bad docking, continuation, etc..
+
     cad_file = Path(args.input_cad)
     try:
         extension = cad_file.suffix
@@ -82,19 +97,43 @@ def main():
         raise Exception("Unrecognized input file '{}'".format(cad_file))
     if extension == '.json':
         raise Exception("Unrecognized input file '{}'".format(cad_file))
+    # NOTE: assuming mrc and sequence file have same name as cadnano file
+    # TODO: argparse mrc and sequence file. cad_file.stem if None
 
-    # NOTE: assuming modified mrDNA, (split .exb files)
-    run_mrDNA(cad_file, args.sequence, directory="mrDNA", gpu=args.gpu)
-    # TODO: check for mrDNA modification and adapt in case of regular mrDNA
-    #       TODO: either call mrnda or copy mrdna main code (get model object)
-    #       GOAL: provide start .psf, .pdb, .exb, -SR.exb, -HO.exb (in folder)
-    #       GOAL: persistent (Fbp, FidDid) linkage (required for .exb)
+    do_mrDNA = True  # TODO: input argument
+    if not do_mrDNA:
+        # NOTE: assuming modified mrDNA, (annotated .exb files)
+        run_mrDNA(cad_file, args.sequence, directory="mrDNA", gpu=args.gpu)
+        # TODO: check for mrDNA modification and adapt in case of regular mrDNA
+        #       TODO: either call mrnda or copy mrdna main code (get model object)
+        prep_cascaded_fitting()
+        #       GOAL: provide start .psf, undocked.pdb, .exb, -SR.exb, -HO.exb (in folder)
 
-    # TODO: rearrange mrDAN output files
+    # NOTE: skip here for rerun ("reuse mrdna or start from different fit")
+    #       NOTE: assuming dnaFit folder with (.psd. .pdb .mrc .seq .json)
+    #       NOTE: ??? persistent (Fbp, FidDid) linkage (required for .exb)
 
-    # TODO: setup fitting script and call it
-    # GOAL: finished fit
-    # NOTE: -> cascaded mrDNA-driven MD flexible fitting
+    ######################################
+    # NOTE: BREAK: reorient helix and fit still external
+    while True:
+        input("You need to manualy align mrc and pdb using VMD. save file as docked and press ENTER")
+        if check_docked_pdb():
+            break
+    ######################################
+    # TODO: set fitting parameters
+    # TODO: pass input files
+    cascade = mrCascade(...)
+
+    # TODO: parse fitting parameter
+    time_step = 12000
+    resolution = 10.0
+    cascade.run_cascaded_fitting(time_step=time_step, resolution=resolution)
+
+    # NOTE: persistent and human readable linkage (Fbp, FidDid)
+    cascade.create_linkage()
+
+    # NOTE: ->
+    # GOAL: finished fit in folder dnaFit
 
 
 if __name__ == '__main__':
