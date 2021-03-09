@@ -7,9 +7,10 @@ import argparse
 import subprocess
 import os
 import sys
+from shutil import copyfile, copytree
 
 from dnaFit.version import get_version
-from dnaFit.fit.mrC_mdff import mrCascade
+from dnaFit.fit.mrC_mdff import Cascade
 from dnaFit.code.utils import _get_executable
 
 
@@ -72,10 +73,13 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrD
             sys.stdout.write(line)
             sys.stdout.flush()
 
-        # TODO: check successful finish
-        mrdna_file_stem = None
-        if mrdna_file_stem is None:
+        # NOTE: check successful finish
+        is_ok = (os.path.isfile("./{}-3.psf".format(prefix))
+                 and os.path.isfile("./{}-3.pdb".format(prefix))
+                 and os.path.isfile("./{}-3.exb".format(prefix)))
+        if not is_ok:
             raise Exception("mrDNA incomplete")
+        # TODO -low-: check for pdb vaildity
     finally:
         os.chdir(home_directory)
 
@@ -85,20 +89,20 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
     try:
         Path("dnaFit").mkdir(parents=True, exist_ok=True)
         os.chdir("dnaFit")
-        # TODO: rearrange mrDNA output files
-        #   * move: psf
-        #   * move and rename to undocked: pdb
-        #   * move seq
-        #   * move but dont split exb (done later)
-        #   * copy forcefield folder
 
+        copyfile(cad_file, "./{}.json".format(prefix))
+        copyfile(seq_file, "./{}.seq".format(prefix))
+
+        copyfile("../mrDNA/{}-3.psf".format(prefix), "./{}.psf".format(prefix))
+        copyfile("../mrDNA/{}-3.exb".format(prefix), "./{}.exb".format(prefix))
+        copyfile("../mrDNA/{}-3.pdb".format(prefix),
+                 "./{}-undocked.pdb".format(prefix))
+        copytree("../mrDNA/charmm36.nbfix", "./charmm36.nbfix")
+    except:
+        raise Exception(
+            "Failed to copy mrDNA files. Something must have gone wrong")
     finally:
         os.chdir(home_directory)
-
-
-def check_docked_pdb():
-    is_docked = True
-    return is_docked
 
 
 def check_file(in_file: Path, extensions: List[str]):
@@ -123,35 +127,35 @@ def main():
 
     if not args.skip_mrDNA:
         run_mrDNA(cad_file, seq_file, prefix, directory="mrDNA", gpu=args.gpu)
-        # NOTE: move cad and seq here to ensure consistency with atomic model
         prep_cascaded_fitting(prefix, cad_file, seq_file)
-        #       GOAL: provide start .psf, undocked.pdb, .exb, .json, .seq in folder "dnaFit"
-
-    # NOTE: skip here for rerun ("reuse mrdna or start from different fit")
-    #   assuming dnaFit folder with (.psd. .pdb.seq .json)
 
     # TODO: parse & set fitting parameters
     mrc_file = Path(args.input_mrc)
     check_file(mrc_file, [".mrc"])
+    copyfile(seq_file, "./dnaFit/{}.mrc".format(prefix))
+
     time_step = 12000
     resolution = 10.0
+
+    # NOTE changing design and sequence file to copy in folder dnaFit to ensure consistency
+    mrc_file = Path("./dnaFit/{}.json".format(prefix))
+    cad_file = Path("./dnaFit/{}.json".format(prefix))
+    seq_file = Path("./dnaFit/{}.seq".format(prefix))
+    top = Path("./dnaFit/{}.psf".format(prefix))
+    conf = Path("./dnaFit/{}-undocked.pdb".format(prefix))
+    exb = Path("./dnaFit/{}.exb".format(prefix))
 
     home_directory = os.getcwd()
     try:
         os.chdir("dnaFit")
-        # TODO: read and check files in "dnaFit"
-
-        # NOTE:
-        cascade = mrCascade(...)
-
-        # NOTE: ultimatley returns a dnaFit object, that can be linked and analysed
-        #   this fit is moved back to original mrc position
+        # NOTE: creating Cascade object triggers external docking prompt
+        cascade = Cascade(conf=conf, top=top,
+                          exb=exb, recenter=True, is_docked=False)
+        # NOTE: fit is moved back to original mrc position, recentering invisible to user
         dnaFit = cascade.run_cascaded_fitting(
             time_step=time_step, resolution=resolution)
-
-        # TODO: add persistent and human readable linkage (Fbp, FidDid)
-        dnaFit.create_linkage()
-        # TODO: save final pdb/mmcif together with mrc and masked mrc
+        dnaFit.write_linkage(cad_file, seq_file)
+        dnaFit.write_output(write_mmCif=True, crop_mrc=True)
 
     finally:
         os.chdir(home_directory)
