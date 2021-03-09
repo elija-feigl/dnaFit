@@ -2,6 +2,10 @@ import attr
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+import mrcfile
+import MDAnalysis as mda
+
 from ..core.utils import _get_executable
 
 """ DESCR:
@@ -10,7 +14,7 @@ from ..core.utils import _get_executable
 
 
 def external_docking_loop(prefix):
-    # TODO: implement automatic alignmant or python UI based alignment
+    # TODO -low-: implement automatic alignmant or python UI based alignment
     # BREAK: reorient helix and fit still external
     conf = Path("./{}.pdb".format(prefix))
     while True:
@@ -34,7 +38,7 @@ class Cascade(object):
     def __attrs_post_init__(self) -> None:
         self.prefix: str = self.top.stem
 
-        self.mrc_shift = self._recenter_mrc()
+        _ = self._recenter_mrc()
         self._recenter_conf()
 
         if not self.is_docked:
@@ -46,15 +50,20 @@ class Cascade(object):
         self.namd2 = _get_executable("namd2")
         self.vmd = _get_executable("vmd")
 
-    def _recenter_mrc(self) -> Any:
-        # TODO: recenter map
-        #       NOTE: save translation:
-        raise NotImplementedError
+    def _recenter_mrc(self, reverse=False) -> Any:
+        with mrcfile.open(self.mrc, mode='r+') as mrc:
+            c = np.array(mrc.header["cella"])
+            cell = np.array([c["x"], c["y"], c["z"]])
+        if reverse:
+            shift = cell * 0.5 if reverse else cell * - 0.5
+        mrc.header["origin"] = tuple(shift)
+        return shift
 
-    def _recenter_conf(self) -> None:
-        # TODO: centered conf at origin (0,0,0 simplifies vmd rotation)
-        #       NOTE: edit original file and discard translation
-        raise NotImplementedError
+    def _recenter_conf(self, to_position=np.array([0.0, 0.0, 0.0])) -> None:
+        u = mda.Universe(str(self.top), str(self.conf))
+        translation = to_position - u.atoms.center_of_geometry
+        u.atoms.translate(translation)
+        u.atoms.write(str(self.conf))
 
     def _split_exb_file(self) -> None:
         # TODO: split .exb file
@@ -71,7 +80,10 @@ class Cascade(object):
         ...
         # TODO: setup fitting script and call it
         #       NOTE: pure enrgMD not required if mrDNA default
-        # TODO: reset pdb and map loaction to orginal mrc using transl
+
+        mrc_shift = self._recenter_mrc(reverse=True)
+        self._recenter_conf(to_position=mrc_shift)
+
         ...
         # TODO: returns dnaFit object
         return AtomicModelFit()
