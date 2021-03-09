@@ -1,9 +1,8 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from mrdna.readers import read_cadnano as read_model
-from mrdna.model.dna_sequence import read_sequence_file
 from pathlib import Path
+from typing import List
 import argparse
 import subprocess
 import os
@@ -14,8 +13,16 @@ from dnaFit.fit.mrC_mdff import mrCascade
 from dnaFit.code.utils import _get_executable
 
 
-""" cascaded mrDNA-driven MD flexible fitting
+""" cascaded mrDNA-driven MD flexible fitting:
+    optional:
+        creates a folder "mrDNA" containing all files sfor a standart mrDNA run
+        creates a folder "dnaFit" and copies final atomic model from mrDNA
+            the pdb is importet as *-undocked.pdb as docking still has to be
+            performed externally.
+    moves to existing! folder "dnaFit" and performs cascaded fitting on the
+    data present there.
 """
+# TODO: maybe create seperate script for non-mrDNA fitting
 
 
 def parse_args():
@@ -27,18 +34,25 @@ def parse_args():
     parser.add_argument('--version', action='version',
                         version='%(prog)s {}'.format(get_version()),
                         help='Print the version of dnaFit')
-    parser.add_argument('-s', '--sequence', type=str, default=None,
-                        help='scaffold strand sequence')
+
     parser.add_argument('-o', '--output-prefix', type=str, default=None,
-                        help="short design name")
+                        help="short design name, default to json name")
     parser.add_argument('-g', '--gpu', type=int, default=0,
                         help='GPU used for simulation')
+
+    parser.add_argument('--skip-mrDNA', action='store_true',
+                        help='skip mrDNA simulation and fit prexisting data')
+
+    parser.add_argument('-s', '--sequence', type=str, default=None,
+                        help='scaffold strand sequence file [.txt, .seq]')
     parser.add_argument('input_cad', type=str,
-                        help="Cadnano JSON file")
+                        help="Cadnano JSON file [.json]")
+    parser.add_argument('input_mrc', type=str,
+                        help="cryo EM columetric data file [.mrc]")
     return parser.parse_args()
 
 
-def run_mrDNA(cad_file, seq_file, directory: str = "mrDNA", gpu: int = 0):
+def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrDNA", gpu: int = 0):
     home_directory = os.getcwd()
     try:
         Path(directory).mkdir(parents=True, exist_ok=True)
@@ -46,7 +60,7 @@ def run_mrDNA(cad_file, seq_file, directory: str = "mrDNA", gpu: int = 0):
         mrDNA = _get_executable("mrdna")
 
         input_mrDNA = (
-            "-o {directory} -d {directory} -g {gpu} --run-enrg-md\
+            "-o {prefix} -d {directory} -g {gpu} --run-enrg-md\
             --sequence-file {seq_file} {cad_file}".format(**locals())
         )
         cmd = (str(mrDNA), input_mrDNA)
@@ -66,16 +80,17 @@ def run_mrDNA(cad_file, seq_file, directory: str = "mrDNA", gpu: int = 0):
         os.chdir(home_directory)
 
 
-def prep_cascaded_fitting():
+def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
     home_directory = os.getcwd()
     try:
         Path("dnaFit").mkdir(parents=True, exist_ok=True)
         os.chdir("dnaFit")
-
-        # TODO: either rearrange prep files or create class
-        ...
-
         # TODO: rearrange mrDNA output files
+        #   * move: psf
+        #   * move and rename to undocked: pdb
+        #   * move seq
+        #   * move but dont split exb (done later)
+        #   * copy forcefield folder
 
     finally:
         os.chdir(home_directory)
@@ -86,54 +101,60 @@ def check_docked_pdb():
     return is_docked
 
 
+def check_file(in_file: Path, extensions: List[str]):
+    try:
+        suffix = in_file.suffix
+    except:
+        raise Exception("Unrecognized input file {}'".format(in_file))
+    if suffix not in extensions:
+        raise Exception(
+            "Expected {} for input file {}'".format(extensions, in_file))
+
+
 def main():
     args = parse_args()
-    # TODO: provide fitting presets: bad docking, continuation, etc..
+    # TODO: provide fitting presets: bad docking, etc..
 
     cad_file = Path(args.input_cad)
-    try:
-        extension = cad_file.suffix
-    except:
-        raise Exception("Unrecognized input file '{}'".format(cad_file))
-    if extension == '.json':
-        raise Exception("Unrecognized input file '{}'".format(cad_file))
-    # NOTE: assuming mrc and sequence file have same name as cadnano file
-    # TODO: argparse mrc and sequence file. cad_file.stem if None
+    check_file(cad_file, [".json"])
+    seq_file = Path(args.sequence)
+    check_file(seq_file, [".txt", ".seq"])
+    prefix = cad_file.stem if args.output_prefix is None else args.output_prefix
 
-    do_mrDNA = True  # TODO: input argument
-    if not do_mrDNA:
-        # NOTE: assuming modified mrDNA, (annotated .exb files)
-        run_mrDNA(cad_file, args.sequence, directory="mrDNA", gpu=args.gpu)
-        # TODO: check for mrDNA modification and adapt in case of regular mrDNA
-        #       TODO: either call mrnda or copy mrdna main code (get model object)
-        prep_cascaded_fitting()
-        #       GOAL: provide start .psf, undocked.pdb, .exb, -SR.exb, -HO.exb (in folder)
+    if not args.skip_mrDNA:
+        run_mrDNA(cad_file, seq_file, prefix, directory="mrDNA", gpu=args.gpu)
+        # NOTE: move cad and seq here to ensure consistency with atomic model
+        prep_cascaded_fitting(prefix, cad_file, seq_file)
+        #       GOAL: provide start .psf, undocked.pdb, .exb, .json, .seq in folder "dnaFit"
 
     # NOTE: skip here for rerun ("reuse mrdna or start from different fit")
-    #       NOTE: assuming dnaFit folder with (.psd. .pdb .mrc .seq .json)
-    #       NOTE: ??? persistent (Fbp, FidDid) linkage (required for .exb)
+    #   assuming dnaFit folder with (.psd. .pdb.seq .json)
 
-    ######################################
-    # NOTE: BREAK: reorient helix and fit still external
-    while True:
-        input("You need to manualy align mrc and pdb using VMD. save file as docked and press ENTER")
-        if check_docked_pdb():
-            break
-    ######################################
-    # TODO: set fitting parameters
-    # TODO: pass input files
-    cascade = mrCascade(...)
-
-    # TODO: parse fitting parameter
+    # TODO: parse & set fitting parameters
+    mrc_file = Path(args.input_mrc)
+    check_file(mrc_file, [".mrc"])
     time_step = 12000
     resolution = 10.0
-    cascade.run_cascaded_fitting(time_step=time_step, resolution=resolution)
 
-    # NOTE: persistent and human readable linkage (Fbp, FidDid)
-    cascade.create_linkage()
+    home_directory = os.getcwd()
+    try:
+        os.chdir("dnaFit")
+        # TODO: read and check files in "dnaFit"
 
-    # NOTE: ->
-    # GOAL: finished fit in folder dnaFit
+        # NOTE:
+        cascade = mrCascade(...)
+
+        # NOTE: ultimatley returns a dnaFit object, that can be linked and analysed
+        #   this fit is moved back to original mrc position
+        dnaFit = cascade.run_cascaded_fitting(
+            time_step=time_step, resolution=resolution)
+
+        # TODO: add persistent and human readable linkage (Fbp, FidDid)
+        dnaFit.create_linkage()
+        # TODO: save final pdb/mmcif together with mrc and masked mrc
+
+    finally:
+        os.chdir(home_directory)
 
 
 if __name__ == '__main__':
