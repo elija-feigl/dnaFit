@@ -44,6 +44,8 @@ class Cascade(object):
         if not self.is_docked:
             self.conf = external_docking_loop(self.prefix)
 
+        # NOTE: splitting here allows starting from an old mrDNA or energMD setup.
+        #   as long as .exb is orderer (extra script)
         self._split_exb_file()
 
         self.charmrun = _get_executable("charmrun")
@@ -66,11 +68,26 @@ class Cascade(object):
         u.atoms.write(str(self.conf))
 
     def _split_exb_file(self) -> None:
-        # TODO: split .exb file
         # NOTE: assuming modifed mrDNA > march 2021, (annotated, sorted .exb files)
-        #   NOTE: splitting here allows starting from an old mrDNA or energMD setup. as long as .exb is orderer (extra script)
-        ...
-        raise NotImplementedError
+        with self.exb.open(mode='r') as f:
+            exb_data = f.readlines()
+        exb_split = list()
+        bond_list = list()
+        for line in exb_data:
+            if line.startswith("#"):
+                exb_split.append(bond_list)
+                bond_list = list()
+            bond_list.append(line)
+
+        with self.exb.with_name("{}-HO.exb".format(self.prefix)).open(mode='w') as f:
+            for bond_list in exb_split:
+                if bond_list[0].startswith("# PAIR"):
+                    f.writelines(bond_list)
+
+        with self.exb.with_name("{}-SR.exb".format(self.prefix)).open(mode='w') as f:
+            for bond_list in exb_split:
+                if not bond_list[0].startswith("# PUSHBONDS"):
+                    f.writelines(bond_list)
 
     def run_cascaded_fitting(self, time_step: int, resolution: float):
         # TODO: allow additional parameter changes
