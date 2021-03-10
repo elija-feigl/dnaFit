@@ -1,38 +1,4 @@
 ############################################################################
-#   NAMD template file for:
-#   Cascaded mrDNA-driven MDff for DNA Origami -- shrink wrap fitting
-#
-#   Authors: Elija Feigl <elija.feigl@tum.de>
-#
-############################################################################
-#
-#   based on:
-#   (C) Copyright 1995-2009 The Board of Trustees of the
-#                        University of Illinois
-#                         All Rights Reserved
-#   NAMD template file for MDFF simulations.
-#   Authors: Leonardo Trabuco <ltrabuco@ks.uiuc.edu>
-#            Elizabeth Villa <villa@ks.uiuc.edu>
-#            Kwok-Yan Chan <yanchanky@ks.uiuc.edu>
-#
-############################################################################
-
-set PREFIX {DESIGNNAME}
-set TS {TSTEP}
-set MS 0
-
-set GRIDON {1}
-set DIEL {DIEL}
-set GSCALE {GSCALE}
-set GRIDFILE {GRIDFILE}.dx
-set GRIDPDB grid.pdb
-
-set ENRGMDON {on}
-set ENRGMDBONDS $PREFIX.exb
-
-set OUTPUTNAME $N/$PREFIX
-
-############################################################################
 #   Cascade reference
 ############################################################################
 

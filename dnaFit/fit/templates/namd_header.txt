@@ -1,0 +1,17 @@
+#   NAMD template file for:
+#   Cascaded mrDNA-driven MDff for DNA Origami -- shrink wrap fitting
+#
+#   Authors: Elija Feigl <elija.feigl@tum.de>
+#
+############################################################################
+#
+#   based on:
+#   (C) Copyright 1995-2009 The Board of Trustees of the
+#                        University of Illinois
+#                         All Rights Reserved
+#   NAMD template file for MDFF simulations.
+#   Authors: Leonardo Trabuco <ltrabuco@ks.uiuc.edu>
+#            Elizabeth Villa <villa@ks.uiuc.edu>
+#            Kwok-Yan Chan <yanchanky@ks.uiuc.edu>
+#
+############################################################################

@@ -1,12 +1,19 @@
+import sys
 import attr
 from pathlib import Path
 from typing import Any
-
+import subprocess
 import numpy as np
 import mrcfile
 import MDAnalysis as mda
 
 from ..core.utils import _get_executable
+from . import templates
+
+try:
+    import importlib.resources as resources
+except ImportError:
+    import importlib_resources as resources
 
 """ DESCR:
     mrDNA driven cascade fitting simulation class.
@@ -14,6 +21,7 @@ from ..core.utils import _get_executable
 
 
 def external_docking_loop(prefix):
+    ##########################################################################
     # TODO -low-: implement automatic alignmant or python UI based alignment
     # BREAK: reorient helix and fit still external
     conf = Path("./{}.pdb".format(prefix))
@@ -39,12 +47,12 @@ class Cascade(object):
         self.prefix: str = self.top.stem
 
         _ = self._recenter_mrc()
-        self._recenter_conf()
+        self._recenter_conf(conf=self.conf)
 
         if not self.is_docked:
             self.conf = external_docking_loop(self.prefix)
 
-        # NOTE: splitting here allows starting from an old mrDNA or energMD setup.
+        # NOTE: splitting here allows starting from an old mrDNA or enrgMD setup.
         #   as long as .exb is orderer (extra script)
         self._split_exb_file()
 
@@ -61,11 +69,11 @@ class Cascade(object):
         mrc.header["origin"] = tuple(shift)
         return shift
 
-    def _recenter_conf(self, to_position=np.array([0.0, 0.0, 0.0])) -> None:
-        u = mda.Universe(str(self.top), str(self.conf))
+    def _recenter_conf(self, conf: Path, to_position=np.array([0.0, 0.0, 0.0])) -> None:
+        u = mda.Universe(str(self.top), str(conf))
         translation = to_position - u.atoms.center_of_geometry
         u.atoms.translate(translation)
-        u.atoms.write(str(self.conf))
+        u.atoms.write(str(conf))
 
     def _split_exb_file(self) -> None:
         # NOTE: assuming modifed mrDNA > march 2021, (annotated, sorted .exb files)
@@ -89,25 +97,102 @@ class Cascade(object):
                 if not bond_list[0].startswith("# PUSHBONDS"):
                     f.writelines(bond_list)
 
-    def run_cascaded_fitting(self, time_step: int, resolution: float):
-        # TODO: allow additional parameter changes
+    def run_cascaded_fitting(self, base_time_steps: int, resolution: float):
         # NOTE: assuming we can put all files in the current folder!
 
-        # TODO: either prep & call .sh script or call namd directly
-        ...
-        # TODO: setup fitting script and call it
-        #       NOTE: pure enrgMD not required if mrDNA default
+        def create_sh_file(sh_file):
+            with sh_file.open(mode='w') as f:
+                namd_path = self.namd2.resolve().parent
+                vmd_path = self.vmd.resolve().parent
+                sh_base = resources.read_text(
+                    templates, "c-mrDNA-MDff-cascade-sh.txt")
+                sh_parameters = "readonly UBIN = {namd_path}\n\
+                    readonly VBIN = {vmd_path}\n\n\
+                    # general\n\
+                    readonly DESIGNNAME = {prefix}\n\
+                    declare - ri TSTEPS = {time_steps}\n\n\
+                    # cascade\n\
+                    declare - ri NCASCADE = {n_cascade}\n\
+                    readonly GFMAX = {resolution_max}\n\
+                    readonly MAPRESOLUTION = {resolution}\n".format(**locals())
+                f.write("\n".join([sh_parameters, sh_base]))
+
+        def create_namd_file(namd_file):
+            with namd_file.open(mode='w') as f:
+                namd_base = resources.read_text(templates, "namd.txt")
+                namd_header = resources.read_text(
+                    templates, "namd_header.txt")
+                namd_parameters = "set PREFIX {prefix}\n\
+                    set TS {time_steps}\n\
+                    set MS {minimisation_steps}\n\
+                    set GRIDON {grid_on}\n\
+                    set DIEL{dielectr_constant}\n\
+                    set GSCALE {gscale}\n\
+                    set GRIDFILE {grid_file}\n\
+                    set GRIDPDB {grid_pdb}\n\n\
+                    set ENRGMDON {enrgmd_on}\n\
+                    set ENRGMDBONDS {enrgmd_file}\n\n\
+                    set OUTPUTNAME{output_name}\n".format(**locals())
+
+                f.write("\n".join([namd_header, namd_parameters, namd_base]))
+            return
+
+        # TODO: allow additional parameter changes
+        #       TODO: change from energymin to fixed.pdb protocol
+        prefix = self.prefix
+        time_steps = base_time_steps
+        minimisation_steps = base_time_steps
+        n_cascade = 8
+        resolution_max = resolution + 14
+        gscale = 0.3
+        dielectr_constant = 1
+        grid_on = "1"
+        grid_file = "1.dx"
+        grid_pdb = "grid.pdb"
+        enrgmd_on = "on"
+        enrgmd_file = "$PREFIX.exb"
+        output_name = "$N/$PREFIX"
+
+        namd_file = self.top.with_name(
+            "{}_c-mrDNA-MDff.namd".format(self.prefix))
+        create_namd_file(namd_file)
+
+        ######################################################################
+        # VERSION 1: execute with sh file
+        # NOTE: sh execute changes namd-file
+        sh_file = self.top.with_name(
+            "{}_c-mrDNA-MDff.sh".format(self.prefix))
+        create_sh_file(sh_file)
+
+        cmd = ("sh", sh_file)
+        # TODO: logger: "Starting cascade with sh script {}".format(cmd)
+
+        process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, universal_newlines=True)
+        for line in process.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+
+        ######################################################################
+        # VERSION 1: pytohnised fitting script
+        # TODO: ...
+
+        final_conf = self.conf.with_name(
+            "{}-final.pdb".format(self.prefix))
+        if final_conf.is_file():
+            raise Exception("ERROR: cascaded fit incomplete")
 
         mrc_shift = self._recenter_mrc(reverse=True)
-        self._recenter_conf(to_position=mrc_shift)
-
-        ...
-        # TODO: returns dnaFit object
-        return AtomicModelFit()
+        self._recenter_conf(conf=final_conf, to_position=mrc_shift)
+        return AtomicModelFit(
+            conf=final_conf, top=self.top, mrc=self.mrc)
 
 
 @attr.s
 class AtomicModelFit(object):
+    conf: Path = attr.ib()
+    top: Path = attr.ib()
+    mrc: Path = attr.ib()
 
     def write_linkage(self, cad_file: Path, seq_file: Path):
         # TODO: write persistent and human readable linkage (Fbp, FidDid)

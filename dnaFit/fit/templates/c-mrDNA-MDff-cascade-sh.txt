@@ -1,21 +1,4 @@
 ############################################################################
-# General input
-############################################################################
-# PATH
-readonly UBIN=/home/gpuser/NAMD_2.13_Linux-x86_64-multicore/
-readonly VBIN=/usr/local/bin/
-
-# general
-readonly DESIGNNAME=Abrickv4-2_barefob5
-declare -ri TSTEPS=12000
-
-# cascade
-declare -ri NCASCADE=8
-readonly GFMAX=22
-readonly MAPRESOLUTION=8
-
-
-############################################################################
 # Advanced input
 ############################################################################
 # location
