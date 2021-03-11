@@ -3,7 +3,7 @@ import attr
 
 from typing import Set, Dict, TextIO
 
-from .linker import Linker
+from .linker_project import Linker
 from ..core.utils import UnexpectedCaseError
 
 """ DESCR:

@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from ..core.project import Project
-from ..link.linker import Linker
+from ..link.linker_project import Linker
 from ..link.elastic_network import ElaticNetwortModifier
 from ..version import get_version, get_authors
 

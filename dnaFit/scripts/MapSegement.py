@@ -8,7 +8,7 @@ from pathlib import Path
 
 from ..core.project import Project
 from ..core.utils import ignored
-from ..link.linker import get_linkage
+from ..link.linker_project import get_linkage
 from ..analysis.segmentation import categorise, mrc_segment
 
 from ..version import get_version, get_authors

@@ -10,8 +10,8 @@ from statistics import mean
 
 import ipywidgets as widgets
 
-from ..link.linkage import Linkage
-from ..link.linker import get_linkage
+from ..link.linkage_pickle import Linkage
+from ..link.linker_project import get_linkage
 from ..core.project import Project
 
 """ DESCR:

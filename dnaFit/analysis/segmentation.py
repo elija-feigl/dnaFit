@@ -7,7 +7,7 @@ from pathlib import Path
 
 from ..core.utils import UnexpectedCaseError
 from ..core.project import Project
-from ..link.linkage import Linkage
+from ..link.linkage_pickle import Linkage
 from ..data.design import Design
 
 """ DESCR:

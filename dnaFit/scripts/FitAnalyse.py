@@ -13,7 +13,7 @@ from ..core.project import Project
 from ..core.utils import WC_PROPERTIES, DH_ATOMS, ignored
 
 from ..analysis.bdna import BDna
-from ..link.linker import get_linkage
+from ..link.linker_project import get_linkage
 from ..version import get_version, get_authors
 
 
