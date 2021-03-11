@@ -11,7 +11,6 @@ with open("README.md", "r") as fh:
 with open("LICENSE", "r") as fh:
     license = fh.read()
 
-
 setuptools.setup(
     name="dnaFit",
     version=get_version(),
@@ -30,8 +29,8 @@ setuptools.setup(
         'attrs>=19.3',
         'mdanalysis>=1.0',
         'mrcfile>=1.1.1',
-        'mrdna>=1.0'  # TODO: add link in readme
-        'nanodesign>=???'  # TODO: add version
+        # 'mrdna>=0.0'  # TODO: add link in readme
+        # 'nanodesign>=???'  # TODO: add version
     ),
     classifiers=(
         "Programming Language :: Python :: 3",

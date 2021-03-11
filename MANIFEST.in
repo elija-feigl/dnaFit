@@ -1,0 +1,3 @@
+include dnaFit/README.md
+include dnaFit/LICENSE
+recursive-include dnaFit/resources *

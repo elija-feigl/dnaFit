@@ -1,4 +1,9 @@
 import logging
+from pathlib import Path
+
+
+def get_resource(resources:str) -> Path:
+    return Path(__file__).parent / "resources" / resources
 
 
 def _init_logging():

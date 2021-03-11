@@ -17,3 +17,4 @@ eggs/
 # editor & testing
 .vscode/
 .mypy_cache/
+test/**
