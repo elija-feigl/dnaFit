@@ -11,9 +11,7 @@ from shutil import copyfile, copytree
 
 from dnaFit.version import get_version
 from dnaFit.fit.mrC_mdff import Cascade
-from dnaFit.code.utils import _get_executable
-
-
+from dnaFit.core.utils import _get_executable
 """ cascaded mrDNA-driven MD flexible fitting:
     optional:
         creates a folder "mrDNA" containing all files sfor a standart mrDNA run
@@ -24,7 +22,6 @@ from dnaFit.code.utils import _get_executable
     data present there.
 """
 # TODO: maybe create seperate script for non-mrDNA fitting
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -78,7 +75,7 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrD
                  and os.path.isfile("./{}-3.pdb".format(prefix))
                  and os.path.isfile("./{}-3.exb".format(prefix)))
         if not is_ok:
-            raise Exception("mrDNA incomplete")
+            raise Exception("ERROR: mrDNA incomplete")
         # TODO -low-: check for pdb vaildity
     finally:
         os.chdir(home_directory)
@@ -109,19 +106,19 @@ def check_file(in_file: Path, extensions: List[str]):
     try:
         suffix = in_file.suffix
     except:
-        raise Exception("Unrecognized input file {}'".format(in_file))
+        raise Exception("ERROR: Unrecognized input file {}'".format(in_file))
     if suffix not in extensions:
         raise Exception(
-            "Expected {} for input file {}'".format(extensions, in_file))
+            "EERROR: xpected {} for input file {}'".format(extensions, in_file))
 
 
 def main():
     args = parse_args()
     # TODO: provide fitting presets: bad docking, etc..
 
-    cad_file = Path(args.input_cad)
+    cad_file = Path(args.input_cad).resolve()
     check_file(cad_file, [".json"])
-    seq_file = Path(args.sequence)
+    seq_file = Path(args.sequence).resolve()
     check_file(seq_file, [".txt", ".seq"])
     prefix = cad_file.stem if args.output_prefix is None else args.output_prefix
 
@@ -130,30 +127,30 @@ def main():
         prep_cascaded_fitting(prefix, cad_file, seq_file)
 
     # TODO: parse & set fitting parameters
-    mrc_file = Path(args.input_mrc)
+    mrc_file = Path(args.input_mrc).resolve()
     check_file(mrc_file, [".mrc"])
-    copyfile(seq_file, "./dnaFit/{}.mrc".format(prefix))
+    copyfile(mrc_file, "./dnaFit/{}.mrc".format(prefix))
 
-    time_step = 12000
+    time_steps = 12000
     resolution = 10.0
 
     # NOTE changing design and sequence file to copy in folder dnaFit to ensure consistency
-    mrc_file = Path("./dnaFit/{}.json".format(prefix))
-    cad_file = Path("./dnaFit/{}.json".format(prefix))
-    seq_file = Path("./dnaFit/{}.seq".format(prefix))
-    top = Path("./dnaFit/{}.psf".format(prefix))
-    conf = Path("./dnaFit/{}-undocked.pdb".format(prefix))
-    exb = Path("./dnaFit/{}.exb".format(prefix))
+    mrc_file = Path("./dnaFit/{}.mrc".format(prefix)).resolve()
+    cad_file = Path("./dnaFit/{}.json".format(prefix)).resolve()
+    seq_file = Path("./dnaFit/{}.seq".format(prefix)).resolve()
+    top = Path("./dnaFit/{}.psf".format(prefix)).resolve()
+    conf = Path("./dnaFit/{}-undocked.pdb".format(prefix)).resolve()
+    exb = Path("./dnaFit/{}.exb".format(prefix)).resolve()
 
     home_directory = os.getcwd()
     try:
         os.chdir("dnaFit")
         # NOTE: creating Cascade object triggers external docking prompt
-        cascade = Cascade(conf=conf, top=top,
+        cascade = Cascade(conf=conf, top=top, mrc=mrc_file,
                           exb=exb, recenter=True, is_docked=False)
         # NOTE: fit is moved back to original mrc position, recentering invisible to user
         dnaFit = cascade.run_cascaded_fitting(
-            time_step=time_step, resolution=resolution)
+            base_time_steps=time_steps, resolution=resolution)
         dnaFit.write_linkage(cad_file, seq_file)
         dnaFit.write_output(write_mmCif=True, crop_mrc=True)
 

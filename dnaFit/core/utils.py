@@ -118,5 +118,4 @@ def _get_executable(name: str):
         exe = os.path.join(path.strip('"'), "name")
         if os.path.isfile(exe) and os.access(exe, os.X_OK):
             return exe
-        else:
-            raise Exception("{} was not found".format(name))
+    raise Exception("{} was not found".format(name))

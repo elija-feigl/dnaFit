@@ -7,13 +7,12 @@ import numpy as np
 import mrcfile
 import MDAnalysis as mda
 
+from .. import get_resource
 from ..core.utils import _get_executable
-from . import templates
+from ..link.linker import Linker
 
-try:
-    import importlib.resources as resources
-except ImportError:
-    import importlib_resources as resources
+import warnings
+warnings.filterwarnings('ignore')
 
 """ DESCR:
     mrDNA driven cascade fitting simulation class.
@@ -46,9 +45,9 @@ class Cascade(object):
     def __attrs_post_init__(self) -> None:
         self.prefix: str = self.top.stem
 
-        _ = self._recenter_mrc()
+        # intenally moving to center at origin simplifies rotation in vmd
+        self.mrc_shift = self._recenter_mrc()
         self._recenter_conf(conf=self.conf)
-
         if not self.is_docked:
             self.conf = external_docking_loop(self.prefix)
 
@@ -60,18 +59,22 @@ class Cascade(object):
         self.namd2 = _get_executable("namd2")
         self.vmd = _get_executable("vmd")
 
-    def _recenter_mrc(self, reverse=False) -> Any:
+    def _recenter_mrc(self, to_position=np.array([0.0, 0.0, 0.0])) -> Any:
         with mrcfile.open(self.mrc, mode='r+') as mrc:
             c = np.array(mrc.header["cella"])
-            cell = np.array([c["x"], c["y"], c["z"]])
-        if reverse:
-            shift = cell * 0.5 if reverse else cell * - 0.5
-        mrc.header["origin"] = tuple(shift)
-        return shift
+            half_box = 0.5 * np.array([c["x"], c["y"], c["z"]])
+            to_origin = (to_position - half_box)
+
+            h = np.array(mrc.header["origin"])
+            origin = np.array([h["x"], h["y"], h["z"]])
+
+            shift = to_origin - origin
+            mrc.header["origin"] = tuple(shift)
+            return -shift
 
     def _recenter_conf(self, conf: Path, to_position=np.array([0.0, 0.0, 0.0])) -> None:
         u = mda.Universe(str(self.top), str(conf))
-        translation = to_position - u.atoms.center_of_geometry
+        translation = to_position - u.atoms.center_of_geometry()
         u.atoms.translate(translation)
         u.atoms.write(str(conf))
 
@@ -100,12 +103,13 @@ class Cascade(object):
     def run_cascaded_fitting(self, base_time_steps: int, resolution: float):
         # NOTE: assuming we can put all files in the current folder!
 
-        def create_sh_file(sh_file):
+        def create_sh_file(sh_file, args):
             with sh_file.open(mode='w') as f:
-                namd_path = self.namd2.resolve().parent
-                vmd_path = self.vmd.resolve().parent
-                sh_base = resources.read_text(
-                    templates, "c-mrDNA-MDff-cascade-sh.txt")
+                namd_path = "namd2/bin"  # self.namd2.resolve().parent
+                vmd_path = "vmd/bin"  # self.vmd.resolve().parent
+                sh_base = get_resource(
+                    "c-mrDNA-MDff-cascade-sh.txt").read_text()
+                args = {**args, **locals()}
                 sh_parameters = "readonly UBIN = {namd_path}\n\
                     readonly VBIN = {vmd_path}\n\n\
                     # general\n\
@@ -114,14 +118,14 @@ class Cascade(object):
                     # cascade\n\
                     declare - ri NCASCADE = {n_cascade}\n\
                     readonly GFMAX = {resolution_max}\n\
-                    readonly MAPRESOLUTION = {resolution}\n".format(**locals())
+                    readonly MAPRESOLUTION = {resolution}\n".format(**args).replace("  ", "")
+                # TODO: find a prettier way than tab & replace
                 f.write("\n".join([sh_parameters, sh_base]))
 
-        def create_namd_file(namd_file):
+        def create_namd_file(namd_file, args):
             with namd_file.open(mode='w') as f:
-                namd_base = resources.read_text(templates, "namd.txt")
-                namd_header = resources.read_text(
-                    templates, "namd_header.txt")
+                namd_base = get_resource("namd.txt").read_text()
+                namd_header = get_resource("namd_header.txt").read_text()
                 namd_parameters = "set PREFIX {prefix}\n\
                     set TS {time_steps}\n\
                     set MS {minimisation_steps}\n\
@@ -132,8 +136,8 @@ class Cascade(object):
                     set GRIDPDB {grid_pdb}\n\n\
                     set ENRGMDON {enrgmd_on}\n\
                     set ENRGMDBONDS {enrgmd_file}\n\n\
-                    set OUTPUTNAME{output_name}\n".format(**locals())
-
+                    set OUTPUTNAME{output_name}\n".format(**args).replace("  ", "")
+                # TODO: find a prettier way than tab & replace
                 f.write("\n".join([namd_header, namd_parameters, namd_base]))
             return
 
@@ -153,16 +157,17 @@ class Cascade(object):
         enrgmd_file = "$PREFIX.exb"
         output_name = "$N/$PREFIX"
 
+        # TODO: explicitly pass simultaion arguments instead of locals()
         namd_file = self.top.with_name(
             "{}_c-mrDNA-MDff.namd".format(self.prefix))
-        create_namd_file(namd_file)
+        create_namd_file(namd_file, locals())
 
         ######################################################################
         # VERSION 1: execute with sh file
         # NOTE: sh execute changes namd-file
         sh_file = self.top.with_name(
             "{}_c-mrDNA-MDff.sh".format(self.prefix))
-        create_sh_file(sh_file)
+        create_sh_file(sh_file, locals())
 
         cmd = ("sh", sh_file)
         # TODO: logger: "Starting cascade with sh script {}".format(cmd)
@@ -174,16 +179,17 @@ class Cascade(object):
             sys.stdout.flush()
 
         ######################################################################
-        # VERSION 1: pytohnised fitting script
+        # VERSION 1: pythonised fitting script
         # TODO: ...
 
         final_conf = self.conf.with_name(
-            "{}-final.pdb".format(self.prefix))
-        if final_conf.is_file():
+            "{}-last.pdb".format(self.prefix))
+        if not final_conf.is_file():
             raise Exception("ERROR: cascaded fit incomplete")
 
-        mrc_shift = self._recenter_mrc(reverse=True)
-        self._recenter_conf(conf=final_conf, to_position=mrc_shift)
+        # NOTE: revert internal recentering to align with original mrc data
+        _ = self._recenter_mrc(to_position=self.mrc_shift)
+        self._recenter_conf(conf=final_conf, to_position=self.mrc_shift)
         return AtomicModelFit(
             conf=final_conf, top=self.top, mrc=self.mrc)
 
@@ -195,8 +201,14 @@ class AtomicModelFit(object):
     mrc: Path = attr.ib()
 
     def write_linkage(self, cad_file: Path, seq_file: Path):
+        # TODO: change Linker from project to explizit files
+        project = None
         # TODO: write persistent and human readable linkage (Fbp, FidDid)
         raise NotImplementedError
+        linker = Linker(project)
+        linkage = linker.create_linkage()
+        print("linkage output to {}".format(project))
+        linkage.dump_linkage(project=project)
 
     def write_output(self, write_mmCif=True, crop_mrc=True):
         # TODO: save final pdb/mmcif together with mrc and masked mrc
