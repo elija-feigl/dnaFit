@@ -6,7 +6,7 @@ from MDAnalysis.lib import mdamath
 import attr
 from typing import Dict, Tuple, Any, Optional, List, Set
 
-from ..link.linker import Linkage
+from ..link.linkage_pickle import Linkage
 from ..data.basepair import BasePair
 from ..data.crossover import Crossover
 from ..core.utils import (
