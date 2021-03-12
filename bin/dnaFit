@@ -23,6 +23,7 @@ from dnaFit.core.utils import _get_executable
 """
 # TODO: maybe create seperate script for non-mrDNA fitting
 
+
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="dnaFit",
@@ -58,12 +59,12 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrD
         mrDNA = _get_executable("mrdna")
 
         input_mrDNA = (
-            "-o {prefix} -d {directory} -g {gpu} --run-enrg-md\
-            --sequence-file {seq_file} {cad_file}".format(**locals())
+            f"-o {prefix} -d {directory} -g {gpu} --run-enrg-md\
+            --sequence-file {seq_file} {cad_file}"
         )
         cmd = (str(mrDNA), input_mrDNA)
 
-        # TODO: logger: "Starting mrDNA with {}".format(cmd)
+        # TODO: logger: f"Starting mrDNA with {cmd}"
         process = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, universal_newlines=True)
         for line in process.stdout:
@@ -71,9 +72,9 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrD
             sys.stdout.flush()
 
         # NOTE: check successful finish
-        is_ok = (os.path.isfile("./{}-3.psf".format(prefix))
-                 and os.path.isfile("./{}-3.pdb".format(prefix))
-                 and os.path.isfile("./{}-3.exb".format(prefix)))
+        is_ok = (os.path.isfile(f"./{prefix}-3.psf")
+                 and os.path.isfile(f"./{prefix}-3.pdb")
+                 and os.path.isfile(f"./{prefix}-3.exb"))
         if not is_ok:
             raise Exception("ERROR: mrDNA incomplete")
         # TODO -low-: check for pdb vaildity
@@ -87,13 +88,12 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
         Path("dnaFit").mkdir(parents=True, exist_ok=True)
         os.chdir("dnaFit")
 
-        copyfile(cad_file, "./{}.json".format(prefix))
-        copyfile(seq_file, "./{}.seq".format(prefix))
+        copyfile(cad_file, f"./{prefix}.json")
+        copyfile(seq_file, f"./{prefix}.seq")
 
-        copyfile("../mrDNA/{}-3.psf".format(prefix), "./{}.psf".format(prefix))
-        copyfile("../mrDNA/{}-3.exb".format(prefix), "./{}.exb".format(prefix))
-        copyfile("../mrDNA/{}-3.pdb".format(prefix),
-                 "./{}-undocked.pdb".format(prefix))
+        copyfile(f"../mrDNA/{prefix}-3.psf", f"./{prefix}.psf")
+        copyfile(f"../mrDNA/{prefix}-3.exb", f"./{prefix}.exb")
+        copyfile(f"../mrDNA/{prefix}-3.pdb", f"./{prefix}-undocked.pdb")
         copytree("../mrDNA/charmm36.nbfix", "./charmm36.nbfix")
     except:
         raise Exception(
@@ -106,10 +106,9 @@ def check_file(in_file: Path, extensions: List[str]):
     try:
         suffix = in_file.suffix
     except:
-        raise Exception("ERROR: Unrecognized input file {}'".format(in_file))
+        raise Exception(f"ERROR: Unrecognized input file {in_file}")
     if suffix not in extensions:
-        raise Exception(
-            "EERROR: xpected {} for input file {}'".format(extensions, in_file))
+        raise Exception(f"ERROR: expected {extensions} for input {in_file}")
 
 
 def main():
@@ -129,18 +128,18 @@ def main():
     # TODO: parse & set fitting parameters
     mrc_file = Path(args.input_mrc).resolve()
     check_file(mrc_file, [".mrc"])
-    copyfile(mrc_file, "./dnaFit/{}.mrc".format(prefix))
+    copyfile(mrc_file, f"./dnaFit/{prefix}.mrc")
 
     time_steps = 12000
     resolution = 10.0
 
     # NOTE changing design and sequence file to copy in folder dnaFit to ensure consistency
-    mrc_file = Path("./dnaFit/{}.mrc".format(prefix)).resolve()
-    cad_file = Path("./dnaFit/{}.json".format(prefix)).resolve()
-    seq_file = Path("./dnaFit/{}.seq".format(prefix)).resolve()
-    top = Path("./dnaFit/{}.psf".format(prefix)).resolve()
-    conf = Path("./dnaFit/{}-undocked.pdb".format(prefix)).resolve()
-    exb = Path("./dnaFit/{}.exb".format(prefix)).resolve()
+    mrc_file = Path(f"./dnaFit/{prefix}.mrc").resolve()
+    cad_file = Path(f"./dnaFit/{prefix}.json").resolve()
+    seq_file = Path(f"./dnaFit/{prefix}.seq").resolve()
+    top = Path(f"./dnaFit/{prefix}.psf").resolve()
+    conf = Path(f"./dnaFit/{prefix}-undocked.pdb").resolve()
+    exb = Path(f"./dnaFit/{prefix}.exb").resolve()
 
     home_directory = os.getcwd()
     try:
@@ -152,7 +151,8 @@ def main():
         dnaFit = cascade.run_cascaded_fitting(
             base_time_steps=time_steps, resolution=resolution)
         dnaFit.write_linkage(cad_file, seq_file)
-        dnaFit.write_output(write_mmCif=True, crop_mrc=True)
+        dnaFit.write_output(dest=home_directory,
+                            write_mmCif=True, crop_mrc=True)
 
     finally:
         os.chdir(home_directory)

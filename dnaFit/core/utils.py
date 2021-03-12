@@ -95,7 +95,6 @@ def _save_arccos_deg(dist):
 
 
 def _dh_angle(p: list, as_rad=False):  # slow
-
     v1 = p[1] - p[0]
     v2 = p[2] - p[1]
     v3 = p[3] - p[2]
@@ -118,4 +117,4 @@ def _get_executable(name: str):
         exe = os.path.join(path.strip('"'), "name")
         if os.path.isfile(exe) and os.access(exe, os.X_OK):
             return exe
-    raise Exception("{} was not found".format(name))
+    raise Exception(f"{name} was not found")

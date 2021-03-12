@@ -37,14 +37,14 @@ class Linkage(object):
         """ write human readable linkage information to dest folder
         """
         out = list()
-        Fbp_file = dest / "{}_F-resID--basepairs.csv".format(prefix)
+        Fbp_file = dest / f"{prefix}_F-resID--basepairs.csv"
         Fbp_header = ["Atomic model resID_scaffold",
                       "Atomic model resID_staple"]
         Fbp_data = self.Fbp
         out.append((Fbp_file, Fbp_data, Fbp_header))
 
         FidDhps_file = dest / \
-            "{}_F-resID--D-helix-position-strand.csv".format(prefix)
+            f"{prefix}_F-resID--D-helix-position-strand.csv"
         FidDhps_header = ["Atomic model resID",
                           "(cadnano helix, cadnano position, strand)"]
         FidDhps_data = {Fid: self.DidDhps[Did]

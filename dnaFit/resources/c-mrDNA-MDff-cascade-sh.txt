@@ -5,8 +5,8 @@
 readonly DIR=$PWD
 
 # start with enrgMD
-declare -ri TSTEPSERG=4800
-declare -ri MSTEPSERG=4800
+declare -ri TSTEPSERG=1200
+declare -ri MSTEPSERG=1200
 # input mrc map
 readonly MAPTHRES=0.0
 # mdff settings
