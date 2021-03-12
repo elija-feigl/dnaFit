@@ -1,8 +1,8 @@
 from typing import List
 
-__version__ = "0.4"
+__version__ = "0.5"
 __authors__ = ["Elija Feigl"]
-__copyright__ = "Copyright 2019, Dietzlab (TUM)"
+__copyright__ = "Copyright 2021, Dietzlab (TUM)"
 __credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]
 __license__ = "GPL-3.0"
 __maintainer__ = "Elija Feigl"
