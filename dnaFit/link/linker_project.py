@@ -7,8 +7,8 @@ from typing import Dict, Tuple, Optional, List, Set
 from .linkage import Linkage
 
 from ..core.project import Project
-from ..data.fit import Fit
-from ..data.design import Design
+from ..data.fit_project import Fit
+from ..data.design_project import Design
 from ..data.crossover import Crossover
 from ..data.basepair import BasePair
 
