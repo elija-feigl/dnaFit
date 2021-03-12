@@ -1,8 +1,74 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from dnaFit.version import get_version
+import os
+import argparse
+from typing import List
+from pathlib import Path
 
-# TODO: potential main script for generating some persisetn linkage file (no
-# pickle, as it might not be as portable. readable base-pair list would also be
-# great for other scripts)
-# relinking a fit thats already great
+
+""" links structural information of the cadnano designfile [design.json] to 
+    fitted atomic model[design.psf, design.dcd].
+    * linkage information ist stored in human readable csv format
+    * can be used to mask mrc map to fit
+    * ... TODO: segementation, analysis, ENNetwork
+"""
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        prog="dnaLink",
+        description=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s {}'.format(get_version()),
+                        help='Print the version of dnaLink')
+
+    parser.add_argument('--mask-mrc', action='store_true',
+                        help='create masked mrc file')
+    parser.add_argument('--enrgMD-server', action='store_false',
+                        help='namd files generated with energMD server')
+
+    parser.add_argument('-s', '--sequence', type=str, default=None,
+                        help='scaffold strand sequence file [.txt, .seq]')
+    parser.add_argument('input_cad', type=str,
+                        help="Cadnano JSON file [.json]")
+    parser.add_argument('input_mrc', type=str,
+                        help="cryo EM volumetric data file [.mrc]")
+    parser.add_argument('input_top', type=str,
+                        help="namd2 topology file [.psf]")
+    parser.add_argument('input_conf', type=str,
+                        help="namd2 coordinate file [.pdb, .coor]")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    seq_file = args.sequence
+    if seq_file is not None:
+        seq_file = Path(seq_file).resolve()
+        check_file(seq_file, [".txt", ".seq"])
+
+    cad_file = Path(args.input_cad).resolve()
+    check_file(cad_file, [".json"])
+
+    top = Path(args.input_top).resolve()
+    check_file(top, [".top"])
+    conf = Path(args.input_conf).resolve()
+    check_file(conf, [".pdb", ".coor"])
+    mrc = Path(args.input_mrc).resolve()
+    check_file(mrc, [".mrc"])
+
+    dnaFit = AtomicModelFit(conf=conf, top=top, mrc=mrc,
+                            generated_with_mrdna=args.enrgMD_server)
+    dnaFit.write_linkage(json=cad_file, seq=seq_file)
+
+    mrc_masked = mrc.with_name(f"{.mrc.stem}-masked.mrc")
+    write_mrc_from_atoms(path=mrc, atoms=dnaFit.linkage.u.atoms,
+                         path_out=mrc_masked, context=10., cut_box=True)
+
+
+if __name__ == '__main__':
+    main()
