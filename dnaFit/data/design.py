@@ -1,11 +1,10 @@
 import attr
-
+from pathlib import Path
 from typing import List, Dict, Set, Tuple
 from nanodesign.converters import Converter
 from nanodesign.data.base import DnaBase
 from nanodesign.data.dna_structure import DnaStructure
 
-from ..core.project import Project
 
 """ DESCR:
     Design Class manageing cadnano design. The autodesk/nanodesign package is
@@ -20,10 +19,10 @@ from ..core.project import Project
 
 @attr.s
 class Design(object):
-    project: Project = attr.ib()
+    json: Path = attr.ib()
+    seq: Path = attr.ib()
 
     def __attrs_post_init__(self):
-        self.infile = self.project.input / self.project.name
         self.design = self._get_design()
         self.scaffold = self._scaffold()
         self.staples = self._staple()
@@ -57,13 +56,11 @@ class Design(object):
         return [s.tour for s in self.design.strands if not s.is_scaffold]
 
     def _get_design(self) -> DnaStructure:
-        fil = self.infile.with_suffix(".json")
-        seq = self.infile.with_suffix(".seq")
         converter = Converter(modify=True)
-        if fil.exists() and seq.exists():
+        if self.json.exists() and self.seq.exists():
             converter.read_cadnano_file(
-                file_name=str(fil),
-                seq_file_name=str(seq),
+                file_name=str(self.json),
+                seq_file_name=str(self.seq),
                 seq_name=None,
             )
         else:

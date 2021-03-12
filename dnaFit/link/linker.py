@@ -1,19 +1,18 @@
 import attr
 import nanodesign as nd
-
+from pathlib import Path
 from nanodesign.data.base import DnaBase
 from typing import Dict, Tuple, Optional, List, Set
 
 from .linkage import Linkage
 
-from ..core.project import Project
 from ..data.fit import Fit
 from ..data.design import Design
 from ..data.crossover import Crossover
 from ..data.basepair import BasePair
 
 """ DESCR:
-    create Linkage. first loads pickled linkage if available.
+    create Linkage
 """
 
 
@@ -21,8 +20,11 @@ from ..data.basepair import BasePair
 class Linker(object):
     """ Linker class
     """
-    # TODO: move categorize to linker?
-    project: Project = attr.ib()
+    conf: Path = attr.ib()
+    top: Path = attr.ib()
+    json: Path = attr.ib()
+    seq: Path = attr.ib()
+
     Fbp: Dict[int, int] = dict()
     DidFid: Dict[int, int] = dict()
     DhpsDid: Dict[Tuple[int, int, bool], int] = dict()
@@ -32,8 +34,8 @@ class Linker(object):
     Fco: Dict[str, Crossover] = dict()
 
     def __attrs_post_init__(self) -> None:
-        self.fit: Fit = Fit(self.project)
-        self.design: Design = Design(self.project)
+        self.fit: Fit = Fit(top=self.top, conf=self.conf)
+        self.design: Design = Design(json=self.json, seq=self.seq)
         self.Dhp_skips: Set[Tuple[int, int]] = self.design.Dhp_skips
 
     def _eval_sequence(self, steps=5) -> None:
@@ -398,22 +400,3 @@ class Linker(object):
             for candi in end_bases
             if is_nick(candidate=candi, base=start)
         }
-
-
-def get_linkage(project: Project) -> Linkage:
-    if project.relink:
-        print("relink_fit {}".format(project.name))
-        linker = Linker(project)
-        link = linker.create_linkage()
-        link.dump_linkage(project)
-    else:
-        try:
-            link = Linkage()
-            link.load_linkage(project=project)
-            print("found linkage for {}".format(project.name))
-        except BaseException:
-            print("link_fit {}".format(project.name))
-            linker = Linker(project)
-            link = linker.create_linkage()
-            link.dump_linkage(project)
-    return link

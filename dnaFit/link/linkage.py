@@ -1,10 +1,9 @@
-import pickle  # TODO: remove pickle
 import attr
-
+import pandas as pd
 from typing import Dict, Tuple, List, Set
+from pathlib import Path
 import MDAnalysis as mda
 
-from ..core.project import Project
 from ..data.crossover import Crossover, CrossoverPicklable
 from ..data.basepair import BasePair
 
@@ -34,45 +33,32 @@ class Linkage(object):
     def __attrs_post_init__(self) -> None:
         self._reverse()
 
-    def dump_linkage(self, project: Project) -> None:
-        def pickle_universe(u: "mda.universe") -> Tuple[str, str]:
-            top = project.input / u.filename
-            suffix = u.filename.split(".")[-1]
-            trj = project.input / "{}dcd".format(u.filename[:-len(suffix)])
-            return (str(top.absolute()), str(trj.absolute()))
+    def write_linkage(self, prefix: str, dest: Path) -> None:
+        """ write human readable linkage information to dest folder
+        """
+        out = list()
+        Fbp_file = dest / "{}_F-resID--basepairs.csv".format(prefix)
+        Fbp_header = ["Atomic model resID_scaffold",
+                      "Atomic model resID_staple"]
+        Fbp_data = self.Fbp
+        out.append((Fbp_file, Fbp_data, Fbp_header))
 
-        def pickle_Fco(Fco: Dict[str, Crossover]
-                       ) -> Dict[str, CrossoverPicklable]:
-            return {key: co.transform2picklable() for key, co in Fco.items()}
+        FidDhps_file = dest / \
+            "{}_F-resID--D-helix-position-strand.csv".format(prefix)
+        FidDhps_header = ["Atomic model resID",
+                          "(cadnano helix, cadnano position, strand)"]
+        FidDhps_data = {Fid: self.DidDhps[Did]
+                        for Fid, Did in self.DidFid.items()}
+        out.append((FidDhps_file, FidDhps_data, FidDhps_header))
 
-        for name, link in vars(self).items():
-            if name == "Fco":
-                link = pickle_Fco(link)
-            elif name == "u":
-                link = pickle_universe(link)
-            output = project.output / "{}__{}.p".format(project.name, name)
-            pickle.dump(link, open(output, "wb"))
+        # TODO: add more if needed
 
-    def load_linkage(self, project: Project) -> None:
-        def unpickle_universe(u: Tuple[str, str]) -> "mda.universe":
-            return mda.Universe(*u)
-
-        def unpickle_Fco(Fco: Dict[str, Crossover],
-                         u: "mda.universe"
-                         ) -> Dict[str, CrossoverPicklable]:
-            return {key: co.transform(u=self.u) for key, co in Fco.items()}
-
-        names = list(vars(self).keys())
-        names.remove("Fco")
-        names.append("Fco")
-        for name in names:
-            input = project.output / "{}__{}.p".format(project.name, name)
-            value = pickle.load(open(input, "rb"))
-            if name == "u":
-                value = unpickle_universe(value)
-            elif name == "Fco":
-                value = unpickle_Fco(value, self.u)
-            setattr(self, name, value)
+        try:
+            for path, data, header in out:
+                df = pd.DataFrame.from_dict(data=data, orient='index')
+                df.to_csv(path, header=header)
+        except IOError:
+            raise Exception("ERROR: write_linkage I/O error")
 
     def _reverse(self) -> None:
         def reverse_d(dict: dict) -> dict:
@@ -83,6 +69,7 @@ class Linkage(object):
         self.Fbp_rev = reverse_d(self.Fbp)
         self.Fbp_full = {**self.Fbp, **self.Fbp_rev}
 
+    # NOTE: why was this method needed by bdna?
     def relink_crossover_basepairs(self, bps: Dict[Tuple[int, int], BasePair]
                                    ) -> None:
         for co in self.Fco.values():

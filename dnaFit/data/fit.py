@@ -5,7 +5,6 @@ from operator import attrgetter
 from typing import List, Tuple
 from pathlib import Path
 
-from ..core.project import Project
 
 """ DESCR:
     Design Class manageing Mdanalyis structure for a given trajectory and
@@ -18,26 +17,17 @@ from ..core.project import Project
 
 @attr.s
 class Fit(object):
-    project: Project = attr.ib()
+    conf: Path = attr.ib()
+    top: Path = attr.ib()
 
     def __attrs_post_init__(self):
-        self.infile: Path = self.project.input / self.project.name
         self.u: "mda.universe" = self._get_universe()
         self.scaffold, self.staples = self._split_strands()
 
     def _get_universe(self) -> "mda.universe":
-        top = self.infile.with_suffix(".psf")
-        trj = self.infile.with_suffix(".dcd")
-        if not trj.exists():
-            trj = self.infile.with_suffix(".coor")
-            print("try to use  coor file instead")
-        if not trj.exists():
-            trj = self.infile.with_suffix(".pdb")
-            print("try to use  pdb file instead")
-
         # TODO: use logger
-        if top.exists() and trj.exists():
-            u = mda.Universe(str(top), str(trj))
+        if self.top.exists() and self.conf.exists():
+            u = mda.Universe(str(self.top), str(self.conf))
         else:
             raise FileNotFoundError
         return u
