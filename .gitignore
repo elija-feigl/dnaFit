@@ -18,3 +18,6 @@ eggs/
 .vscode/
 .mypy_cache/
 test/**
+
+# exclude legacy code
+dnaFit/legacy/**

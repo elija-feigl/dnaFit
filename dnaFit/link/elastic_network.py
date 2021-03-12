@@ -62,9 +62,10 @@ class ElaticNetwortModifier(object):
     """ Elatic Networt Modifier class
     """
     linker: Linker = attr.ib()
+    EN = attr.ib()
 
     def __attrs_post_init__(self):
-        self.u: "mda.universe" = self.linker.fit.u
+        self.u: mda.Universe = self.linker.fit.u
         self.Fbp_full: Dict[int, int] = {**self.linker.Fbp,
                                          **{v: k for k, v
                                             in self.linker.Fbp.items()
@@ -73,8 +74,7 @@ class ElaticNetwortModifier(object):
         self.network: set = self._get_network()
 
     def _get_network(self) -> set:
-        infile = self.linker.project.input / self.linker.project.name
-        exb_filepath = infile.with_suffix(".exb")
+        exb_filepath = self.linker.conf.with_suffix(".exb")
         if exb_filepath.exists():
             with open(exb_filepath) as exb_file:
                 network = self._process_exb(exb_file)
@@ -162,7 +162,7 @@ class ElaticNetwortModifier(object):
         return network
 
     def _change_modify_logic(self) -> None:
-        logic_string = self.linker.project.EN
+        logic_string = self.EN
         self.modify_logic = Logic(long=bool(int(logic_string[0])),
                                   strand=bool(int(logic_string[1])),
                                   Hbond=bool(int(logic_string[2])),
@@ -195,12 +195,10 @@ class ElaticNetwortModifier(object):
         """ write the  modified (by logic) network to file
         """
         mod_network = self._modify_en()
-        outfile = self.linker.project.input / self.linker.project.name
-        exb_filepath = "{}_{}.exb".format(outfile, self.linker.project.EN)
-
-        with open(exb_filepath, mode="w+") as mod_exb_file:
+        exb_filepath = self.linker.conf.with_suffix(f"_{self.EN}.exb")
+        with exb_filepath.open(mode="w+") as mod_exb_file:
             for bond in mod_network:
-                mod_exb_file.write("{}\n".format(bond))
+                mod_exb_file.write(f"{bond}\n")
 
     def _compute_dihedral(self):
         """ compute restraints corresponding to backbone dihedral

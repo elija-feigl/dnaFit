@@ -2,7 +2,7 @@ import mrcfile as mrc
 import numpy as np
 import MDAnalysis as mda
 
-from typing import Dict, Set, Tuple, FrozenSet
+from typing import Dict, Set, Tuple, FrozenSet, Any
 from pathlib import Path
 
 from ..core.utils import UnexpectedCaseError
@@ -22,7 +22,7 @@ STAR_HEADER = """data_\n\nloop_\n_rlnMicrographName #1\n_rlnCoordinateX #2
 _rlnCoordinateY #3\n_rlnCoordinateZ #4\n"""
 
 
-def mrc_segment(atoms: "mda.atomgroup",
+def mrc_segment(atoms: mda.Atomgroup,
                 path_in: Path,
                 path_out: Path,
                 context: int = 3,
@@ -98,8 +98,10 @@ def mrc_segment(atoms: "mda.atomgroup",
 
 
 def categorise(link: Linkage,
-               project: Project,
-               ) -> Dict[str, Set[Tuple[FrozenSet[int], str, str]]]:
+               json: Path,
+               seq: Path,
+               plus: int,
+               ) -> Dict[str, Set[Tuple[Any, ...]]]:
 
     def _expand_selection(selection: Set[int],
                           link: Linkage,
@@ -116,7 +118,6 @@ def categorise(link: Linkage,
 
     categories = dict()
 
-    plus = project.range
     co_segment = set()
     for key, co in link.Fco.items():
         co_res = set()
@@ -153,7 +154,7 @@ def categorise(link: Linkage,
         nick_segment.add(tuple([nick_plus, idenifier, typ]))
     categories["nick"] = nick_segment
 
-    design = Design(project)
+    design = Design(json=json, seq=seq,)
     ds_domain = set()
     for domain in design.design.domain_list:
         bases = domain.base_list
