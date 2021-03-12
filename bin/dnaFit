@@ -10,7 +10,7 @@ import sys
 from shutil import copyfile, copytree
 
 from dnaFit.version import get_version
-from dnaFit.fit.mrC_mdff import Cascade
+from dnaFit.fit.cascade import Cascade
 from dnaFit.core.utils import _get_executable
 """ cascaded mrDNA-driven MD flexible fitting:
     optional:
