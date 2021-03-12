@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument('input_cad', type=str,
                         help="Cadnano JSON file [.json]")
     parser.add_argument('input_mrc', type=str,
-                        help="cryo EM columetric data file [.mrc]")
+                        help="cryo EM volumetric data file [.mrc]")
     return parser.parse_args()
 
 

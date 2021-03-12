@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 """ DESCR:
-    Design Class manageing Mdanalyis structure for a given trajectory and
+    Fit Class manageing Mdanalyis structure for a given trajectory and
     configuration file of a namd simulation.
 
     COMMENTS:

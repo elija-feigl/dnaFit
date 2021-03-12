@@ -23,7 +23,8 @@ class Linker(object):
     conf: Path = attr.ib()
     top: Path = attr.ib()
     json: Path = attr.ib()
-    seq: Path = attr.ib()
+    seq: Optional[Path] = attr.ib()
+    generated_with_mrdna: bool = attr.ib(default=True)
 
     Fbp: Dict[int, int] = dict()
     DidFid: Dict[int, int] = dict()
@@ -35,7 +36,9 @@ class Linker(object):
 
     def __attrs_post_init__(self) -> None:
         self.fit: Fit = Fit(top=self.top, conf=self.conf)
-        self.design: Design = Design(json=self.json, seq=self.seq)
+        self.design: Design = Design(
+            json=self.json, seq=self.seq,
+            generated_with_mrdna=self.generated_with_mrdna)
         self.Dhp_skips: Set[Tuple[int, int]] = self.design.Dhp_skips
 
     def _eval_sequence(self, steps=5) -> None:

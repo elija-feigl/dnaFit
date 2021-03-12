@@ -23,7 +23,8 @@ class AtomicModelFit(object):
     conf: Path = attr.ib()
     top: Path = attr.ib()
     mrc: Path = attr.ib()
-    linkage: Optional[Linkage] = None
+    linkage: Optional[Linkage] = attr.ib(default=None)
+    generated_with_mrdna: bool = attr.ib(default=True)
 
     def _write_logfile(self, prefix: str, dest: Path, **kwargs):
         log_file = dest / f"{prefix}_log.txt"
@@ -36,7 +37,8 @@ class AtomicModelFit(object):
                 f.write(f"{key}: {value}")
 
     def _get_linkage(self, json: Path, seq: Path) -> Linkage:
-        linker = Linker(conf=self.conf, top=self.top, json=json, seq=seq)
+        linker = Linker(conf=self.conf, top=self.top, json=json, seq=seq,
+                        generated_with_mrdna=self.generated_with_mrdna)
         return linker.create_linkage()
 
     def write_linkage(self, json: Path, seq: Path):

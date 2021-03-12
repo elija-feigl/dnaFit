@@ -1,6 +1,6 @@
 import attr
 from pathlib import Path
-from typing import List, Dict, Set, Tuple
+from typing import List, Dict, Set, Tuple, Optional
 from nanodesign.converters import Converter
 from nanodesign.data.base import DnaBase
 from nanodesign.data.dna_structure import DnaStructure
@@ -20,7 +20,8 @@ from nanodesign.data.dna_structure import DnaStructure
 @attr.s
 class Design(object):
     json: Path = attr.ib()
-    seq: Path = attr.ib()
+    seq: Optional[Path] = attr.ib()
+    generated_with_mrdna: bool = attr.ib(default=True)
 
     def __attrs_post_init__(self):
         self.design = self._get_design()
@@ -57,7 +58,13 @@ class Design(object):
 
     def _get_design(self) -> DnaStructure:
         converter = Converter(modify=True)
-        if self.json.exists() and self.seq.exists():
+        if self.json.exists() and self.seq is None:
+            converter.read_cadnano_file(
+                file_name=str(self.json),
+                seq_file_name=None,
+                seq_name=None,
+            )
+        elif self.json.exists() and self.seq.exists():
             converter.read_cadnano_file(
                 file_name=str(self.json),
                 seq_file_name=str(self.seq),
@@ -91,7 +98,12 @@ class Design(object):
             stapleorder
                 nanodesign -> enrgMD
         """
-        Dhps = [(self.helixorder[s[0].h], s[0].p)
+        if self.generated_with_mrdna:
+            Dhps = [(s[0].h, s[0].p)
+                    for s in self.staples
+                    ]
+        else:
+            Dhps = [(self.helixorder[s[0].h], s[0].p)
                 for s in self.staples
                 ]
         Dhps_sorted = sorted(Dhps, key=lambda x: (x[0], x[1]))
