@@ -2,6 +2,7 @@ import sys
 import attr
 import inspect
 import subprocess
+import logging
 
 from pathlib import Path
 from typing import List
@@ -53,7 +54,7 @@ class Cascade(object):
 
         self.logger.info("internal recenter at origin for rotation in vmd")
         self.mrc_shift = recenter_mrc(self.mrc)
-        self.logger.debug(f"shifted mrc file by: {self.mrc_shif}")
+        self.logger.debug(f"shifted mrc file by: {self.mrc_shift}")
         self._recenter_conf(conf=self.conf)
 
         if not self.is_docked:
@@ -171,7 +172,7 @@ class Cascade(object):
         create_sh_file(sh_file)
 
         cmd = ("sh", sh_file)
-        logger.info(f"cascade:  with {cmd}")
+        self.logger.info(f"cascade:  with {cmd}")
         process = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, universal_newlines=True)
         for line in process.stdout:
@@ -184,13 +185,13 @@ class Cascade(object):
 
         final_conf = self.conf.with_name(f"{self.prefix}-last.pdb")
         if not final_conf.is_file():
-            self.logger.fatal(
+            self.logger.warning(
                 f"cascaded fit incomplete. {final_conf} not found ")
             raise Exception("cascade incomplete")
 
         # revert internal recentering to align with original mrc data
         self.logger.debug(
-            f"shifted mrc & pdb file back using previous shift: {self.mrc_shif}")
+            f"shifted mrc & pdb file back using previous shift: {self.mrc_shift}")
         _ = recenter_mrc(self.mrc, to_position=self.mrc_shift)
         self._recenter_conf(conf=final_conf, to_position=self.mrc_shift)
         return AtomicModelFit(

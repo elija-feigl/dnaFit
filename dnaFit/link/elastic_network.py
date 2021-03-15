@@ -40,7 +40,7 @@ class ENBond(object):
     btype: Set[str] = attr.Factory(set)
 
     def __str__(self) -> str:
-        return "bond {b.a1} {b.a2} {b.k} {b.r0}".format(b=self)
+        return f"bond {self.a1} {self.a2} {self.k} {self.r0}"
 
 
 @attr.s(slots=True, auto_attribs=True)

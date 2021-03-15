@@ -54,7 +54,7 @@ def categorise(link: Linkage,
                 co_res.add(bp.st.resindex)
 
         co_res_plus = _expand_selection(selection=co_res, link=link, plus=plus)
-        typ = "co-{}".format(co.typ)
+        typ = f"co-{co.typ}"
         idf = key.strip("[]").replace(" ", "").replace(",", "-")
         identifier = idf.replace(")-(", "_").strip("()")
         co_segment.add(tuple([co_res_plus, identifier, typ]))
@@ -73,7 +73,7 @@ def categorise(link: Linkage,
 
         nick_plus = _expand_selection(selection=nick, link=link, plus=plus)
         h, p, _ = link.DidDhps[link.FidDid[res]]
-        idenifier = "{}-{}".format(h, p)
+        idenifier = f"{h}-{p}"
         typ = "nick"
         nick_segment.add(tuple([nick_plus, idenifier, typ]))
     categories["nick"] = nick_segment

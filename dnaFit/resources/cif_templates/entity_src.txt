@@ -1,0 +1,11 @@
+#
+loop_
+_pdbx_entity_src_syn.entity_id 
+_pdbx_entity_src_syn.pdbx_src_id 
+_pdbx_entity_src_syn.pdbx_alt_source_flag 
+_pdbx_entity_src_syn.pdbx_beg_seq_num 
+_pdbx_entity_src_syn.pdbx_end_seq_num 
+_pdbx_entity_src_syn.organism_scientific 
+_pdbx_entity_src_syn.organism_common_name 
+_pdbx_entity_src_syn.ncbi_taxonomy_id 
+_pdbx_entity_src_syn.details 

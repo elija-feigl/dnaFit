@@ -135,7 +135,7 @@ class BDna(object):
         C1p = []
         atoms = []
         for b in [bp.sc, bp.st]:
-            C1p.append(b.atoms.select_atoms("name {}".format(atom_name))[0])
+            C1p.append(b.atoms.select_atoms(f"name {atom_name}")[0])
             atoms.append(
                 b.atoms.select_atoms(
                     "name " + ' or name '.join(map(str, WC_HBONDS[b.resname]))
@@ -252,14 +252,14 @@ class BDna(object):
                 ter5 = True
 
             for x in BB_ATOMS[:-1]:
-                atom_name = "name {}".format(x)
+                atom_name = f"name {x}"
                 atoms[x] = res.atoms.select_atoms(atom_name)[0].position
             if res.resname in ["ADE", "GUA"]:
                 Y = PUR_ATOMS
             else:
                 Y = PYR_ATOMS
             for y in Y:
-                atom_name = "name {}".format(y)
+                atom_name = f"name {y}"
                 atoms[y] = res.atoms.select_atoms(atom_name)[0].position
 
             try:
@@ -365,7 +365,7 @@ class BDna(object):
 
         sc_dist: Dict[str, float] = dict()
         st_dist: Dict[str, float] = dict()
-        atom_name = "name {}".format(name)
+        atom_name = f"name {name}"
 
         n_bp = self._get_n_bp(bp=bp, steps=1)
         p_bp = self._get_n_bp(bp=bp, steps=-1)

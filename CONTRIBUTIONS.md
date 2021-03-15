@@ -20,7 +20,7 @@ Kube, M., Kohler, F., Feigl, E. et al. Revealing the structures of megadalton-sc
 
 dnaFit Python Package incorporates code from the following sources:
 
-## dna_sequence_data.py
+## mrc.py
 
 Copyright (c) 2020, Dietzlab (TUM)"
 
@@ -29,6 +29,23 @@ DESCRIPTION: import mrc_masking code from FitViewer repository. both repositorie
 LICENSE: GPL-3.0 
 WEBSITE: https://github.com/elija-feigl/FitViewer
 
+
+## /pdb
+
+Copyright (c) 2020, Dietzlab (TUM)"
+
+SOURCE CODE: dnaFit/pdb  
+DESCRIPTION: namd2 PDB to mmCIF conversion
+LICENSE: GPL-3.0 
+WEBSITE: https://github.com/elija-feigl/pdb-cif
+
+
+### /pdb/utils.py
+SOURCE CODE: dnaFit/pdb /utils.py
+DESCRIPTION: hybrid36 format conversion code:
+vendored and modified from: Ralf W. Grosse-Kunstleve,
+LICENSE: ? https://github.com/cctbx/cctbx_project/blob/master/LICENSE.txt
+WEBSITE: Feb 2007. http://cci.lbl.gov/hybrid_36/
 
 
 dnaFit Python Package uses the folowing scientific code packages:

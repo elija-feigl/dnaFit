@@ -64,7 +64,7 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrD
                  and os.path.isfile(f"./{prefix}-3.pdb")
                  and os.path.isfile(f"./{prefix}-3.exb"))
         if not is_ok:
-            logger.fatal("At least one of mrdna's *-3. files was not created")
+            logger.error("At least one of mrdna's *-3. files was not created")
             raise Exception("mrDNA incomplete")
     finally:
         os.chdir(home_directory)
@@ -275,12 +275,17 @@ def mask():
 
 
 @cli.command()
-@click.argument('top', type=click.Path(exists=True))
-@click.argument('conf', type=click.Path(exists=True))
-def convertCIF():
+@click.argument('pdb', type=click.Path(exists=True))
+@click.option('--remove-H', is_flag=True,
+              help='remove hydrogen atoms')
+def convert2CIF():
     """ generate mmCIF from namd pdb 
 
-        TOP is the name of the namd topology file [.top]\n
-        CONF is the name of the namd configuration file [.pdb, .coor]\n
+        PDB is the name of the namd configuration file [.pdb]\n
     """
-    return
+    structure = Structure(filename=pdb, remove_H=remove_H)
+    structure.parse_pdb()
+    # TODO: -low- ask for additional info (name, author, etc)
+    output_name = pdb.with_suffix(".cif")
+    structure.write_cif(output_name)
+

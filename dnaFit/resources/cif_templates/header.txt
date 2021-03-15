@@ -1,0 +1,83 @@
+# 
+_cell.angle_alpha                  90.00 
+_cell.angle_alpha_esd              ? 
+_cell.angle_beta                   90.00 
+_cell.angle_beta_esd               ? 
+_cell.angle_gamma                  90.00 
+_cell.angle_gamma_esd              ? 
+_cell.entry_id                     ? 
+_cell.details                      ? 
+_cell.formula_units_Z              ? 
+_cell.length_a                     1.00 
+_cell.length_a_esd                 ? 
+_cell.length_b                     1.00 
+_cell.length_b_esd                 ? 
+_cell.length_c                     1.00 
+_cell.length_c_esd                 ? 
+_cell.volume                       ? 
+_cell.volume_esd                   ? 
+_cell.Z_PDB                        ? 
+_cell.reciprocal_angle_alpha       ? 
+_cell.reciprocal_angle_beta        ? 
+_cell.reciprocal_angle_gamma       ? 
+_cell.reciprocal_angle_alpha_esd   ? 
+_cell.reciprocal_angle_beta_esd    ? 
+_cell.reciprocal_angle_gamma_esd   ? 
+_cell.reciprocal_length_a          ? 
+_cell.reciprocal_length_b          ? 
+_cell.reciprocal_length_c          ? 
+_cell.reciprocal_length_a_esd      ? 
+_cell.reciprocal_length_b_esd      ? 
+_cell.reciprocal_length_c_esd      ? 
+_cell.pdbx_unique_axis             ? 
+# 
+_symmetry.entry_id                         ? 
+_symmetry.cell_setting                     ? 
+_symmetry.Int_Tables_number                1 
+_symmetry.space_group_name_Hall            ? 
+_symmetry.space_group_name_H-M             'P 1'
+_symmetry.pdbx_full_space_group_name_H-M   ? 
+# 
+_exptl.absorpt_coefficient_mu     ? 
+_exptl.absorpt_correction_T_max   ? 
+_exptl.absorpt_correction_T_min   ? 
+_exptl.absorpt_correction_type    ? 
+_exptl.absorpt_process_details    ? 
+_exptl.entry_id                   ? 
+_exptl.crystals_number            ? 
+_exptl.details                    ? 
+_exptl.method                     'ELECTRON MICROSCOPY' 
+_exptl.method_details             ? 
+# 
+_struct.entry_id                     ? 
+_struct.title                        ?
+_struct.pdbx_descriptor              ? 
+_struct.pdbx_model_details           ? 
+_struct.pdbx_formula_weight          ? 
+_struct.pdbx_formula_weight_method   ? 
+_struct.pdbx_model_type_details      ? 
+_struct.pdbx_CASP_flag               N 
+# 
+_struct_keywords.entry_id        ? 
+_struct_keywords.text            'DNA Origami, DNA' 
+_struct_keywords.pdbx_keywords   DNA 
+# 
+loop_
+_chem_comp.id 
+_chem_comp.type 
+_chem_comp.mon_nstd_flag 
+_chem_comp.name 
+_chem_comp.pdbx_synonyms 
+_chem_comp.formula 
+_chem_comp.formula_weight 
+DA 'DNA linking' y "2'-DEOXYADENOSINE-5'-MONOPHOSPHATE" ? 'C10 H14 N5 O6 P' 331.222 
+DC 'DNA linking' y "2'-DEOXYCYTIDINE-5'-MONOPHOSPHATE"  ? 'C9 H14 N3 O7 P'  307.197 
+DG 'DNA linking' y "2'-DEOXYGUANOSINE-5'-MONOPHOSPHATE" ? 'C10 H14 N5 O7 P' 347.221 
+DT 'DNA linking' y "THYMIDINE-5'-MONOPHOSPHATE"         ? 'C10 H15 N2 O8 P' 322.208 
+# 
+loop_
+_atom_type.symbol 
+C 
+N 
+O 
+P 
