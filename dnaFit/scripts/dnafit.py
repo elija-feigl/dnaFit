@@ -33,7 +33,7 @@ def cli():
     pass
 
 
-def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrDNA", gpu: int = 0):
+def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrDNA", gpu: int = 0, multidomain=False):
     """ running a mrDNA simulation by executing mrDNA externally
             all files are automatically written into a foler "mrDNA"
             checks of completion of mrDNA run
@@ -46,10 +46,12 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrD
 
         mrDNA = _get_executable("mrdna")
 
-        input_mrDNA = (
-            f"-o {prefix} -d {directory} -g {gpu} --run-enrg-md\
-            --sequence-file {seq_file} {cad_file}"
-        )
+        input_mrDNA = f"-o {prefix} -d {directory} -g {gpu} --run-enrg-md --sequence-file "
+        if multidomain:
+            input_mrDNA += "--coarse-steps 3e7 --crossover-to-intrahelical-cutoff 25 --coarse-bond-cutoff 300 "
+        input_mrDNA += f"{seq_file} {cad_file}"
+
+        input_mrDNA
         cmd = (str(mrDNA), input_mrDNA)
 
         logger.info(f"mrDNA: with {cmd}")
@@ -109,6 +111,8 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
               help='timesteps per cascade (multiple of 12)')
 @click.option('--resolution', type=float, default=10.0,
               help='mrc map resolution in Angstrom')
+@click.option('--multidomain', is_flag=True,
+              help='multidomain structures require different settings for equilibration')
 def mrDnaFit():
     """mrDNA simulation of CADNANO design file followed by cascaded
         mrDNA-driven MD flexible fitting to MRC cryo data
@@ -117,17 +121,16 @@ def mrDnaFit():
         SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
         MRC is the name of the cryo EM volumetric data file [.mrc]\n
     """
-    # TODO: provide fitting presets: bad docking, etc..
-
     cad_file = cadnano.resolve()
 
     seq_file = sequence.resolve()
     prefix = cad_file.stem if prefix is None else prefix
 
-    run_mrDNA(cad_file, seq_file, prefix, directory="mrDNA", gpu=gpu)
+    run_mrDNA(cad_file, seq_file, prefix, directory="mrDNA",
+              gpu=gpu, multidomain=multidomain)
     prep_cascaded_fitting(prefix, cad_file, seq_file)
 
-    # TODO: parse & set fitting parameters
+    # TODO: -low- parse & set additional fitting parameters
     mrc_file = mrc.resolve()
     copyfile(mrc_file, f"./dnaFit/{prefix}.mrc")
 
@@ -288,4 +291,3 @@ def convert2CIF():
     # TODO: -low- ask for additional info (name, author, etc)
     output_name = pdb.with_suffix(".cif")
     structure.write_cif(output_name)
-
