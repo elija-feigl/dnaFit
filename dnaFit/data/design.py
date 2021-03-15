@@ -13,7 +13,7 @@ from nanodesign.data.dna_structure import DnaStructure
 
     COMMENTS:
     20.11.2020 A modified version of nanodesign is used (available on github)
-    03.12.2020 anticipates circular scaffold structures
+    03.12.2020 anticipates singlescaffold structure with circular scaffold
 """
 
 
@@ -32,6 +32,7 @@ class Design(object):
         self.allbases = [b for s in self.design.strands for b in s.tour]
         self.Dhps_base: dict = self._init_hps_base()
         self.Dhp_skips: Set[Tuple[int, int]] = set()
+        self.logger = logging.getLogger(__name__)
 
     def _init_hps_base(self):
         hps_base = dict()
@@ -49,7 +50,11 @@ class Design(object):
 
     def _scaffold(self) -> List[DnaBase]:
         # TODO: -low- multiscaffold
-        scaffold = [s.tour for s in self.design.strands if s.is_scaffold][0]
+        scaffolds = [s.tour for s in self.design.strands if s.is_scaffold]
+        if len(scaffolds) > 1:
+            self.logger.fatal(f"design conatins multiple scaffold strands")
+            raise IOError
+        scaffold = scaffolds[0]
         self._close_strand(strand=scaffold)
         return scaffold
 
@@ -71,6 +76,8 @@ class Design(object):
                 seq_name=None,
             )
         else:
+            self.logger.fatal(
+                f"Failed to initialize nanodesign due to missing files: {self.json} {self.seq}")
             raise FileNotFoundError
         converter.dna_structure.compute_aux_data()
         self.Dhp_skips = converter.dna_structure.Dhp_skips
@@ -104,8 +111,8 @@ class Design(object):
                     ]
         else:
             Dhps = [(self.helixorder[s[0].h], s[0].p)
-                for s in self.staples
-                ]
+                    for s in self.staples
+                    ]
         Dhps_sorted = sorted(Dhps, key=lambda x: (x[0], x[1]))
         order_ND = [
             Dhps.index(Dhps_sorted[i])

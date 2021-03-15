@@ -1,3 +1,4 @@
+import logging
 import mrcfile
 import numpy as np
 import MDAnalysis as mda
@@ -8,7 +9,7 @@ from pathlib import Path
 """ DESCR:
     collection of scripts to allow manipulation of a cryo-EM map.
 """
-
+logger = logging.getLogger(__name__)
 
 def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0])) -> np.ndarray:
     with mrcfile.open(path, mode='r+') as mrc:
@@ -27,7 +28,8 @@ def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0])) -> np.ndarra
 def write_mrc_from_atoms(path: Path, atoms: mda.AtomGroup,
                          path_out: Path, context: float = 4., cut_box=True):
     if not len(atoms):
-        raise ValueError("no atoms in this selection")
+        logger.warning(f"Cannot crop with empty atom selection. No file written")
+        return
 
     with mrcfile.open(path) as mrc:
         voxel, grid, origin, full_data = _get_mrc_properties(mrc)

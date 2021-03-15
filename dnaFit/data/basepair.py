@@ -20,25 +20,25 @@ from ..core.utils import _norm
 class BasePairPlane(object):
     """n0: plane-normal vector. always pointing in scaffold 5'->3' direction
     """
-    P: Dict[str, "np.ndarray"] = attr.ib()
-    a: Dict[str, "np.ndarray"] = attr.ib()
-    n0: "np.ndarray" = attr.ib()
+    P: Dict[str, np.ndarray] = attr.ib()
+    a: Dict[str, np.ndarray] = attr.ib()
+    n0: np.ndarray = attr.ib()
 
 
 @attr.s(slots=True, frozen=True)
 class BasePlane(object):
     """n0: plane-normal vector. always pointing in scaffold 5'->3' direction
     """
-    P: Dict[str, "np.ndarray"] = attr.ib()
-    n0: "np.ndarray" = attr.ib()
+    P: Dict[str, np.ndarray] = attr.ib()
+    n0: np.ndarray = attr.ib()
 
 
 @attr.s
 class BasePair(object):
     """ every square of the JSON can be represented as BP
     """
-    sc: "mda.Residue" = attr.ib()
-    st: "mda.Residue" = attr.ib()
+    sc: mda.Residue = attr.ib()
+    st: mda.Residue = attr.ib()
     hp: Tuple[int, int] = attr.ib()
 
     def __attrs_post_init__(self):

@@ -6,12 +6,14 @@ from typing import List
 import argparse
 import subprocess
 import os
+import logging
 import sys
 from shutil import copyfile, copytree
 
 from dnaFit.version import get_version
 from dnaFit.fit.cascade import Cascade
 from dnaFit.core.utils import _get_executable
+
 """ cascaded mrDNA-driven MD flexible fitting:
     optional:
         creates a folder "mrDNA" containing all files sfor a standart mrDNA run
@@ -21,7 +23,7 @@ from dnaFit.core.utils import _get_executable
     moves to existing! folder "dnaFit" and performs cascaded fitting on the
     data present there.
 """
-# TODO: maybe create seperate script for non-mrDNA fitting
+logger = logging.getLogger(__name__)
 
 
 def parse_args():
@@ -52,10 +54,16 @@ def parse_args():
 
 
 def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrDNA", gpu: int = 0):
+    """ running a mrDNA simulation by executing mrDNA externally
+            all files are automatically written into a foler "mrDNA"
+            checks of completion of mrDNA run
+    """
     home_directory = os.getcwd()
     try:
         Path(directory).mkdir(parents=True, exist_ok=True)
         os.chdir(directory)
+        logger.degub(f"changing directory to: {os.getcwd()}")
+
         mrDNA = _get_executable("mrdna")
 
         input_mrDNA = (
@@ -64,29 +72,35 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrD
         )
         cmd = (str(mrDNA), input_mrDNA)
 
-        # TODO: logger: f"Starting mrDNA with {cmd}"
+        logger.info(f"mrDNA: with {cmd}")
         process = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, universal_newlines=True)
         for line in process.stdout:
             sys.stdout.write(line)
             sys.stdout.flush()
 
-        # NOTE: check successful finish
+        logger.info("mrDNA: finished. Checking for final files.")
         is_ok = (os.path.isfile(f"./{prefix}-3.psf")
                  and os.path.isfile(f"./{prefix}-3.pdb")
                  and os.path.isfile(f"./{prefix}-3.exb"))
         if not is_ok:
-            raise Exception("ERROR: mrDNA incomplete")
-        # TODO -low-: check for pdb vaildity
+            logger.fatal("At least one of mrdna's *-3. files was not created")
+            raise Exception("mrDNA incomplete")
     finally:
         os.chdir(home_directory)
+        logger.degub(f"changing directory to: {os.getcwd()}")
 
 
 def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
+    """ prep cascaded fitting:
+            prepares a new folder "dnaFit" with files from a finished mrDNA run
+            in fubfolder "mrDNA" and copyies necessary files.
+    """
     home_directory = os.getcwd()
     try:
         Path("dnaFit").mkdir(parents=True, exist_ok=True)
         os.chdir("dnaFit")
+        logger.degub(f"changing directory to: {os.getcwd()}")
 
         copyfile(cad_file, f"./{prefix}.json")
         copyfile(seq_file, f"./{prefix}.seq")
@@ -96,10 +110,12 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
         copyfile(f"../mrDNA/{prefix}-3.pdb", f"./{prefix}-undocked.pdb")
         copytree("../mrDNA/charmm36.nbfix", "./charmm36.nbfix")
     except:
-        raise Exception(
-            "Failed to copy mrDNA files. Something must have gone wrong")
+        logger.exception(
+            f"mrDNA: failed to copy mrDNA files to working directory {os.getcwd()}")
+        raise Exception("Failed to copy mrDNA files")
     finally:
         os.chdir(home_directory)
+        logger.degub(f"changing directory to: {os.getcwd()}")
 
 
 def check_file(in_file: Path, extensions: List[str]):
@@ -144,6 +160,8 @@ def main():
     home_directory = os.getcwd()
     try:
         os.chdir("dnaFit")
+        logger.degub(f"changing directory to: {os.getcwd()}")
+
         # NOTE: creating Cascade object triggers external docking prompt
         cascade = Cascade(conf=conf, top=top, mrc=mrc_file,
                           exb=exb, recenter=True, is_docked=False)
@@ -156,6 +174,7 @@ def main():
 
     finally:
         os.chdir(home_directory)
+        logger.degub(f"changing directory to: {os.getcwd()}")
 
 
 if __name__ == '__main__':

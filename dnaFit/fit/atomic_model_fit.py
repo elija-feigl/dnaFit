@@ -13,8 +13,8 @@ from ..link.linker import Linker
 from ..link.linkage import Linkage
 from ..data.mrc import write_mrc_from_atoms
 
-""" DESCR:
-    mrDNA driven cascade fitting simulation class.
+""" class containing a minished atomic model for a specific cryo EM file.
+        allow linking and corpping of the mrc map to a cadnano design
 """
 
 
@@ -25,6 +25,9 @@ class AtomicModelFit(object):
     mrc: Path = attr.ib()
     linkage: Optional[Linkage] = attr.ib(default=None)
     generated_with_mrdna: bool = attr.ib(default=True)
+
+    def __attrs_post_init__(self) -> None:
+        self.logger = logging.getLogger(__name__)
 
     def _write_logfile(self, prefix: str, dest: Path, **kwargs):
         log_file = dest / f"{prefix}_log.txt"
@@ -37,18 +40,19 @@ class AtomicModelFit(object):
                 f.write(f"{key}: {value}")
 
     def _get_linkage(self, json: Path, seq: Path) -> Linkage:
+        """ call Linker calss to create linkage of design and atomic model"""
         linker = Linker(conf=self.conf, top=self.top, json=json, seq=seq,
                         generated_with_mrdna=self.generated_with_mrdna)
         return linker.create_linkage()
 
     def write_linkage(self, json: Path, seq: Path):
-        # write persistent and human readable linkage (Fbp, FidDhps)
+        """ write persistent and human readable linkage (Fbp, FidDhps)"""
         out_link = json.parent / "dnaLink"
 
         Path(out_link).mkdir(parents=True, exist_ok=True)
         self.linkage = self._get_linkage(json=json, seq=seq)
         self.linkage.write_linkage(prefix=json.stem, dest=out_link)
-        # mark data and input for linkage in logfile
+        self.logger.debug(f"writing linkage log file to {out_link}")
         self._write_logfile(
             prefix=json.stem, dest=out_link, json=json, seq=seq)
 
