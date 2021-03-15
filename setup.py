@@ -1,5 +1,5 @@
 from dnaFit.version import get_version
-import setuptools
+from setuptools import setup, find_packages
 
 description = """\
 Atomic model construction and analysis for lattice based DNAOrigami\
@@ -11,7 +11,7 @@ with open("README.md", "r") as fh:
 with open("LICENSE", "r") as fh:
     license = fh.read()
 
-setuptools.setup(
+setup(
     name="dnaFit",
     version=get_version(),
     author="Elija Feigl",
@@ -21,14 +21,15 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/elija-feigl/DNA_Fit",
-    packages=setuptools.find_packages(),
+    packages=find_packages(),
     include_package_data=True,
-    scripts=['bin/dnaFit', 'bin/dnaLink'],
+    #scripts=['bin/dnaFit', 'bin/dnaLink'],
     install_requires=(
-        'numpy>=1.14',
-        'attrs>=19.3',
+        'numpy',
+        'attrs',
+        'click',
         'mdanalysis>=1.0',
-        'mrcfile>=1.1.1',
+        'mrcfile>=1.0',
         # 'mrdna>=0.0'  # TODO: add link in readme
         # 'nanodesign>=???'  # TODO: add version
     ),
@@ -37,4 +38,8 @@ setuptools.setup(
         "License :: GNU General Public License Version 3",
         "Operating System :: OS Independent",
     ),
+    entry_points='''
+        [console_scripts]
+        dnaFit=dnaFit.scripts.dnafit:cli
+    ''',
 )

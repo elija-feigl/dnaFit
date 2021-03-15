@@ -1,5 +1,6 @@
 
 import MDAnalysis as mda
+from MDAnalysis.core.groups import Segment
 import attr
 import logging
 from operator import attrgetter
@@ -35,7 +36,7 @@ class Fit(object):
             raise FileNotFoundError
         return u
 
-    def _split_strands(self) -> Tuple[mda.Segment, List[mda.Segment]]:
+    def _split_strands(self) -> Tuple[Segment, List[Segment]]:
         # TODO: -low- multiscaffold
         strands = self.u.segments
         scaffold = max(strands, key=attrgetter("residues.n_residues"))

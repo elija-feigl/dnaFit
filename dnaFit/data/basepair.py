@@ -1,6 +1,7 @@
 
 import numpy as np
 import MDAnalysis as mda
+from MDAnalysis.core.groups import Residue
 import attr
 from typing import Dict, Tuple
 
@@ -37,8 +38,8 @@ class BasePlane(object):
 class BasePair(object):
     """ every square of the JSON can be represented as BP
     """
-    sc: mda.Residue = attr.ib()
-    st: mda.Residue = attr.ib()
+    sc: Residue = attr.ib()
+    st: Residue = attr.ib()
     hp: Tuple[int, int] = attr.ib()
 
     def __attrs_post_init__(self):
@@ -55,7 +56,7 @@ class BasePair(object):
         self.plane = (self._get_bp_plane(sc=self.sc_plane, st=self.st_plane)
                       if self.is_ds else None)
 
-    def _get_base_plane(self, res: "mda.Residue", is_scaf: bool) -> BasePlane:
+    def _get_base_plane(self, res: Residue, is_scaf: bool) -> BasePlane:
         P = dict()
         atom = []
         for atom_name in ["C2", "C4", "C6"]:

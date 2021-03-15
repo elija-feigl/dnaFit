@@ -4,7 +4,7 @@ from typing import Dict, Tuple, List, Set
 from pathlib import Path
 import MDAnalysis as mda
 
-from ..data.crossover import Crossover, CrossoverPicklable
+from ..data.crossover import Crossover
 from ..data.basepair import BasePair
 
 
@@ -28,7 +28,7 @@ class Linkage(object):
     FidHN: Dict[int, List[int]] = {}
     Fco: Dict[str, Crossover] = {}
     Dhp_skips: Set[Tuple[int, int]] = set()
-    u: "mda.universe" = None
+    u: mda.Universe = None
 
     def __attrs_post_init__(self) -> None:
         self._reverse()

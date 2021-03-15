@@ -79,3 +79,6 @@ class AtomicModelFit(object):
         else:
             _copyfile(self.top, dest)
             _copyfile(self.conf, dest)
+
+    def get_universe(self):
+        return mda.Universe(str(top), str(conf))
