@@ -21,6 +21,7 @@ from ..data.design import Design
 STAR_HEADER = """data_\n\nloop_\n_rlnMicrographName #1\n_rlnCoordinateX #2
 _rlnCoordinateY #3\n_rlnCoordinateZ #4\n"""
 
+
 def categorise(link: Linkage,
                json: Path,
                seq: Path,

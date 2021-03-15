@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 from pathlib import Path
 from typing import Any, List, Optional
@@ -12,6 +13,7 @@ import MDAnalysis as mda
 from ..link.linker import Linker
 from ..link.linkage import Linkage
 from ..data.mrc import write_mrc_from_atoms
+from ..pdb.structure import Structure
 
 """ class containing a minished atomic model for a specific cryo EM file.
         allow linking and corpping of the mrc map to a cadnano design
@@ -72,9 +74,11 @@ class AtomicModelFit(object):
             copyfile(mrc_masked, dest / mrc_masked.name)
 
         if write_mmCif:
-            # TODO: create mmcif for fit
-            mmcif = self.conf
-            raise NotImplementedError
+            # NOTE: Hydrogen removed is standart for RCSB upload
+            structure = Structure(filename=self.conf, remove_H=True)
+            structure.parse_pdb()
+            mmcif = self.conf.with_suffix(".cif")
+            structure.write_cif(mmcif)
             _copyfile(mmcif, dest)
         else:
             _copyfile(self.top, dest)

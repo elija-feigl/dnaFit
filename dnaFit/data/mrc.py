@@ -11,6 +11,7 @@ from pathlib import Path
 """
 logger = logging.getLogger(__name__)
 
+
 def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0])) -> np.ndarray:
     with mrcfile.open(path, mode='r+') as mrc:
         c = np.array(mrc.header["cella"])
@@ -28,7 +29,8 @@ def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0])) -> np.ndarra
 def write_mrc_from_atoms(path: Path, atoms: mda.AtomGroup,
                          path_out: Path, context: float = 4., cut_box=True):
     if not len(atoms):
-        logger.warning(f"Cannot crop with empty atom selection. No file written")
+        logger.warning(
+            f"Cannot crop with empty atom selection. No file written")
         return
 
     with mrcfile.open(path) as mrc:
