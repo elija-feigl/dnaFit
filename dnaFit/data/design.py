@@ -1,10 +1,11 @@
-import attr
+import logging
 from pathlib import Path
-from typing import List, Dict, Set, Tuple, Optional
+from typing import Dict, List, Optional, Set, Tuple
+
+import attr
 from nanodesign.converters import Converter
 from nanodesign.data.base import DnaBase
 from nanodesign.data.dna_structure import DnaStructure
-
 
 """ DESCR:
     Design Class manageing cadnano design. The autodesk/nanodesign package is
@@ -33,6 +34,7 @@ class Design(object):
         self.Dhps_base: dict = self._init_hps_base()
         self.Dhp_skips: Set[Tuple[int, int]] = set()
         self.logger = logging.getLogger(__name__)
+        logging.getLogger("nanodesign").setLevel(logging.ERROR)
 
     def _init_hps_base(self):
         hps_base = dict()
@@ -52,7 +54,7 @@ class Design(object):
         # TODO: -low- multiscaffold
         scaffolds = [s.tour for s in self.design.strands if s.is_scaffold]
         if len(scaffolds) > 1:
-            self.logger.fatal(f"design conatins multiple scaffold strands")
+            self.logger.error("design conatins multiple scaffold strands")
             raise IOError
         scaffold = scaffolds[0]
         self._close_strand(strand=scaffold)
@@ -62,7 +64,8 @@ class Design(object):
         return [s.tour for s in self.design.strands if not s.is_scaffold]
 
     def _get_design(self) -> DnaStructure:
-        converter = Converter(modify=True)
+        converter = Converter()
+        converter.modify = True
         if self.json.exists() and self.seq is None:
             converter.read_cadnano_file(
                 file_name=str(self.json),
