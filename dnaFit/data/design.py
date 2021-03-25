@@ -7,10 +7,9 @@ from nanodesign.converters import Converter
 from nanodesign.data.base import DnaBase
 from nanodesign.data.dna_structure import DnaStructure
 
-""" DESCR:
-    Design Class manageing cadnano design. The autodesk/nanodesign package is
-    used to read the json file. Some modifiactions and additions are necessary
-    to the nanodesign functionaly.
+""" Design Class manageing cadnano design. The autodesk/nanodesign package is
+    used to read the json file. Some modifications and additions are necessary
+    to the nanodesign functionality.
 
     COMMENTS:
     20.11.2020 A modified version of nanodesign is used (available on github)
@@ -54,7 +53,7 @@ class Design(object):
         # TODO: -low- multiscaffold
         scaffolds = [s.tour for s in self.design.strands if s.is_scaffold]
         if len(scaffolds) > 1:
-            self.logger.error("design conatins multiple scaffold strands")
+            self.logger.error("design contains multiple scaffold strands")
             raise IOError
         scaffold = scaffolds[0]
         self._close_strand(strand=scaffold)
@@ -79,7 +78,7 @@ class Design(object):
                 seq_name=None,
             )
         else:
-            self.logger.fatal(
+            self.logger.error(
                 f"Failed to initialize nanodesign due to missing files: {self.json} {self.seq}")
             raise FileNotFoundError
         converter.dna_structure.compute_aux_data()
@@ -100,7 +99,7 @@ class Design(object):
 
     def _create_staple_order(self) -> Dict[int, int]:
         """ enrgMD and nanodesign number staples differently.
-            enrgMD: first occurence of staple sorted by h, p
+            enrgMD: first occurrence of staple sorted by h, p
             nanodesign: 5' end of staple sorted by h, p
         -------
             Returns

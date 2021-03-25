@@ -1,17 +1,10 @@
-import mrcfile as mrc
-import numpy as np
-import MDAnalysis as mda
-
 from typing import Dict, Set, Tuple, FrozenSet, Any
 from pathlib import Path
 
-from ..core.utils import UnexpectedCaseError
-from ..core.project import Project
 from ..link.linkage_pickle import Linkage
 from ..data.design import Design
 
-""" DESCR:
-    collection of scripts to allow creating subsets of a cryo-EM map.
+""" collection of scripts to allow creating subsets of a cryo-EM map.
 
     COMMENTS:
     code not well maintained
@@ -74,9 +67,9 @@ def categorise(link: Linkage,
 
         nick_plus = _expand_selection(selection=nick, link=link, plus=plus)
         h, p, _ = link.DidDhps[link.FidDid[res]]
-        idenifier = f"{h}-{p}"
+        identifier = f"{h}-{p}"
         typ = "nick"
-        nick_segment.add(tuple([nick_plus, idenifier, typ]))
+        nick_segment.add(tuple([nick_plus, identifier, typ]))
     categories["nick"] = nick_segment
 
     design = Design(json=json, seq=seq,)
@@ -98,9 +91,9 @@ def categorise(link: Linkage,
                                            if base.id in link.DidFid  # !skip
                                            }
                                           )
-            idenifier = str(domain.id)
+            identifier = str(domain.id)
             typ = "ds_domain"
-            ds_domain.add(tuple([domain_resindices, idenifier, typ]))
+            ds_domain.add(tuple([domain_resindices, identifier, typ]))
     categories["ds"] = ds_domain
 
     return categories

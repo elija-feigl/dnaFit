@@ -18,19 +18,18 @@ from ..data.mrc import recenter_mrc
 import warnings
 warnings.filterwarnings('ignore')
 
-""" DESCR:
-    mrDNA driven cascade fitting simulation class.
+""" mrDNA driven cascade fitting simulation class.
 """
 
 
 def external_docking_loop(prefix):
     ##########################################################################
-    # TODO -low-: implement automatic alignmant or python UI based alignment
+    # TODO -low-: implement automatic alignment or python UI based alignment
     # BREAK: reorient helix and fit still external
     conf = Path(f"./{prefix}.pdb")
     while True:
         input(
-            f"You need to manualy align mrc and pdb using VMD. save as {conf} and press ENTER")
+            f"You need to manually align mrc and pdb using VMD. save as {conf} and press ENTER")
         if conf.is_file():
             return conf
 
@@ -50,8 +49,7 @@ class Cascade(object):
         self.prefix: str = self.top.stem
         self.logger = logging.getLogger(__name__)
 
-        # intenally moving to center at origin simplifies rotation in vmd
-
+        # internally moving to center at origin simplifies rotation in vmd
         self.logger.info("internal recenter at origin for rotation in vmd")
         self.mrc_shift = recenter_mrc(self.mrc)
         self.logger.debug(f"shifted mrc file by: {self.mrc_shift}")
@@ -95,7 +93,7 @@ class Cascade(object):
                 if not bond_list[0].startswith("# PUSHBONDS"):
                     f.writelines(bond_list)
 
-    def run_cascaded_fitting(self, base_time_steps: int, resolution: float):
+    def run_cascaded_fitting(self, base_time_steps: int, resolution: float, is_SR=False):
         """ creating files and externally executing sh-script for cascaded flexible fitting
         """
         def create_sh_file(sh_file):
@@ -104,8 +102,9 @@ class Cascade(object):
             with sh_file.open(mode='w') as f:
                 namd_path = self.namd2.resolve().parent
                 vmd_path = self.vmd.resolve().parent
+                protocol = "-SR" if is_SR else ""
                 sh_base = get_resource(
-                    "c-mrDNA-MDff-cascade-sh.txt").read_text()
+                    f"c-mrDNA-MDff-cascade{protocol}.sh").read_text()
                 sh_parameters = inspect.cleandoc(f"""
                     readonly UBIN = {namd_path}
                     readonly VBIN = {vmd_path}
@@ -185,10 +184,9 @@ class Cascade(object):
 
         final_conf = self.conf.with_name(f"{self.prefix}-last.pdb")
         if not final_conf.is_file():
-            self.logger.warning(
+            self.logger.error(
                 f"cascaded fit incomplete. {final_conf} not found ")
-            raise Exception("cascade incomplete")
-
+            sys.exit(1)
         # revert internal recentering to align with original mrc data
         self.logger.debug(
             f"shifted mrc & pdb file back using previous shift: {self.mrc_shift}")

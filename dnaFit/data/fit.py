@@ -8,8 +8,7 @@ from typing import List, Tuple
 from pathlib import Path
 
 
-""" DESCR:
-    Fit Class managing Mdanalyis structure for a given topology and
+""" Fit Class managing MDAnalysis structure for a given topology and
     configuration/trajectory file of a namd simulation.
 
     COMMENTS:
@@ -31,7 +30,7 @@ class Fit(object):
         if self.top.exists() and self.conf.exists():
             u = mda.Universe(str(self.top), str(self.conf))
         else:
-            self.logger.fatal(
+            self.logger.error(
                 f"Failed to initialize mda.Universe due to missing files: {self.top} {self.conf}")
             raise FileNotFoundError
         return u

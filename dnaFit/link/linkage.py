@@ -8,8 +8,7 @@ from ..data.crossover import Crossover
 from ..data.basepair import BasePair
 
 
-""" DESCR:
-    Linkage class stores the translation from cadnano base-indexing to
+""" Linkage class stores the translation from cadnano base-indexing to
     namd-indexing of bases.
 
     COMMENTS:

@@ -1,11 +1,8 @@
-import contextlib
 import os
 import numpy as np
 
 from typing import List
 
-""" DESCR:
-"""
 
 C1P_BASEDIST: float = 10.7
 TOL: float = 10e-6
@@ -48,19 +45,6 @@ PYR_ATOMS: list = ["N1", "C2"]
 PUR_ATOMS: list = ["N9", "C4"]
 
 WC_PROPERTIES: list = ["rise", "slide", "shift", "twist", "tilt", "roll"]
-
-
-class UnexpectedCaseError(Exception):
-    """Raised when a case occurs that makes no sense in the programs context"""
-    pass
-
-
-@contextlib.contextmanager
-def ignored(*exceptions):
-    try:
-        yield
-    except exceptions:
-        pass
 
 
 def _norm(vector):

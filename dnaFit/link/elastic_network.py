@@ -1,15 +1,15 @@
-import MDAnalysis as mda
-import attr
+import logging
+import sys
+from typing import Dict, Set, TextIO
 
-from typing import Set, Dict, TextIO
+import attr
+import MDAnalysis as mda
 
 from .linker_project import Linker
-from ..core.utils import UnexpectedCaseError
 
-""" DESCR:
-    The EN is the colletcion of harmonic bonds for the elastic network in a
+""" The EN is the colletcion of harmonic bonds for the elastic network in a
     namd simulation of DNA-origami (1). ENBond Class represent one such bond.
-    The ElaticNetwortModifier class creates a new network wich is a subset of
+    The ElasticNetwortModifier class creates a new network which is a subset of
     the full EN given by a selection class Logic.
 
     REFERENCES:
@@ -21,7 +21,7 @@ from ..core.utils import UnexpectedCaseError
 
 @attr.s(slots=True, cmp=False, auto_attribs=True)
 class ENBond(object):
-    """ Elatic Networt Bond class
+    """ Elastic Networt Bond class
         harmonic bond of the from k*(r(ab)-r0)**2
         http://www.ks.uiuc.edu/Research/namd/2.7/ug/node26.html
         -------
@@ -29,7 +29,7 @@ class ENBond(object):
             -------
                 a1: atomnumber 1
                 a2: atomnumber 2
-                k: force konstant
+                k: force constant
                 r0: equilibrium distance [A]
                 btype: keywords that indicate topology
     """
@@ -38,6 +38,9 @@ class ENBond(object):
     k: float = 0.
     r0: float = 0.
     btype: Set[str] = attr.Factory(set)
+
+    def __attrs_post_init__(self):
+        self.logger = logging.getLogger(__name__)
 
     def __str__(self) -> str:
         return f"bond {self.a1} {self.a2} {self.k} {self.r0}"
@@ -58,8 +61,8 @@ class Logic(object):
 
 
 @attr.s
-class ElaticNetwortModifier(object):
-    """ Elatic Networt Modifier class
+class ElasticNetwortModifier(object):
+    """ Elastic Networt Modifier class
     """
     linker: Linker = attr.ib()
     EN = attr.ib()
@@ -72,6 +75,7 @@ class ElaticNetwortModifier(object):
                                             }
                                          }
         self.network: set = self._get_network()
+        self.logger = logging.getLogger(__name__)
 
     def _get_network(self) -> set:
         exb_filepath = self.linker.conf.with_suffix(".exb")
@@ -158,7 +162,10 @@ class ElaticNetwortModifier(object):
             elif split_line[0] == "dihedral":
                 raise NotImplementedError
             else:
-                raise UnexpectedCaseError
+                self.logger.error(
+                    "Elastic network failed with unknown bond type")
+                sys.exit(1)
+
         return network
 
     def _change_modify_logic(self) -> None:

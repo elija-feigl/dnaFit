@@ -17,8 +17,7 @@ from ..core.utils import (
 )
 
 
-""" DESCR:
-    BDna Class handles evaluation of B-DNA properties and local-resolution of
+""" BDna Class handles evaluation of B-DNA properties and local-resolution of
     cryo em reconstruction of specific bases
 """
 

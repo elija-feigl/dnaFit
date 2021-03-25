@@ -48,7 +48,7 @@ LICENSE: ? https://github.com/cctbx/cctbx_project/blob/master/LICENSE.txt
 WEBSITE: Feb 2007. http://cci.lbl.gov/hybrid_36/
 
 
-dnaFit Python Package uses the folowing scientific code packages:
+dnaFit Python Package uses the following scientific code packages:
 
 ## mrDNA
 

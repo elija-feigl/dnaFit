@@ -38,7 +38,7 @@ def cli():
 
 def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrDNA", gpu: int = 0, multidomain=False):
     """ running a mrDNA simulation by executing mrDNA externally
-            all files are automatically written into a foler "mrDNA"
+            all files are automatically written into a folder "mrDNA"
             checks of completion of mrDNA run
     """
     home_directory = os.getcwd()
@@ -70,7 +70,8 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrD
                  and os.path.isfile(f"./{prefix}-3.exb"))
         if not is_ok:
             logger.error("At least one of mrdna's *-3. files was not created")
-            raise Exception("mrDNA incomplete")
+            sys.exit(1)
+
     finally:
         os.chdir(home_directory)
         logger.debug(f"changing directory to: {os.getcwd()}")
@@ -79,7 +80,7 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrD
 def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
     """ prep cascaded fitting:
             prepares a new folder "dnaFit" with files from a finished mrDNA run
-            in fubfolder "mrDNA" and copyies necessary files.
+            in subfolder "mrDNA" and copies necessary files.
     """
     home_directory = os.getcwd()
     try:
@@ -94,10 +95,10 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
         copyfile(f"../mrDNA/{prefix}-3.exb", f"./{prefix}.exb")
         copyfile(f"../mrDNA/{prefix}-3.pdb", f"./{prefix}-undocked.pdb")
         copytree("../mrDNA/charmm36.nbfix", "./charmm36.nbfix")
-    except:
+    except Exception:
         logger.exception(
             f"mrDNA: failed to copy mrDNA files to working directory {os.getcwd()}")
-        raise Exception("Failed to copy mrDNA files")
+        raise Exception
     finally:
         os.chdir(home_directory)
         logger.debug(f"changing directory to: {os.getcwd()}")
@@ -116,7 +117,9 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
               help='mrc map resolution in Angstrom')
 @click.option('--multidomain', is_flag=True,
               help='multidomain structures require different settings for equilibration')
-def mrDnaFit(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multidomain):
+@click.option('--SR-fitting', is_flag=True,
+              help='retain Sr bonds troughout fitting cascade.')
+def mrDnaFit(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multidomain, SR_fitting):
     """mrDNA simulation of CADNANO design file followed by cascaded
         mrDNA-driven MD flexible fitting to MRC cryo data
 
@@ -156,7 +159,7 @@ def mrDnaFit(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multido
                           exb=exb, recenter=True, is_docked=False)
         # NOTE: fit is moved back to original mrc position, recentering invisible to user
         dnaFit = cascade.run_cascaded_fitting(
-            base_time_steps=timesteps, resolution=resolution)
+            base_time_steps=timesteps, resolution=resolution, is_SR=SR_fitting)
         dnaFit.write_linkage(cad_file, seq_file)
         dnaFit.write_output(dest=home_directory,
                             write_mmCif=True, crop_mrc=True)
@@ -181,7 +184,9 @@ def mrDnaFit(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multido
               help='mrc map resolution in Angstrom')
 @click.option('--pdb-docked', is_flag=True,
               help='add if pdb has already been docked to the mrc data')
-def fit(cadnano, sequence, mrc, top, conf, gpu, prefix, timesteps, resolution, pdb_docked):
+@click.option('--SR-fitting', is_flag=True,
+              help='retain Sr bonds troughout fitting cascade.')
+def fit(cadnano, sequence, mrc, top, conf, gpu, prefix, timesteps, resolution, pdb_docked, SR_fitting):
     """Cascaded mrDNA-driven MD flexible fitting to MRC cryo data, creates dnaFit folder
 
         CADNANO is the name of the design file [.json]\n
@@ -224,7 +229,7 @@ def fit(cadnano, sequence, mrc, top, conf, gpu, prefix, timesteps, resolution, p
         cascade = Cascade(conf=con_file, top=top_file, mrc=mrc_file,
                           exb=exb_file, recenter=True, is_docked=False)
         dnaFit = cascade.run_cascaded_fitting(
-            base_time_steps=timesteps, resolution=resolution)
+            base_time_steps=timesteps, resolution=resolution, is_SR=SR_fitting)
         dnaFit.write_linkage(cad_file, seq_file)
         dnaFit.write_output(dest=home_directory,
                             write_mmCif=True, crop_mrc=True)

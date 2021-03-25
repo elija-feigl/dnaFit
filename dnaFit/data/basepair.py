@@ -8,8 +8,7 @@ from typing import Dict, Tuple
 from ..core.utils import _norm
 
 
-""" DESCR:
-    BasePair Class represents a watson-crick baspair of two nanodesign base
+""" BasePair Class represents a watson-crick baspair of two nanodesign base
     object. Important Attributes are their position in the design-file and
     their spatial orientation in real space (BasePlane and BasePairPlane class)
 

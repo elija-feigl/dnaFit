@@ -15,7 +15,7 @@ class Structure(object):
     path: Path = attr.ib()
     remove_H: bool = attr.ib(default=True)
     atoms: List[Atom] = list()
-    # TODO: default and other atributs: sequences etc
+    # TODO: default and other attributes: sequences etc
 
     def __attrs_post_init__(self):
         self.name = self.filename.stem  # TODO pass name option
@@ -88,7 +88,7 @@ class Structure(object):
                  i_res_name=line[17:20],
                  i_chain_id=chain_id,
                  i_res_number=res_number,
-                 i_opaccity=line[54:60].strip(),
+                 i_opacity=line[54:60].strip(),
                  i_temperature=line[60:66].strip(),
                  )
         )

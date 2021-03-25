@@ -6,8 +6,7 @@ from typing import List, Optional
 from .basepair import BasePair
 
 
-""" DESCR:
-    Crossover Classes represent holiday-junction in DNA-Origami
+""" Crossover Classes represent holiday-junction in DNA-Origami
 """
 
 

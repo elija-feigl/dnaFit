@@ -1,19 +1,18 @@
+import logging
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Tuple
+
 import attr
 import nanodesign as nd
-from pathlib import Path
 from nanodesign.data.base import DnaBase
-from typing import Dict, Tuple, Optional, List, Set
 
+from ..data.basepair import BasePair
+from ..data.crossover import Crossover
+from ..data.design import Design
+from ..data.fit import Fit
 from .linkage import Linkage
 
-from ..data.fit import Fit
-from ..data.design import Design
-from ..data.crossover import Crossover
-from ..data.basepair import BasePair
-
-""" DESCR:
-    create Linkage
-"""
+""" create Linkage."""
 
 
 @attr.s
@@ -40,6 +39,7 @@ class Linker(object):
             json=self.json, seq=self.seq,
             generated_with_mrdna=self.generated_with_mrdna)
         self.Dhp_skips: Set[Tuple[int, int]] = self.design.Dhp_skips
+        self.logger = logging.getLogger(__name__)
 
     def _eval_sequence(self, steps=5) -> None:
         """ Affects
@@ -225,8 +225,13 @@ class Linker(object):
 
             return (DidFid, DhpsDid, color)
 
-        DidFid_sc, DhpsDid_sc = link_scaffold()
-        DidFid_st, DhpsDid_st, self.Dcolor = link_staples()
+        try:
+            DidFid_sc, DhpsDid_sc = link_scaffold()
+            DidFid_st, DhpsDid_st, self.Dcolor = link_staples()
+        except IndexError:
+            self.logger.exception(
+                "Linker failed: Design and Atomic Model incompatible")
+            raise
 
         self.DidFid = {**DidFid_sc, **DidFid_st}
         self.DhpsDid = {**DhpsDid_sc, **DhpsDid_st}

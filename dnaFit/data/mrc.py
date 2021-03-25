@@ -6,9 +6,7 @@ import MDAnalysis as mda
 from pathlib import Path
 
 
-""" DESCR:
-    collection of scripts to allow manipulation of a cryo-EM map.
-"""
+""" collection of scripts to allow manipulation of a cryo-EM map."""
 logger = logging.getLogger(__name__)
 
 
@@ -29,8 +27,7 @@ def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0])) -> np.ndarra
 def write_mrc_from_atoms(path: Path, atoms: mda.AtomGroup,
                          path_out: Path, context: float = 4., cut_box=True):
     if not len(atoms):
-        logger.warning(
-            f"Cannot crop with empty atom selection. No file written")
+        logger.warning("Cannot crop empty atom selection. No file written")
         return
 
     with mrcfile.open(path) as mrc:
@@ -97,7 +94,7 @@ def _mrc_cutbox(data, m_origin, m_spacing):
                                                   y_min: y_max,
                                                   z_min: z_max]
 
-    # cumpute new origin
+    # compute new origin
     origin = (m_origin + ((x_min - x_low) * m_spacing[0],
                           (y_min - y_low) * m_spacing[1],
                           (z_min - z_low) * m_spacing[2]

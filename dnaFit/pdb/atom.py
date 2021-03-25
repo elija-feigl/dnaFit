@@ -17,7 +17,7 @@ class Atom(object):
     i_res_name: str = attr.ib()
     i_chain_id: Union[int, str] = attr.ib()
     i_res_number: Union[int, str] = attr.ib()
-    i_opaccity: Union[float, str] = attr.ib(default=0.0)
+    i_opacity: Union[float, str] = attr.ib(default=0.0)
     i_temperature: Union[float, str] = attr.ib(default=0.0)
 
     def __attrs_post_init__(self):
@@ -27,8 +27,8 @@ class Atom(object):
         self.res_name: ResName = ResName(self.i_res_name)
         self.chain_id: ChainID = ChainID(self.i_chain_id)
         self.res_number: Number = Number(self.i_res_number)
-        self.opaccity: float = (
-            float(self.i_opaccity) if float(self.i_opaccity) != 0.0 else 1.0)
+        self.opacity: float = (
+            float(self.i_opacity) if float(self.i_opacity) != 0.0 else 1.0)
         self.temperature: float = float(self.i_temperature)
         self.element: str = self.atom_name.element_name()
 
@@ -58,7 +58,7 @@ class Atom(object):
             "{: .3f}".format(self.atom_coor[0]).ljust(9, " "),
             "{: .3f}".format(self.atom_coor[1]).ljust(9, " "),
             "{: .3f}".format(self.atom_coor[2]).ljust(9, " "),
-            "{: .2f}".format(self.opaccity).ljust(6, " "),
+            "{: .2f}".format(self.opacity).ljust(6, " "),
             "{: .2f}".format(self.temperature).ljust(8, " "),
             "? ",
             self.res_number.as_str().ljust(6, " "),
@@ -81,7 +81,7 @@ class Atom(object):
             "{: .3f}".format(self.atom_coor[0]).rjust(8, " "),
             "{: .3f}".format(self.atom_coor[1]).rjust(8, " "),
             "{: .3f}".format(self.atom_coor[2]).rjust(8, " "),
-            "{: .2f}".format(self.opaccity).rjust(6, " "),
+            "{: .2f}".format(self.opacity).rjust(6, " "),
             "{: .2f}".format(self.temperature).rjust(6, " "),
             (6 * " "),
             self.chain_id.as_segName4namd(width=4),
