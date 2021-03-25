@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import attr
-
 from pathlib import Path
 from typing import List, Tuple
 
+import attr
+
 from .atom import Atom
-from .files import PDB, CIF
+from .files import CIF, PDB
 
 
 @attr.s
 class Structure(object):
-    filename: Path = attr.ib()
+    path: Path = attr.ib()
     remove_H: bool = attr.ib(default=True)
     atoms: List[Atom] = list()
     # TODO: default and other atributs: sequences etc
@@ -98,7 +98,7 @@ class Structure(object):
         raise NotImplementedError
 
     def parse_pdb(self) -> None:
-        with open(self.filename) as fi:
+        with self.path.open() as fi:
             for line in fi.readlines():
                 lineType = line[0:6].strip()
                 if lineType == "ATOM":

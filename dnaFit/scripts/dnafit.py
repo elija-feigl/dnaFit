@@ -1,18 +1,21 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import click
-from pathlib import Path
-from typing import List
-import subprocess
-import os
 import logging
+import os
+import subprocess
 import sys
+from pathlib import Path
 from shutil import copyfile, copytree
 
-from dnaFit.version import get_version
-from dnaFit.fit.cascade import Cascade
+import click
+from dnaFit import get_resource
 from dnaFit.core.utils import _get_executable
+from dnaFit.data.mrc import write_mrc_from_atoms
+from dnaFit.fit.atomic_model_fit import AtomicModelFit
+from dnaFit.fit.cascade import Cascade
+from dnaFit.pdb.structure import Structure
+from dnaFit.version import get_version
 
 """ cascaded mrDNA-driven MD flexible fitting:
 """
@@ -113,7 +116,7 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
               help='mrc map resolution in Angstrom')
 @click.option('--multidomain', is_flag=True,
               help='multidomain structures require different settings for equilibration')
-def mrDnaFit():
+def mrDnaFit(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multidomain):
     """mrDNA simulation of CADNANO design file followed by cascaded
         mrDNA-driven MD flexible fitting to MRC cryo data
 
@@ -121,9 +124,11 @@ def mrDnaFit():
         SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
         MRC is the name of the cryo EM volumetric data file [.mrc]\n
     """
-    cad_file = cadnano.resolve()
+    # NOTE: click will drop python2 support soon and actually return a Path
+    cad_file = Path(cadnano).resolve()
+    mrc_file = Path(mrc).resolve()
+    seq_file = Path(sequence).resolve()
 
-    seq_file = sequence.resolve()
     prefix = cad_file.stem if prefix is None else prefix
 
     run_mrDNA(cad_file, seq_file, prefix, directory="mrDNA",
@@ -131,7 +136,6 @@ def mrDnaFit():
     prep_cascaded_fitting(prefix, cad_file, seq_file)
 
     # TODO: -low- parse & set additional fitting parameters
-    mrc_file = mrc.resolve()
     copyfile(mrc_file, f"./dnaFit/{prefix}.mrc")
 
     # NOTE changing design and sequence file to copy in folder dnaFit to ensure consistency
@@ -152,7 +156,7 @@ def mrDnaFit():
                           exb=exb, recenter=True, is_docked=False)
         # NOTE: fit is moved back to original mrc position, recentering invisible to user
         dnaFit = cascade.run_cascaded_fitting(
-            base_time_steps=time_steps, resolution=resolution)
+            base_time_steps=timesteps, resolution=resolution)
         dnaFit.write_linkage(cad_file, seq_file)
         dnaFit.write_output(dest=home_directory,
                             write_mmCif=True, crop_mrc=True)
@@ -177,7 +181,7 @@ def mrDnaFit():
               help='mrc map resolution in Angstrom')
 @click.option('--pdb-docked', is_flag=True,
               help='add if pdb has already been docked to the mrc data')
-def fit():
+def fit(cadnano, sequence, mrc, top, conf, gpu, prefix, timesteps, resolution, pdb_docked):
     """Cascaded mrDNA-driven MD flexible fitting to MRC cryo data, creates dnaFit folder
 
         CADNANO is the name of the design file [.json]\n
@@ -186,12 +190,12 @@ def fit():
         TOP is the name of the namd topology file [.top]\n
         CONF is the name of the namd configuration file [.pdb, .coor]\n
     """
-
-    cad_file = cadnano.resolve()
-    seq_file = sequence.resolve()
-    mrc_file = mrc.resolve()
-    top = top.resolve()
-    conf = conf.resolve()
+    # NOTE: click will drop python2 support soon and actually return a Path
+    cad_file = Path(cadnano).resolve()
+    seq_file = Path(sequence).resolve()
+    mrc_file = Path(mrc).resolve()
+    top = Path(top).resolve()
+    conf = Path(conf).resolve()
     prefix = cad_file.stem if prefix is None else prefix
 
     # create duplicates of input files in dnaFit folder
@@ -217,8 +221,8 @@ def fit():
             copytree(get_resource("charmm36.nbfix"), "./charmm36.nbfix")
 
         # NOTE: creating Cascade object triggers external docking prompt
-        cascade = Cascade(conf=conf, top=top, mrc=mrc_file,
-                          exb=exb, recenter=True, is_docked=False)
+        cascade = Cascade(conf=con_file, top=top_file, mrc=mrc_file,
+                          exb=exb_file, recenter=True, is_docked=False)
         dnaFit = cascade.run_cascaded_fitting(
             base_time_steps=timesteps, resolution=resolution)
         dnaFit.write_linkage(cad_file, seq_file)
@@ -238,7 +242,7 @@ def fit():
 @click.argument('conf', type=click.Path(exists=True))
 @click.option('--enrgMD_server', is_flag=True,
               help='add if pdb has already been docked to the mrc data')
-def link():
+def link(cadnano, sequence, mrc, top, conf, enrgMD_server):
     """ links structural information of the cadnano designfile[design.json] to
          fitted atomic model[design.psf, design.dcd].
         * linkage information ist stored in human readable csv format
@@ -249,9 +253,16 @@ def link():
         TOP is the name of the namd topology file [.top]\n
         CONF is the name of the namd configuration file [.pdb, .coor]\n
     """
+    # NOTE: click will drop python2 support soon and actually return a Path
+    mrc = Path(mrc).resolve()
+    top = Path(top).resolve()
+    conf = Path(conf).resolve()
+    cadnano = Path(cadnano).resolve()
+    sequence = Path(sequence).resolve()
+
     dnaFit = AtomicModelFit(conf=conf, top=top, mrc=mrc,
                             generated_with_mrdna=enrgMD_server)
-    dnaFit.write_linkage(json=cad_file, seq=seq_file)
+    dnaFit.write_linkage(json=cadnano, seq=sequence)
 
 
 @cli.command()
@@ -260,7 +271,7 @@ def link():
 @click.argument('conf', type=click.Path(exists=True))
 @click.option('--enrgMD_server', is_flag=True,
               help='add if pdb has already been docked to the mrc data')
-def mask():
+def mask(mrc, top, conf, enrgMD_server):
     """ links structural information of the cadnano designfile[design.json] to
          fitted atomic model[design.psf, design.dcd].
          used to mask mrc map to fit
@@ -269,6 +280,11 @@ def mask():
         TOP is the name of the namd topology file [.top]\n
         CONF is the name of the namd configuration file [.pdb, .coor]\n
     """
+    # NOTE: click will drop python2 support soon and actually return a Path
+    mrc = Path(mrc).resolve()
+    top = Path(top).resolve()
+    conf = Path(conf).resolve()
+
     dnaFit = AtomicModelFit(conf=conf, top=top, mrc=mrc,
                             generated_with_mrdna=enrgMD_server)
     u = dnaFit.get_universe()
@@ -281,12 +297,15 @@ def mask():
 @click.argument('pdb', type=click.Path(exists=True))
 @click.option('--remove-H', is_flag=True,
               help='remove hydrogen atoms')
-def convert2CIF():
-    """ generate mmCIF from namd pdb 
+def pdb2CIF(pdb, remove_H):
+    """ generate mmCIF from namd pdb
 
         PDB is the name of the namd configuration file [.pdb]\n
     """
-    structure = Structure(filename=pdb, remove_H=remove_H)
+    # NOTE: click will drop python2 support soon and actually return a Path
+    pdb = Path(pdb).resolve()
+
+    structure = Structure(path=pdb, remove_H=remove_H)
     structure.parse_pdb()
     # TODO: -low- ask for additional info (name, author, etc)
     output_name = pdb.with_suffix(".cif")
