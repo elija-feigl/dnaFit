@@ -21,7 +21,6 @@ declare -ri REMOVE_LR=2
 readonly RELAX=true
 declare -ri TSTEPSRELAX=18000
 # remove interhelical bonds after step NREFINE
-readonly REFINE=true
 declare -ri TSTEPSREFINE=6000
 # final with increased GSCALE
 readonly FINAL=true
@@ -48,15 +47,6 @@ run_namd() {
 	fi
 }
 
-DEBUGrun_namd() {
-	OUTPUT=$DIR/$2
-	if  [ ! -d "$OUTPUT" ]; then
-		case "CUDA" in
-		*$UBIN*) echo "run CUDA" ;;
-		*)       echo "run CPU" ;;
-		esac
-	fi
-}
 
 # change_NAMDfile $TS $MS $N $PREVIOUS $GRIDON $GRIDFILE $GSCALE $ENRGMDON $ENRGMDBONDS $OUTPUTNAME
 change_NAMDfile() {
@@ -211,10 +201,7 @@ sed -i "s/set DIEL .*/set DIEL $DIEL/g" $NAMDFILE
 declare -i TSLAST=0
 sed -i "s/set TSLAST .*/set TSLAST 0/g" $NAMDFILE
 
-#prep intrahelical bond file # TODO: move to generation script
-cp $DIR/$DESIGNNAME.exb $DIR/$DESIGNNAME-SR.exb
-sed -i "/31$/d" $DIR/$DESIGNNAME-SR.exb
-sed -i "/31.00$/d" $DIR/$DESIGNNAME-SR.exb
+
 
 ############################################################################
 # energy MD step

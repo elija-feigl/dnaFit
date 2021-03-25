@@ -102,9 +102,8 @@ class Cascade(object):
             with sh_file.open(mode='w') as f:
                 namd_path = self.namd2.resolve().parent
                 vmd_path = self.vmd.resolve().parent
-                protocol = "-SR" if is_SR else ""
                 sh_base = get_resource(
-                    f"c-mrDNA-MDff-cascade{protocol}.sh").read_text()
+                    "c-mrDNA-MDff-cascade.sh").read_text()
                 sh_parameters = inspect.cleandoc(f"""
                     readonly UBIN = {namd_path}
                     readonly VBIN = {vmd_path}
@@ -117,6 +116,7 @@ class Cascade(object):
                     declare - ri NCASCADE = {n_cascade}
                     readonly GFMAX = {resolution_max}
                     readonly MAPRESOLUTION = {resolution}
+                    readonly REFINE={not is_SR}
                     """)
                 f.write("\n".join([sh_parameters, sh_base]))
 
