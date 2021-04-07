@@ -21,6 +21,21 @@ warnings.filterwarnings('ignore')
 """ mrDNA driven cascade fitting simulation class.
 """
 
+###############################################################################
+# PRESET PARAMETERS
+N_CASCADE = 8  # number of steps in the cascade
+N_REPEAT = 2  # number of consecutive cascades
+FIRST_STOP = 2  # abort first cascade after as many steps
+LR_STOP = 3  # turn off long range enrgMD bonds after as many steps
+GSCALE = 0.3  # scaling factor for map potential
+DIEL_CONST = 1  # dielectric constant (enrgMD==1)
+RES_SPAN = 14  # resolution range covered by low pass filtering
+MAPTHRES = 0.0  # threshold for cropping mrc data (voxel smaller than)
+###############################################################################
+
+grid_file = "1.dx"
+grid_pdb = "grid.pdb"
+
 
 def external_docking_loop(prefix):
     ##########################################################################
@@ -32,6 +47,14 @@ def external_docking_loop(prefix):
             f"You need to manually align mrc and pdb using VMD. save as {conf} and press ENTER")
         if conf.is_file():
             return conf
+
+
+def _exec(cmd):
+    process = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, universal_newlines=True)
+    for line in process.stdout:
+        sys.stdout.write(line)
+        sys.stdout.flush()
 
 
 @attr.s
@@ -83,7 +106,7 @@ class Cascade(object):
                 bond_list = list()
             bond_list.append(line)
 
-        with self.exb.with_name(f"{self.prefix}-HO.exb").open(mode='w') as f:
+        with self.exb.with_name(f"{self.prefix}-BP.exb").open(mode='w') as f:
             for bond_list in exb_split:
                 if bond_list[0].startswith("# PAIR"):
                     f.writelines(bond_list)
@@ -94,93 +117,150 @@ class Cascade(object):
                     f.writelines(bond_list)
 
     def run_cascaded_fitting(self, base_time_steps: int, resolution: float, is_SR=False):
-        """ creating files and externally executing sh-script for cascaded flexible fitting
-        """
-        def create_sh_file(sh_file):
-            """ create enrgMD-driven cascaded flexible fitting script from template
-            """
-            with sh_file.open(mode='w') as f:
-                namd_path = self.namd2.resolve().parent
-                vmd_path = self.vmd.resolve().parent
-                sh_base = get_resource(
-                    "c-mrDNA-MDff-cascade.sh").read_text()
-                sh_parameters = inspect.cleandoc(f"""
-                    readonly UBIN = {namd_path}
-                    readonly VBIN = {vmd_path}
+        def run_namd():
+            cmd = f"{self.charmrun} + p32 {self.namd2} + netpoll $1 2 > &1 | tee {output_name}.log"
+            self.logger.info(f"cascade:  with {cmd}")
+            _exec(cmd)
+            return output_name
 
-                    # general
-                    readonly DESIGNNAME = {prefix}
-                    declare - ri TSTEPS = {time_steps}
-
-                    # cascade
-                    declare - ri NCASCADE = {n_cascade}
-                    readonly GFMAX = {resolution_max}
-                    readonly MAPRESOLUTION = {resolution}
-                    readonly REFINE={not is_SR}
-                    """)
-                f.write("\n".join([sh_parameters, sh_base]))
-
-        def create_namd_file(namd_file):
+        def create_namd_file(namd_file, ts, ms=0, mdff="1"):
             with namd_file.open(mode='w') as f:
                 namd_base = get_resource("namd.txt").read_text()
                 namd_header = get_resource("namd_header.txt").read_text()
                 namd_parameters = inspect.cleandoc(f"""
                     set PREFIX {prefix}
-                    set TS {time_steps}
-                    set MS {minimisation_steps}
-                    set GRIDON {grid_on}
+                    set TS {ts}
+                    set MS {ms}
+                    set GRIDON {mdff}
                     set DIEL{dielectr_constant}
                     set GSCALE {gscale}
                     set GRIDFILE {grid_file}
                     set GRIDPDB {grid_pdb}
 
-                    set ENRGMDON {enrgmd_on}
+                    set ENRGMDON on
                     set ENRGMDBONDS {enrgmd_file}
 
                     set OUTPUTNAME{output_name}
+                    set TSLAST {time_steps_last}
+                    set N {step}
+                    set PREVIOUS {folder_last}
                     """)
                 f.write("\n".join([namd_header, namd_parameters, namd_base]))
-            return
+            return (time_steps_last + ts)
 
-        # TODO: allow additional parameter changes
-        #       NOTE: change from energymin to fixed.pdb protocol
-        #       NOTE: actually mrDNA includes enrgMD
+        def vmd_prep():
+            vmd_prep = Path("mdff-prep.vmd")
+            grid_pdb = Path("grid.pdb")
+            lines = ["package require volutil", "package require mdff"]
+
+            lines.append(
+                f"volutil -clamp {MAPTHRES}:1.0 {self.mrc} -o base.dx")
+            n_layers = n_cascade - 1
+            for n in range(n_cascade):
+                gfilter = RES_SPAN/n_layers*(n_layers-n) + resolution
+                lines.append(
+                    f"volutil -smooth {gfilter} base.dx -o {n}.dx")
+                lines.append(f"mdff griddx -i {n}.dx -o grid-{n}.dx")
+            lines.append(
+                f"mdff gridpdb -psf {self.top} -pdb {self.conf} -o {grid_pdb}")
+            lines.append("exit")
+
+            with Path("mdff-prep.vmd").open() as f:
+                f.writelines(lines)
+            cmd = f"{self.vmd} -dispdev text -eofexit -e {vmd_prep}"
+            self.logger.info(f"vmd prep:  with {cmd}")
+            _exec(cmd)
+            return grid_pdb
+
+        def vmd_post():
+            vmd_post = Path("mdff-post.vmd")
+            lines = ["package require volutil", "package require mdff"]
+            lines.append(f"mol new {self.top}")
+            name = self.top.stem
+            # full dcd
+            lines.append(
+                f"mol addfile ./enrgMD/{name}.dcd start 0 step 1 waitfor all")
+            for n in range(n_cascade):
+                lines.append(
+                    f"mol addfile ./{n}/{name}.dcd start 0 step 1 waitfor all")
+            lines.append(
+                f"mol addfile ./final/{name}.dcd start 0 step 1 waitfor all")
+
+            lines.append(f"animate write dcd $DIR/{name}.dcd")
+            # last frame pdb
+            lines.append("set sel [atomselect top all]")
+            lines.append(f"$sel writepdb {name}-last.pdb")
+            lines.append("exit")
+            with vmd_post.open() as f:
+                f.writelines(lines)
+
+            cmd = f"{self.vmd} -dispdev text -eofexit -e {vmd_post}"
+            self.logger.info(f"vmd postprocess:  with {cmd}")
+            _exec(cmd)
+
         prefix = self.prefix
-        time_steps = base_time_steps
-        minimisation_steps = base_time_steps
-        n_cascade = 8
-        resolution_max = resolution + 14
-        gscale = 0.3
-        dielectr_constant = 1
-        grid_on = "1"
-        grid_file = "1.dx"
-        grid_pdb = "grid.pdb"
-        enrgmd_on = "on"
+        n_cascade = N_CASCADE
+        n_repeat = N_REPEAT
+        first_stop = FIRST_STOP
+        longrange_stop = LR_STOP
+        gscale = GSCALE
+        dielectr_constant = DIEL_CONST
+
+        grid_pdb = vmd_prep()
         enrgmd_file = "$PREFIX.exb"
         output_name = "$N/$PREFIX"
-
         namd_file = self.top.with_name(f"{self.prefix}_c-mrDNA-MDff.namd")
-        create_namd_file(namd_file)
-        self.logger.debug(f"initializing namd file {namd_file}")
 
-        ######################################################################
-        # VERSION 1: execute with sh file
-        # NOTE: sh execute changes namd-file
-        sh_file = self.top.with_name(f"{self.prefix}_c-mrDNA-MDff.sh")
-        self.logger.debug(f"changing sh file {sh_file}")
-        create_sh_file(sh_file)
+        # pure energMD run without map
+        step = -1
+        time_steps_last = 0
+        folder_last = ""
+        output_name = "enrgMD"
+        time_steps_last = create_namd_file(
+            namd_file, ts=12000, ms=12000, mdff="0")
+        folder_last = run_namd()
 
-        cmd = ("sh", sh_file)
-        self.logger.info(f"cascade:  with {cmd}")
-        process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, universal_newlines=True)
-        for line in process.stdout:
-            sys.stdout.write(line)
-            sys.stdout.flush()
+        # cascades
+        output_name = "$N/$PREFIX"
+        for cascade in range(n_repeat):
+            for n in range(n_cascade):
 
-        ######################################################################
-        # VERSION 2: pythonised fitting script
-        # TODO: ...
+                # for bad docking the system will be relxed with pure enrgMD after first iteration
+                if cascade == 1 and n == 0:
+                    step += 1
+                    enrgmd_file = "$PREFIX.exb"
+                    time_steps_last = create_namd_file(
+                        namd_file, ts=18000, mdff="0")
+                    folder_last = run_namd()
+
+                if cascade == 1 and n > first_stop:
+                    break
+
+                if n > longrange_stop:
+                    enrgmd_file = "$PREFIX-SR.exb"
+                else:
+                    enrgmd_file = "$PREFIX.exb"
+                grid_file = f"grid-{n}.dx"
+                step += 1
+                time_steps_last = create_namd_file(
+                    namd_file, ts=base_time_steps)
+                folder_last = run_namd()
+
+        # refine by removing intrahelical bonds
+        if not is_SR:
+            step += 1
+            enrgmd_file = "$PREFIX-BP.exb"
+            time_steps_last = create_namd_file(namd_file, ts=base_time_steps)
+            folder_last = run_namd()
+
+        # energy minimisation with increased gscale to relax bonds
+        gscale = 1.0
+        output_name = "final"
+        time_steps_last = create_namd_file(namd_file, ts=0, ms=base_time_steps)
+        _ = run_namd()
+
+        vmd_post()
+        # TODO: cleanup??
 
         final_conf = self.conf.with_name(f"{self.prefix}-last.pdb")
         if not final_conf.is_file():
