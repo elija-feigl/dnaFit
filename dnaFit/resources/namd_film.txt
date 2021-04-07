@@ -89,7 +89,7 @@ outputName         $OUTPUTNAME
 useGroupPressure   yes
 xstFreq            1200
 restartfreq        1200
-dcdfreq             600
+dcdfreq             60
 outputEnergies      600
 outputPressure      600
 

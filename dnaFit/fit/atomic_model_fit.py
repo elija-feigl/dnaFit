@@ -2,12 +2,10 @@ import datetime
 import logging
 
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Optional
 from shutil import copyfile
 
 import attr
-import mrcfile
-import numpy as np
 import MDAnalysis as mda
 
 from ..link.linker import Linker
@@ -75,7 +73,7 @@ class AtomicModelFit(object):
 
         if write_mmCif:
             # NOTE: Hydrogen removed is standart for RCSB upload
-            structure = Structure(filename=self.conf, remove_H=True)
+            structure = Structure(path=self.conf, remove_H=True)
             structure.parse_pdb()
             mmcif = self.conf.with_suffix(".cif")
             structure.write_cif(mmcif)
@@ -85,4 +83,4 @@ class AtomicModelFit(object):
             _copyfile(self.conf, dest)
 
     def get_universe(self):
-        return mda.Universe(str(top), str(conf))
+        return mda.Universe(str(self.top), str(self.conf))

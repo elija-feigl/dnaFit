@@ -20,7 +20,6 @@ warnings.filterwarnings('ignore')
 
 """ mrDNA driven cascade fitting simulation class.
 """
-
 ###############################################################################
 # PRESET PARAMETERS
 N_CASCADE = 8  # number of steps in the cascade
@@ -31,10 +30,9 @@ GSCALE = 0.3  # scaling factor for map potential
 DIEL_CONST = 1  # dielectric constant (enrgMD==1)
 RES_SPAN = 14  # resolution range covered by low pass filtering
 MAPTHRES = 0.0  # threshold for cropping mrc data (voxel smaller than)
+TS_ENRG = 18000  # steps for initial enrgMD
+TS_RELAX = 18000  # steps for relax enrgMD
 ###############################################################################
-
-grid_file = "1.dx"
-grid_pdb = "grid.pdb"
 
 
 def external_docking_loop(prefix):
@@ -116,8 +114,9 @@ class Cascade(object):
                 if not bond_list[0].startswith("# PUSHBONDS"):
                     f.writelines(bond_list)
 
-    def run_cascaded_fitting(self, base_time_steps: int, resolution: float, is_SR=False):
+    def run_cascaded_fitting(self, base_time_steps: int, resolution: float, is_SR=False, is_film=False):
         def run_namd():
+            # TODO: skipping folders that already are complete
             cmd = f"{self.charmrun} + p32 {self.namd2} + netpoll $1 2 > &1 | tee {output_name}.log"
             self.logger.info(f"cascade:  with {cmd}")
             _exec(cmd)
@@ -125,7 +124,10 @@ class Cascade(object):
 
         def create_namd_file(namd_file, ts, ms=0, mdff="1"):
             with namd_file.open(mode='w') as f:
-                namd_base = get_resource("namd.txt").read_text()
+                if not is_film:
+                    namd_base = get_resource("namd.txt").read_text()
+                else:
+                    namd_base = get_resource("namd_film.txt").read_text()
                 namd_header = get_resource("namd_header.txt").read_text()
                 namd_parameters = inspect.cleandoc(f"""
                     set PREFIX {prefix}
@@ -186,7 +188,7 @@ class Cascade(object):
             lines.append(
                 f"mol addfile ./final/{name}.dcd start 0 step 1 waitfor all")
 
-            lines.append(f"animate write dcd $DIR/{name}.dcd")
+            lines.append(f"animate write dcd {name}.dcd")
             # last frame pdb
             lines.append("set sel [atomselect top all]")
             lines.append(f"$sel writepdb {name}-last.pdb")
@@ -206,59 +208,79 @@ class Cascade(object):
         gscale = GSCALE
         dielectr_constant = DIEL_CONST
 
-        grid_pdb = vmd_prep()
-        enrgmd_file = "$PREFIX.exb"
-        output_name = "$N/$PREFIX"
-        namd_file = self.top.with_name(f"{self.prefix}_c-mrDNA-MDff.namd")
+        if is_film:
+            ts_enrg = 2400
+            ms_enrg = 1200
+            ts_relax = 9600
+            base_time_steps = 2400
+        else:
+            ts_enrg = TS_ENRG
+            ms_enrg = TS_ENRG
+            ts_relax = TS_RELAX
 
-        # pure energMD run without map
+        self.logger.debug("VMD based cascade MDff prep.")
+        grid_pdb = vmd_prep()
+        namd_file = self.top.with_name(f"{prefix}_c-mrDNA-MDff.namd")
+
+        # pure enrgMD run without map
         step = -1
         time_steps_last = 0
         folder_last = ""
         output_name = "enrgMD"
         time_steps_last = create_namd_file(
-            namd_file, ts=12000, ms=12000, mdff="0")
+            namd_file, ts=ts_enrg, ms=ms_enrg, mdff="0")
+        self.logger.debug(f"{output_name}: ts={ts_enrg}, ms={ms_enrg}, mdff=0")
         folder_last = run_namd()
 
         # cascades
-        output_name = "$N/$PREFIX"
         for cascade in range(n_repeat):
             for n in range(n_cascade):
-
-                # for bad docking the system will be relxed with pure enrgMD after first iteration
+                # for bad docking the system will be relaxed with pure enrgMD after first iteration
                 if cascade == 1 and n == 0:
                     step += 1
-                    enrgmd_file = "$PREFIX.exb"
+                    enrgmd_file = f"{prefix}.exb"
+                    output_name = f"{step}/{prefix}"
                     time_steps_last = create_namd_file(
-                        namd_file, ts=18000, mdff="0")
+                        namd_file, ts=ts_relax, mdff="0")
+                    self.logger.debug(
+                        f"{step}-{cascade}-{n}: ts={TS_RELAX}, mdff=0, enrgMD relax")
                     folder_last = run_namd()
 
                 if cascade == 1 and n > first_stop:
                     break
 
                 if n > longrange_stop:
-                    enrgmd_file = "$PREFIX-SR.exb"
+                    enrgmd_file = f"{prefix}-SR.exb"
                 else:
-                    enrgmd_file = "$PREFIX.exb"
+                    enrgmd_file = f"{prefix}.exb"
                 grid_file = f"grid-{n}.dx"
                 step += 1
+                output_name = f"{step}/{prefix}"
                 time_steps_last = create_namd_file(
                     namd_file, ts=base_time_steps)
+                self.logger.debug(
+                    f"{step}-{cascade}-{n}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
                 folder_last = run_namd()
 
         # refine by removing intrahelical bonds
         if not is_SR:
             step += 1
-            enrgmd_file = "$PREFIX-BP.exb"
+            enrgmd_file = f"{prefix}-BP.exb"
             time_steps_last = create_namd_file(namd_file, ts=base_time_steps)
+            self.logger.debug(
+                f"{step}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
             folder_last = run_namd()
 
-        # energy minimisation with increased gscale to relax bonds
+        # energy minimization with increased gscale to relax bonds
         gscale = 1.0
         output_name = "final"
-        time_steps_last = create_namd_file(namd_file, ts=0, ms=base_time_steps)
+        time_steps_last = create_namd_file(
+            namd_file, ts=0, ms=base_time_steps)
+        self.logger.debug(
+            f"{output_name}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
         _ = run_namd()
 
+        self.logger.debug("VMD based cascade MDff prep.")
         vmd_post()
         # TODO: cleanup??
 

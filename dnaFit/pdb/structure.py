@@ -18,7 +18,7 @@ class Structure(object):
     # TODO: default and other attributes: sequences etc
 
     def __attrs_post_init__(self):
-        self.name = self.filename.stem  # TODO pass name option
+        self.name = self.path.stem  # TODO pass name option
         self.keep_resID: bool = True
         self.previous_atm: Tuple[str, int] = ("", 0)
         self.previous_res: Tuple[str, int] = ("", 0)

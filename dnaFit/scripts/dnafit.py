@@ -119,7 +119,9 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
               help='multidomain structures require different settings for equilibration')
 @click.option('--SR-fitting', is_flag=True,
               help='retain Sr bonds troughout fitting cascade.')
-def mrDnaFit(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multidomain, SR_fitting):
+@click.option('--movie', is_flag=True,
+              help='short run with optimal parameters for visual representation as movie. overrides timesteps')
+def mrDnaFit(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multidomain, SR_fitting, movie):
     """mrDNA simulation of CADNANO design file followed by cascaded
         mrDNA-driven MD flexible fitting to MRC cryo data
 
@@ -159,7 +161,7 @@ def mrDnaFit(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multido
                           exb=exb, recenter=True, is_docked=False)
         # NOTE: fit is moved back to original mrc position, recentering invisible to user
         dnaFit = cascade.run_cascaded_fitting(
-            base_time_steps=timesteps, resolution=resolution, is_SR=SR_fitting)
+            base_time_steps=timesteps, resolution=resolution, is_SR=SR_fitting, is_film=movie)
         dnaFit.write_linkage(cad_file, seq_file)
         dnaFit.write_output(dest=home_directory,
                             write_mmCif=True, crop_mrc=True)
