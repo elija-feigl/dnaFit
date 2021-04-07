@@ -2,11 +2,12 @@ import numpy as np
 import MDAnalysis as mda
 import mrcfile as mrc
 from MDAnalysis.lib import mdamath
+from MDAnalysis.core.groups import Residue
 
 import attr
 from typing import Dict, Tuple, Any, Optional, List, Set
 
-from ..link.linkage_pickle import Linkage
+from ..link.linkage import Linkage
 from ..data.basepair import BasePair
 from ..data.crossover import Crossover
 from ..core.utils import (
@@ -236,18 +237,18 @@ class BDna(object):
             self.dh_quality[res.resindex] = self._get_dihedrals(res)
 
     # TODO: improve
-    def _get_dihedrals(self, res: "mda.residue") -> Dict[str, float]:
-        def _get_residue_BB(res: "mda.residue"
-                            ) -> Tuple[Dict[str, "np.ndarray"],
+    def _get_dihedrals(self, res: Residue) -> Dict[str, float]:
+        def _get_residue_BB(res: Residue
+                            ) -> Tuple[Dict[str, np.ndarray],
                                        Tuple[bool, bool, bool]
                                        ]:
             iniSeg, terSeg, ter5 = False, False, False
 
             atoms = dict()
             try:
-                P = res.atoms.select_atoms("name P")[0]
+                P, = res.atoms.select_atoms("name P")
                 atoms["P"] = P.position
-            except (KeyError, IndexError):
+            except (KeyError, IndexError, ValueError):
                 ter5 = True
 
             for x in BB_ATOMS[:-1]:
@@ -264,8 +265,8 @@ class BDna(object):
             try:
                 n_res = self.link.u.residues[res.resindex + 1]
                 if res.segindex == n_res.segindex:
-                    n_P = n_res.atoms.select_atoms("name P")[0]
-                    n_O5p = n_res.atoms.select_atoms("name O5'")[0]
+                    n_P, = n_res.atoms.select_atoms("name P")
+                    n_O5p, = n_res.atoms.select_atoms("name O5'")
                     atoms["P +"] = n_P.position
                     atoms["O5' +"] = n_O5p.position
                 else:
@@ -276,7 +277,7 @@ class BDna(object):
             try:
                 p_res = self.link.u.residues[res.resindex - 1]
                 if res.segindex == p_res.segindex:
-                    p_O3p = p_res.atoms.select_atoms("name O3'")[0]
+                    p_O3p = p_res.atoms.select_atoms("name O3'")
                     atoms["O3' -"] = p_O3p.position
                 else:
                     iniSeg = True

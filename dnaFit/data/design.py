@@ -51,11 +51,10 @@ class Design(object):
 
     def _scaffold(self) -> List[DnaBase]:
         # TODO: -low- multiscaffold
-        scaffolds = [s.tour for s in self.design.strands if s.is_scaffold]
-        if len(scaffolds) > 1:
-            self.logger.error("design contains multiple scaffold strands")
-            raise IOError
-        scaffold = scaffolds[0]
+        try:
+            scaffold, = [s.tour for s in self.design.strands if s.is_scaffold]
+        except ValueError:
+            self.logger.exception("Design contains multiple scaffold strands")
         self._close_strand(strand=scaffold)
         return scaffold
 
@@ -82,8 +81,23 @@ class Design(object):
                 f"Failed to initialize nanodesign due to missing files: {self.json} {self.seq}")
             raise FileNotFoundError
         converter.dna_structure.compute_aux_data()
-        self.Dhp_skips = converter.dna_structure.Dhp_skips
-        return converter.dna_structure
+        dnaStructure = converter.dna_structure
+
+        # TODO: implement without reusing converter
+        converter = Converter()
+        converter.modify = False
+        converter.read_cadnano_file(self.json, None, self.seq)
+        converter.dna_structure.compute_aux_data()
+        dna_structure_del_ins = converter.dna_structure
+
+        hps_deletions = set()
+        for strand in dna_structure_del_ins.strands:
+            for base in strand.tour:
+                if base.num_deletions != 0:
+                    hps_deletions.add((base.h, base.p))
+
+        self.Dhp_skips = hps_deletions
+        return dnaStructure
 
     def _create_helix_order(self) -> Dict[int, int]:
         """ helices are not listed in the json in same order as they are listed

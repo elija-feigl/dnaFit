@@ -1,6 +1,5 @@
 
 import numpy as np
-import MDAnalysis as mda
 from MDAnalysis.core.groups import Residue
 import attr
 from typing import Dict, Tuple
@@ -59,7 +58,7 @@ class BasePair(object):
         P = dict()
         atom = []
         for atom_name in ["C2", "C4", "C6"]:
-            A = res.atoms.select_atoms("name " + atom_name)[0]
+            A, = res.atoms.select_atoms("name " + atom_name)
             atom.append(A.position)
 
         n0 = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[0])))
