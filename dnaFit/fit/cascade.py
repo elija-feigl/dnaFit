@@ -1,21 +1,15 @@
-import sys
-import attr
 import inspect
-import subprocess
 import logging
-
+import sys
+import warnings
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
-import numpy as np
-import MDAnalysis as mda
-
-from .atomic_model_fit import AtomicModelFit
 from .. import get_resource
-from ..core.utils import _get_executable
-from ..data.mrc import recenter_mrc
+from ..core.utils import _get_executable, _exec
+from .atomic_model_fit import AtomicModelFit
 
-import warnings
 warnings.filterwarnings('ignore')
 
 """ mrDNA driven cascade fitting simulation class.
@@ -35,65 +29,28 @@ TS_RELAX = 18000  # steps for relax enrgMD
 ###############################################################################
 
 
-def external_docking_loop(prefix):
-    ##########################################################################
-    # TODO -low-: implement automatic alignment or python UI based alignment
-    # BREAK: reorient helix and fit still external
-    conf = Path(f"./{prefix}.pdb")
-    while True:
-        input(
-            f"You need to manually align mrc and pdb using VMD. save as {conf} and press ENTER")
-        if conf.is_file():
-            return conf
-
-
-def _exec(cmd):
-    process = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, universal_newlines=True)
-    for line in process.stdout:
-        sys.stdout.write(line)
-        sys.stdout.flush()
-
-
-@attr.s
+@dataclass
 class Cascade(object):
     """ Cascade simulation class
     """
-    conf: Path = attr.ib()
-    top: Path = attr.ib()
-    exb: Path = attr.ib()
-    mrc: Path = attr.ib()
-    recenter: bool = attr.ib()
-    is_docked: bool = attr.ib()
+    conf: Path
+    top: Path
+    exb: Path
+    mrc: Path
 
     def __attrs_post_init__(self) -> None:
         self.prefix: str = self.top.stem
         self.logger = logging.getLogger(__name__)
-
-        # internally moving to center at origin simplifies rotation in vmd
-        self.logger.info("internal recenter at origin for rotation in vmd")
-        self.mrc_shift = recenter_mrc(self.mrc)
-        self.logger.debug(f"shifted mrc file by: {self.mrc_shift}")
-        self._recenter_conf(conf=self.conf)
-
-        if not self.is_docked:
-            self.conf = external_docking_loop(self.prefix)
-
         self._split_exb_file()
 
         self.charmrun = _get_executable("charmrun")
         self.namd2 = _get_executable("namd2")
         self.vmd = _get_executable("vmd")
 
-    def _recenter_conf(self, conf: Path, to_position=np.array([0.0, 0.0, 0.0])) -> None:
-        u = mda.Universe(str(self.top), str(conf))
-        translation = to_position - u.atoms.center_of_geometry()
-        u.atoms.translate(translation)
-        u.atoms.write(str(conf))
-
     def _split_exb_file(self) -> None:
         self.logger.info(
             "assuming annotated, sorted .exb files (mrDNA > march 2021)")
+        # TODO: alternative splittings
         with self.exb.open(mode='r') as f:
             exb_data = f.readlines()
         exb_split: List[List[str]] = list()
@@ -289,10 +246,6 @@ class Cascade(object):
             self.logger.error(
                 f"cascaded fit incomplete. {final_conf} not found ")
             sys.exit(1)
-        # revert internal recentering to align with original mrc data
-        self.logger.debug(
-            f"shifted mrc & pdb file back using previous shift: {self.mrc_shift}")
-        _ = recenter_mrc(self.mrc, to_position=self.mrc_shift)
-        self._recenter_conf(conf=final_conf, to_position=self.mrc_shift)
+
         return AtomicModelFit(
             conf=final_conf, top=self.top, mrc=self.mrc)

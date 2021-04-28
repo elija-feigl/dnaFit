@@ -10,7 +10,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0])) -> np.ndarray:
+def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0]), apply=True) -> np.ndarray:
     with mrcfile.open(path, mode='r+') as mrc:
         c = np.array(mrc.header["cella"])
         half_box = 0.5 * np.array([c["x"], c["y"], c["z"]])
@@ -20,7 +20,8 @@ def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0])) -> np.ndarra
         origin = np.array([h["x"], h["y"], h["z"]])
 
         shift = to_origin - origin
-        mrc.header["origin"] = tuple(shift)
+        if apply:
+            mrc.header["origin"] = tuple(shift)
         return -shift
 
 

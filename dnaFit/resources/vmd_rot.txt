@@ -1,0 +1,11 @@
+vmd -m NAME.mrc -f NAME.psf NAME.pdb
+
+    open Tcl-Console:
+        >> set sel [atomselect top all];
+        >> set com [measure center $sel weight mass];
+
+    to rotate around y by 10deg:
+        >> $sel moveby [vecscale -1.0 $com]; set matrix [transaxis y 10]; $sel move $matrix; $sel moveby [vecscale 1.0 $com];
+
+    after roughly docked:
+        >> $sel writepdb NAME-docked.pdb

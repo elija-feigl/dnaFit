@@ -1,4 +1,7 @@
 import os
+import sys
+import subprocess
+
 import numpy as np
 
 from typing import List
@@ -102,3 +105,11 @@ def _get_executable(name: str):
         if os.path.isfile(exe) and os.access(exe, os.X_OK):
             return exe
     raise Exception(f"{name} was not found")
+
+
+def _exec(cmd):
+    process = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, universal_newlines=True)
+    for line in process.stdout:
+        sys.stdout.write(line)
+        sys.stdout.flush()

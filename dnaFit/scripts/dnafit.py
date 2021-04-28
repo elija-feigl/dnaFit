@@ -3,19 +3,19 @@
 
 import logging
 import os
-import subprocess
-import sys
+
 from pathlib import Path
 from shutil import copyfile, copytree
 
 import click
 from dnaFit import get_resource
-from dnaFit.core.utils import _get_executable
-from dnaFit.data.mrc import write_mrc_from_atoms
+from dnaFit.core.mrDna import run_mrDNA, prep_cascaded_fitting, recenter_conf
+from dnaFit.data.mrc import write_mrc_from_atoms, recenter_mrc
 from dnaFit.fit.atomic_model_fit import AtomicModelFit
 from dnaFit.fit.cascade import Cascade
 from dnaFit.pdb.structure import Structure
 from dnaFit.version import get_version
+
 
 """ cascaded mrDNA-driven MD flexible fitting:
 """
@@ -36,74 +36,6 @@ def cli():
     pass
 
 
-def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory: str = "mrDNA", gpu: int = 0, multidomain=False):
-    """ running a mrDNA simulation by executing mrDNA externally
-            all files are automatically written into a folder "mrDNA"
-            checks of completion of mrDNA run
-    """
-    home_directory = os.getcwd()
-    try:
-        Path(directory).mkdir(parents=True, exist_ok=True)
-        os.chdir(directory)
-        logger.debug(f"changing directory to: {os.getcwd()}")
-
-        mrDNA = _get_executable("mrdna")
-
-        input_mrDNA = f"-o {prefix} -d {directory} -g {gpu} --run-enrg-md --sequence-file "
-        if multidomain:
-            input_mrDNA += "--coarse-steps 3e7 --crossover-to-intrahelical-cutoff 25 --coarse-bond-cutoff 300 "
-        input_mrDNA += f"{seq_file} {cad_file}"
-
-        input_mrDNA
-        cmd = (str(mrDNA), input_mrDNA)
-
-        logger.info(f"mrDNA: with {cmd}")
-        process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, universal_newlines=True)
-        for line in process.stdout:
-            sys.stdout.write(line)
-            sys.stdout.flush()
-
-        logger.info("mrDNA: finished. Checking for final files.")
-        is_ok = (os.path.isfile(f"./{prefix}-3.psf")
-                 and os.path.isfile(f"./{prefix}-3.pdb")
-                 and os.path.isfile(f"./{prefix}-3.exb"))
-        if not is_ok:
-            logger.error("At least one of mrdna's *-3. files was not created")
-            sys.exit(1)
-
-    finally:
-        os.chdir(home_directory)
-        logger.debug(f"changing directory to: {os.getcwd()}")
-
-
-def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
-    """ prep cascaded fitting:
-            prepares a new folder "dnaFit" with files from a finished mrDNA run
-            in subfolder "mrDNA" and copies necessary files.
-    """
-    home_directory = os.getcwd()
-    try:
-        Path("dnaFit").mkdir(parents=True, exist_ok=True)
-        os.chdir("dnaFit")
-        logger.debug(f"changing directory to: {os.getcwd()}")
-
-        copyfile(cad_file, f"./{prefix}.json")
-        copyfile(seq_file, f"./{prefix}.seq")
-
-        copyfile(f"../mrDNA/{prefix}-3.psf", f"./{prefix}.psf")
-        copyfile(f"../mrDNA/{prefix}-3.exb", f"./{prefix}.exb")
-        copyfile(f"../mrDNA/{prefix}-3.pdb", f"./{prefix}-undocked.pdb")
-        copytree("../mrDNA/charmm36.nbfix", "./charmm36.nbfix")
-    except Exception:
-        logger.exception(
-            f"mrDNA: failed to copy mrDNA files to working directory {os.getcwd()}")
-        raise Exception
-    finally:
-        os.chdir(home_directory)
-        logger.debug(f"changing directory to: {os.getcwd()}")
-
-
 @cli.command()
 @click.argument('cadnano', type=click.Path(exists=True))
 @click.argument('mrc', type=click.Path(exists=True))
@@ -121,8 +53,8 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path):
               help='retain Sr bonds troughout fitting cascade.')
 @click.option('--movie', is_flag=True,
               help='short run with optimal parameters for visual representation as movie. overrides timesteps')
-def mrDnaFit(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multidomain, SR_fitting, movie):
-    """mrDNA simulation of CADNANO design file followed by cascaded
+def mrDna(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multidomain, SR_fitting, movie):
+    """ mrDNA simulation of CADNANO design file followed by prep of cascaded
         mrDNA-driven MD flexible fitting to MRC cryo data
 
         CADNANO is the name of the design file [.json]\n
@@ -138,64 +70,73 @@ def mrDnaFit(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multido
 
     run_mrDNA(cad_file, seq_file, prefix, directory="mrDNA",
               gpu=gpu, multidomain=multidomain)
-    prep_cascaded_fitting(prefix, cad_file, seq_file)
+
+    prep_cascaded_fitting(prefix, cad_file, seq_file, mrc_file)
 
     # TODO: -low- parse & set additional fitting parameters
+    # TODO: move to separate object
     copyfile(mrc_file, f"./dnaFit/{prefix}.mrc")
 
-    # NOTE changing design and sequence file to copy in folder dnaFit to ensure consistency
-    mrc_file = Path(f"./dnaFit/{prefix}.mrc").resolve()
-    cad_file = Path(f"./dnaFit/{prefix}.json").resolve()
-    seq_file = Path(f"./dnaFit/{prefix}.seq").resolve()
-    top = Path(f"./dnaFit/{prefix}.psf").resolve()
-    conf = Path(f"./dnaFit/{prefix}-undocked.pdb").resolve()
-    exb = Path(f"./dnaFit/{prefix}.exb").resolve()
+    logger.info("Config file is moved to center of mass with mrc map but still \
+        has to be rotated before fitting. execute vmd_info for additional info")
 
-    home_directory = os.getcwd()
-    try:
-        os.chdir("dnaFit")
-        logger.debug(f"changing directory to: {os.getcwd()}")
-
-        # NOTE: creating Cascade object triggers external docking prompt
-        cascade = Cascade(conf=conf, top=top, mrc=mrc_file,
-                          exb=exb, recenter=True, is_docked=False)
-        # NOTE: fit is moved back to original mrc position, recentering invisible to user
-        dnaFit = cascade.run_cascaded_fitting(
-            base_time_steps=timesteps, resolution=resolution, is_SR=SR_fitting, is_film=movie)
-        dnaFit.write_linkage(cad_file, seq_file)
-        dnaFit.write_output(dest=home_directory,
-                            write_mmCif=True, crop_mrc=True)
-
-    finally:
-        os.chdir(home_directory)
-        logger.debug(f"changing directory to: {os.getcwd()}")
+# TODO: enrgMD only setup
 
 
 @cli.command()
-@click.argument('cadnano', type=click.Path(exists=True))
-@click.argument('sequence', type=click.Path(exists=True))
 @click.argument('mrc', type=click.Path(exists=True))
 @click.argument('top', type=click.Path(exists=True))
 @click.argument('conf', type=click.Path(exists=True))
-@click.option('-g', '--gpu', type=int, default=0, help='GPU used for simulation', show_default=True)
-@click.option('-o', '--output-prefix', 'prefix', type=str, default=None,
-              help="short design name, default to json name")
-@click.option('--timesteps', type=int, default=12000,
-              help='timesteps per cascade (multiple of 12)')
-@click.option('--resolution', type=float, default=10.0,
-              help='mrc map resolution in Angstrom')
-@click.option('--pdb-docked', is_flag=True,
-              help='add if pdb has already been docked to the mrc data')
-@click.option('--SR-fitting', is_flag=True,
-              help='retain Sr bonds troughout fitting cascade.')
-def fit(cadnano, sequence, mrc, top, conf, gpu, prefix, timesteps, resolution, pdb_docked, SR_fitting):
+def center_on_map(mrc, top, conf):
+    """ recenter atomic model on mrc cryo map
+
+        MRC is the name of the cryo EM volumetric data file [.mrc]\n
+        TOP is the name of the namd topology file [.top]\n
+        CONF is the name of the namd configuration file, docked to map (VMD)  [.pdb, .coor]\n
+    """
+    # NOTE: click will drop python2 support soon and actually return a Path
+    mrc = Path(mrc).resolve()
+    top = Path(top).resolve()
+    conf = Path(conf).resolve()
+    conf_docked = conf.with_name(f"{conf.stem}-docked.pdb")
+    copyfile(conf, conf_docked)
+
+    mrc_shift = recenter_mrc(mrc, apply=False)
+    recenter_conf(top=top, conf=conf_docked, to_position=mrc_shift)
+
+
+@ cli.command()
+def vmd_info():
+    """ Print VMD command for rotation of pdb around center of mass
+    """
+    logger.info(get_resource("vmd_rot.txt").read_text())
+
+
+@ cli.command()
+@ click.argument('cadnano', type=click.Path(exists=True))
+@ click.argument('sequence', type=click.Path(exists=True))
+@ click.argument('mrc', type=click.Path(exists=True))
+@ click.argument('top', type=click.Path(exists=True))
+@ click.argument('conf', type=click.Path(exists=True))
+@ click.argument('exb', type=click.Path(exists=True))
+@ click.option('-g', '--gpu', type=int, default=0, help='GPU used for simulation', show_default=True)
+@ click.option('-o', '--output-prefix', 'prefix', type=str, default=None,
+               help="short design name, default to json name")
+@ click.option('--timesteps', type=int, default=12000,
+               help='timesteps per cascade (multiple of 12)')
+@ click.option('--resolution', type=float, default=10.0,
+               help='mrc map resolution in Angstrom')
+@ click.option('--SR-fitting', is_flag=True,
+               help='retain Sr bonds troughout fitting cascade.')
+def fit(cadnano, sequence, mrc, top, conf, exb, gpu, prefix, timesteps, resolution, pdb_docked, SR_fitting):
     """Cascaded mrDNA-driven MD flexible fitting to MRC cryo data, creates dnaFit folder
 
         CADNANO is the name of the design file [.json]\n
         SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
         MRC is the name of the cryo EM volumetric data file [.mrc]\n
         TOP is the name of the namd topology file [.top]\n
-        CONF is the name of the namd configuration file [.pdb, .coor]\n
+        CONF is the name of the namd configuration file, docked to map (VMD)  [.pdb, .coor]\n
+        EXB is the name of the enrgMD extrabond file (expect mrDNA > march 2021) [.exb]
     """
     # NOTE: click will drop python2 support soon and actually return a Path
     cad_file = Path(cadnano).resolve()
@@ -203,6 +144,7 @@ def fit(cadnano, sequence, mrc, top, conf, gpu, prefix, timesteps, resolution, p
     mrc_file = Path(mrc).resolve()
     top = Path(top).resolve()
     conf = Path(conf).resolve()
+    exb = Path(exb).resolve()
     prefix = cad_file.stem if prefix is None else prefix
 
     # create duplicates of input files in dnaFit folder
@@ -210,9 +152,9 @@ def fit(cadnano, sequence, mrc, top, conf, gpu, prefix, timesteps, resolution, p
     copyfile(cadnano, f"./dnaFit/{prefix}.json")
     copyfile(sequence, f"./dnaFit/{prefix}.seq")
     copyfile(mrc, f"./dnaFit/{prefix}.mrc")
-    pdb_tag = "" if pdb_docked else "-undocked"
-    copyfile(conf, f"./dnaFit/{prefix}{pdb_tag}.pdb")
+    copyfile(conf, f"./dnaFit/{prefix}.pdb")
     copyfile(top, f"./dnaFit/{prefix}.psf")
+    copyfile(exb, f"./dnaFit/{prefix}.exb")
 
     home_directory = os.getcwd()
     try:
@@ -222,20 +164,18 @@ def fit(cadnano, sequence, mrc, top, conf, gpu, prefix, timesteps, resolution, p
         cad_file = Path(f"./{prefix}.json").resolve()
         seq_file = Path(f"./{prefix}.seq").resolve()
         top_file = Path(f"./{prefix}.psf").resolve()
-        con_file = Path(f"./{prefix}{pdb_tag}.pdb").resolve()
+        con_file = Path(f"./{prefix}.pdb").resolve()
         exb_file = Path(f"./{prefix}.exb").resolve()
         if not Path("./charmm36.nbfix").exists():
             copytree(get_resource("charmm36.nbfix"), "./charmm36.nbfix")
 
-        # NOTE: creating Cascade object triggers external docking prompt
-        cascade = Cascade(conf=con_file, top=top_file, mrc=mrc_file,
-                          exb=exb_file, recenter=True, is_docked=False)
+        cascade = Cascade(conf=con_file, top=top_file,
+                          mrc=mrc_file, exb=exb_file)
         dnaFit = cascade.run_cascaded_fitting(
             base_time_steps=timesteps, resolution=resolution, is_SR=SR_fitting)
         dnaFit.write_linkage(cad_file, seq_file)
         dnaFit.write_output(dest=home_directory,
                             write_mmCif=True, crop_mrc=True)
-
     finally:
         os.chdir(home_directory)
         logger.debug(f"changing directory to: {os.getcwd()}")
@@ -304,7 +244,7 @@ def mask(mrc, top, conf, enrgMD_server):
 @click.argument('pdb', type=click.Path(exists=True))
 @click.option('--remove-H', is_flag=True,
               help='remove hydrogen atoms')
-def pdb2CIF(pdb, remove_H):
+def pdb2CIF(pdb, remove_h):
     """ generate mmCIF from namd pdb
 
         PDB is the name of the namd configuration file [.pdb]\n
@@ -312,7 +252,7 @@ def pdb2CIF(pdb, remove_H):
     # NOTE: click will drop python2 support soon and actually return a Path
     pdb = Path(pdb).resolve()
 
-    structure = Structure(path=pdb, remove_H=remove_H)
+    structure = Structure(path=pdb, remove_H=remove_h)
     structure.parse_pdb()
     # TODO: -low- ask for additional info (name, author, etc)
     output_name = pdb.with_suffix(".cif")
