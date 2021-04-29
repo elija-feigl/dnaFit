@@ -101,7 +101,7 @@ def _dh_angle(p: list, as_rad=False):  # slow
 def _get_executable(name: str):
     # TODO: use pathlib only
     for path in os.environ["PATH"].split(os.pathsep):
-        exe = os.path.join(path.strip('"'), "name")
+        exe = os.path.join(path.strip('"'), name)
         if os.path.isfile(exe) and os.access(exe, os.X_OK):
             return exe
     raise Exception(f"{name} was not found")

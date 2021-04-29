@@ -38,7 +38,7 @@ class Cascade(object):
     exb: Path
     mrc: Path
 
-    def __attrs_post_init__(self) -> None:
+    def __post_init__(self) -> None:
         self.prefix: str = self.top.stem
         self.logger = logging.getLogger(__name__)
         self._split_exb_file()
@@ -74,7 +74,8 @@ class Cascade(object):
     def run_cascaded_fitting(self, base_time_steps: int, resolution: float, is_SR=False, is_film=False):
         def run_namd():
             # TODO: skipping folders that already are complete
-            cmd = f"{self.charmrun} + p32 {self.namd2} + netpoll $1 2 > &1 | tee {output_name}.log"
+            cmd = (self.charmrun, "+p32", self.namd2, "+netpoll",
+                   namd_file, f"2 > &1 | tee {output_name}.log")
             self.logger.info(f"cascade:  with {cmd}")
             _exec(cmd)
             return output_name
@@ -91,7 +92,7 @@ class Cascade(object):
                     set TS {ts}
                     set MS {ms}
                     set GRIDON {mdff}
-                    set DIEL{dielectr_constant}
+                    set DIEL {dielectr_constant}
                     set GSCALE {gscale}
                     set GRIDFILE {grid_file}
                     set GRIDPDB {grid_pdb}
@@ -99,7 +100,7 @@ class Cascade(object):
                     set ENRGMDON on
                     set ENRGMDBONDS {enrgmd_file}
 
-                    set OUTPUTNAME{output_name}
+                    set OUTPUTNAME {output_name}
                     set TSLAST {time_steps_last}
                     set N {step}
                     set PREVIOUS {folder_last}
@@ -124,9 +125,9 @@ class Cascade(object):
                 f"mdff gridpdb -psf {self.top} -pdb {self.conf} -o {grid_pdb}")
             lines.append("exit")
 
-            with Path("mdff-prep.vmd").open() as f:
+            with vmd_prep.open(mode='w') as f:
                 f.writelines(lines)
-            cmd = f"{self.vmd} -dispdev text -eofexit -e {vmd_prep}"
+            cmd = (self.vmd, "-dispdev text", f"-eofexit -e {vmd_prep}")
             self.logger.info(f"vmd prep:  with {cmd}")
             _exec(cmd)
             return grid_pdb
@@ -150,10 +151,10 @@ class Cascade(object):
             lines.append("set sel [atomselect top all]")
             lines.append(f"$sel writepdb {name}-last.pdb")
             lines.append("exit")
-            with vmd_post.open() as f:
+            with vmd_post.open(mode='w') as f:
                 f.writelines(lines)
 
-            cmd = f"{self.vmd} -dispdev text -eofexit -e {vmd_post}"
+            cmd = (self.vmd, "-dispdev text", f"-eofexit -e {vmd_post}")
             self.logger.info(f"vmd postprocess:  with {cmd}")
             _exec(cmd)
 
@@ -182,8 +183,10 @@ class Cascade(object):
         # pure enrgMD run without map
         step = -1
         time_steps_last = 0
-        folder_last = ""
+        folder_last = "none"
         output_name = "enrgMD"
+        grid_file = "none"
+        enrgmd_file = "none"
         time_steps_last = create_namd_file(
             namd_file, ts=ts_enrg, ms=ms_enrg, mdff="0")
         self.logger.debug(f"{output_name}: ts={ts_enrg}, ms={ms_enrg}, mdff=0")

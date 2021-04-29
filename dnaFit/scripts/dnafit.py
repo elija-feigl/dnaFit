@@ -49,11 +49,7 @@ def cli():
               help='mrc map resolution in Angstrom')
 @click.option('--multidomain', is_flag=True,
               help='multidomain structures require different settings for equilibration')
-@click.option('--SR-fitting', is_flag=True,
-              help='retain Sr bonds troughout fitting cascade.')
-@click.option('--movie', is_flag=True,
-              help='short run with optimal parameters for visual representation as movie. overrides timesteps')
-def mrDna(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multidomain, SR_fitting, movie):
+def mrDna(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multidomain):
     """ mrDNA simulation of CADNANO design file followed by prep of cascaded
         mrDNA-driven MD flexible fitting to MRC cryo data
 
@@ -128,7 +124,7 @@ def vmd_info():
                help='mrc map resolution in Angstrom')
 @ click.option('--SR-fitting', is_flag=True,
                help='retain Sr bonds troughout fitting cascade.')
-def fit(cadnano, sequence, mrc, top, conf, exb, gpu, prefix, timesteps, resolution, pdb_docked, SR_fitting):
+def fit(cadnano, sequence, mrc, top, conf, exb, gpu, prefix, timesteps, resolution, sr_fitting):
     """Cascaded mrDNA-driven MD flexible fitting to MRC cryo data, creates dnaFit folder
 
         CADNANO is the name of the design file [.json]\n
@@ -172,7 +168,7 @@ def fit(cadnano, sequence, mrc, top, conf, exb, gpu, prefix, timesteps, resoluti
         cascade = Cascade(conf=con_file, top=top_file,
                           mrc=mrc_file, exb=exb_file)
         dnaFit = cascade.run_cascaded_fitting(
-            base_time_steps=timesteps, resolution=resolution, is_SR=SR_fitting)
+            base_time_steps=timesteps, resolution=resolution, is_SR=sr_fitting)
         dnaFit.write_linkage(cad_file, seq_file)
         dnaFit.write_output(dest=home_directory,
                             write_mmCif=True, crop_mrc=True)

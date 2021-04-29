@@ -98,7 +98,7 @@ class Structure(object):
         raise NotImplementedError
 
     def parse_pdb(self) -> None:
-        with self.path.open() as fi:
+        with self.path.open(mode='r') as fi:
             for line in fi.readlines():
                 lineType = line[0:6].strip()
                 if lineType == "ATOM":

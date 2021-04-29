@@ -8,7 +8,7 @@ def get_resource(resources: str) -> Path:
 
 def _init_logging():
     logger = logging.getLogger(__name__)
-    # logger.setLevel(logging.INFO)
+    logger.setLevel(logging.INFO)
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
         '%(asctime)s | [%(name)s] %(levelname)s - %(message)s')
