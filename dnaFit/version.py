@@ -1,6 +1,6 @@
 from typing import List
 
-__version__ = "0.5"
+__version__ = "0.6"
 __authors__ = ["Elija Feigl"]
 __copyright__ = "Copyright 2021, Dietzlab (TUM)"
 __credits__ = ["Autodesk: Nanodesign", "MDAnalysis", "mrcfile"]

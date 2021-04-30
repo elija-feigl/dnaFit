@@ -60,25 +60,29 @@ class Cascade(object):
                 exb_split.append(bond_list)
                 bond_list = list()
             bond_list.append(line)
+        exb_split.pop(0)
 
         with self.exb.with_name(f"{self.prefix}-BP.exb").open(mode='w') as f:
             for bond_list in exb_split:
-                if bond_list[0].startswith("# PAIR"):
+                if bond_list[0].lower().startswith("# pair"):
                     f.writelines(bond_list)
 
         with self.exb.with_name(f"{self.prefix}-SR.exb").open(mode='w') as f:
             for bond_list in exb_split:
-                if not bond_list[0].startswith("# PUSHBONDS"):
+                if not bond_list[0].lower().startswith("# pushbonds"):
                     f.writelines(bond_list)
 
-    def run_cascaded_fitting(self, base_time_steps: int, resolution: float, is_SR=False, is_film=False, is_enrgMD=False):
+    def run_cascaded_fitting(self, base_time_steps: int, resolution: float,
+                             is_SR=False, is_film=False, is_enrgMD=False):
         def run_namd():
-            # TODO: skipping folders that already are complete
-            cmd = (self.charmrun, "+p32", self.namd2, "+netpoll",
-                   namd_file, f"2 > &1 | tee {output_name}.log")
-            self.logger.info(f"cascade:  with {cmd}")
-            _exec(cmd)
-            return output_name
+            if not Path(folder).is_dir():
+                Path(folder).mkdir()
+                cmd = f"{self.charmrun} +p32 {self.namd2} +netpoll {namd_file} 2 > &1 | tee {folder}.log".split()
+                self.logger.info(f"cascade:  with {cmd}")
+                _exec(cmd)
+            else:
+                self.logger.info(f"skipping existing cascade:  with {cmd}")
+            return folder
 
         def create_namd_file(namd_file, ts, ms=0, mdff="1"):
             with namd_file.open(mode='w') as f:
@@ -88,6 +92,7 @@ class Cascade(object):
                     namd_base = get_resource("namd_film.txt").read_text()
                 namd_header = get_resource("namd_header.txt").read_text()
                 namd_parameters = inspect.cleandoc(f"""
+                    set INIT {init}
                     set PREFIX {prefix}
                     set TS {ts}
                     set MS {ms}
@@ -100,17 +105,15 @@ class Cascade(object):
                     set ENRGMDON on
                     set ENRGMDBONDS {enrgmd_file}
 
-                    set OUTPUTNAME {output_name}
                     set TSLAST {time_steps_last}
-                    set N {step}
-                    set PREVIOUS {folder_last}
+                    set CURRENT {folder}
+                    set PREVIOUS {previous_folder}
                     """)
                 f.write("\n".join([namd_header, namd_parameters, namd_base]))
             return (time_steps_last + ts)
 
         def vmd_prep():
             vmd_prep = Path("mdff-prep.vmd")
-            grid_pdb = Path("grid.pdb")
             lines = ["package require volutil", "package require mdff"]
 
             lines.append(
@@ -126,11 +129,10 @@ class Cascade(object):
             lines.append("exit")
 
             with vmd_prep.open(mode='w') as f:
-                f.writelines(lines)
-            cmd = (self.vmd, "-dispdev text", f"-eofexit -e {vmd_prep}")
+                f.write('\n'.join(lines))
+            cmd = f"{self.vmd} -dispdev text -eofexit -e {vmd_prep}".split()
             self.logger.info(f"vmd prep:  with {cmd}")
             _exec(cmd)
-            return grid_pdb
 
         def vmd_post():
             vmd_post = Path("mdff-post.vmd")
@@ -152,9 +154,9 @@ class Cascade(object):
             lines.append(f"$sel writepdb {name}-last.pdb")
             lines.append("exit")
             with vmd_post.open(mode='w') as f:
-                f.writelines(lines)
+                f.write('\n'.join(lines))
 
-            cmd = (self.vmd, "-dispdev text", f"-eofexit -e {vmd_post}")
+            cmd = f"{self.vmd} -dispdev text -eofexit -e {vmd_post}".split()
             self.logger.info(f"vmd postprocess:  with {cmd}")
             _exec(cmd)
 
@@ -177,22 +179,26 @@ class Cascade(object):
             ts_relax = TS_RELAX
 
         self.logger.debug("VMD based cascade MDff prep.")
-        grid_pdb = vmd_prep()
-        namd_file = self.top.with_name(f"{prefix}_c-mrDNA-MDff.namd")
 
-        step = -1
+        grid_pdb = Path("grid.pdb")
+        if not grid_pdb.exists():
+            vmd_prep()
+        namd_file = self.top.with_name(f"{prefix}_c-mrDNA-MDff.namd")
+        init = 1  # init on first run
+        step = 0
         time_steps_last = 0
-        folder_last = "none"
+        previous_folder = "none"
 
         if is_enrgMD:  # pure enrgMD run without map
-            output_name = "enrgMD"
+            folder = "enrgMD"
             grid_file = "none"
             enrgmd_file = "none"
             time_steps_last = create_namd_file(
                 namd_file, ts=ts_enrg, ms=ms_enrg, mdff="0")
-            self.logger.debug(f"{output_name}: ts={ts_enrg}, ms={ms_enrg}, mdff=0")
-            folder_last = run_namd()
-            step += 1
+            self.logger.debug(
+                f"{folder}: ts={ts_enrg}, ms={ms_enrg}, mdff=0")
+            previous_folder = run_namd()
+            init = 0
 
         # cascades
         for cascade in range(n_repeat):
@@ -200,12 +206,12 @@ class Cascade(object):
                 # for bad docking the system will be relaxed with pure enrgMD after first iteration
                 if cascade == 1 and n == 0:
                     enrgmd_file = f"{prefix}.exb"
-                    output_name = f"{step}/{prefix}"
+                    folder = f"{step}"
                     time_steps_last = create_namd_file(
                         namd_file, ts=ts_relax, mdff="0")
                     self.logger.debug(
                         f"{step}-{cascade}-{n}: ts={TS_RELAX}, mdff=0, enrgMD relax")
-                    folder_last = run_namd()
+                    previous_folder = run_namd()
                     step += 1
 
                 if cascade == 1 and n > first_stop:
@@ -216,13 +222,14 @@ class Cascade(object):
                 else:
                     enrgmd_file = f"{prefix}.exb"
                 grid_file = f"grid-{n}.dx"
-                output_name = f"{step}/{prefix}"
+                folder = f"{step}"
                 time_steps_last = create_namd_file(
                     namd_file, ts=base_time_steps)
                 self.logger.debug(
                     f"{step}-{cascade}-{n}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
-                folder_last = run_namd()
+                previous_folder = run_namd()
                 step += 1
+                init = 0
 
         # refine by removing intrahelical bonds
         if not is_SR:
@@ -230,16 +237,16 @@ class Cascade(object):
             time_steps_last = create_namd_file(namd_file, ts=base_time_steps)
             self.logger.debug(
                 f"{step}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
-            folder_last = run_namd()
+            previous_folder = run_namd()
             step += 1
 
         # energy minimization with increased gscale to relax bonds
         gscale = 1.0
-        output_name = "final"
+        folder = "final"
         time_steps_last = create_namd_file(
             namd_file, ts=0, ms=base_time_steps)
         self.logger.debug(
-            f"{output_name}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
+            f"{folder}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
         _ = run_namd()
 
         self.logger.debug("VMD based cascade MDff prep.")

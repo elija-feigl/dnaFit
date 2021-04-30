@@ -43,13 +43,9 @@ def cli():
 @click.option('-g', '--gpu', type=int, default=0, help='GPU used for simulation', show_default=True)
 @click.option('-o', '--output-prefix', 'prefix', type=str, default=None,
               help="short design name, default to json name")
-@click.option('--timesteps', type=int, default=12000,
-              help='timesteps per cascade (multiple of 12)')
-@click.option('--resolution', type=float, default=10.0,
-              help='mrc map resolution in Angstrom')
 @click.option('--multidomain', is_flag=True,
               help='multidomain structures require different settings for equilibration')
-def mrDna(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multidomain):
+def mrDna(cadnano, mrc, sequence, gpu, prefix, multidomain):
     """ mrDNA simulation of CADNANO design file followed by prep of cascaded
         mrDNA-driven MD flexible fitting to MRC cryo data
 
@@ -66,7 +62,6 @@ def mrDna(cadnano, mrc, sequence, gpu, prefix, timesteps, resolution, multidomai
 
     run_mrDNA(cad_file, seq_file, prefix, gpu=gpu, multidomain=multidomain)
     prep_cascaded_fitting(prefix, cad_file, seq_file, mrc_file)
-
 
     logger.info("Config file is moved to center of mass with mrc map but still \
         has to be rotated before fitting. execute vmd_info for additional info")
@@ -110,12 +105,13 @@ def vmd_info():
 @ click.argument('top', type=click.Path(exists=True))
 @ click.argument('conf', type=click.Path(exists=True))
 @ click.argument('exb', type=click.Path(exists=True))
-@ click.option('-g', '--gpu', type=int, default=0, help='GPU used for simulation', show_default=True)
+@ click.option('-g', '--gpu', type=int, default=0,
+               help='!Not supported yet! GPU used for simulation', show_default=True)
 @ click.option('-o', '--output-prefix', 'prefix', type=str, default=None,
                help="short design name, default to json name")
-@ click.option('--timesteps', type=int, default=12000,
+@ click.option('--timesteps', type=int, default=12000,  show_default=True,
                help='timesteps per cascade (multiple of 12)')
-@ click.option('--resolution', type=float, default=10.0,
+@ click.option('--resolution', type=float, default=10.0,  show_default=True,
                help='mrc map resolution in Angstrom')
 @ click.option('--SR-fitting', is_flag=True,
                help='retain Sr bonds troughout fitting cascade.')
@@ -137,6 +133,9 @@ def fit(cadnano, sequence, mrc, top, conf, exb, gpu, prefix, timesteps, resoluti
     conf = Path(conf).resolve()
     exb = Path(exb).resolve()
     prefix = cad_file.stem if prefix is None else prefix
+
+    # TODO: gpu support
+    logger.info("GPU currently not supported for fitting. using CPU only.")
 
     # create duplicates of input files in dnaFit folder
     Path("dnaFit").mkdir(parents=True, exist_ok=True)

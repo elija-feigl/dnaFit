@@ -35,7 +35,7 @@ parameters	    charmm36.nbfix/par_water_ions_na.prm
 wrapAll             off
 
 
-if {$N < 0} {
+if {$INIT} {
   temperature $ITEMP
 }
  
@@ -85,7 +85,7 @@ if {$ITEMP == $FTEMP} {
 #   	Output
 ############################################################################
 
-outputName         $OUTPUTNAME
+outputName         $CURRENT/$PREFIX
 useGroupPressure   yes
 xstFreq            1200
 restartfreq        1200
@@ -133,7 +133,7 @@ cellBasisVector3 0 0 $BOX
 
 
 #continue run
-if {$N >= 0} {
+if {!$INIT} {
   bincoordinates $PREVIOUS/$PREFIX.coor
   binvelocities  $PREVIOUS/$PREFIX.vel
 }
