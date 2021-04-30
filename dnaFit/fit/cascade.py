@@ -71,7 +71,7 @@ class Cascade(object):
                 if not bond_list[0].startswith("# PUSHBONDS"):
                     f.writelines(bond_list)
 
-    def run_cascaded_fitting(self, base_time_steps: int, resolution: float, is_SR=False, is_film=False):
+    def run_cascaded_fitting(self, base_time_steps: int, resolution: float, is_SR=False, is_film=False, is_enrgMD=False):
         def run_namd():
             # TODO: skipping folders that already are complete
             cmd = (self.charmrun, "+p32", self.namd2, "+netpoll",
@@ -180,24 +180,25 @@ class Cascade(object):
         grid_pdb = vmd_prep()
         namd_file = self.top.with_name(f"{prefix}_c-mrDNA-MDff.namd")
 
-        # pure enrgMD run without map
         step = -1
         time_steps_last = 0
         folder_last = "none"
-        output_name = "enrgMD"
-        grid_file = "none"
-        enrgmd_file = "none"
-        time_steps_last = create_namd_file(
-            namd_file, ts=ts_enrg, ms=ms_enrg, mdff="0")
-        self.logger.debug(f"{output_name}: ts={ts_enrg}, ms={ms_enrg}, mdff=0")
-        folder_last = run_namd()
+
+        if is_enrgMD:  # pure enrgMD run without map
+            output_name = "enrgMD"
+            grid_file = "none"
+            enrgmd_file = "none"
+            time_steps_last = create_namd_file(
+                namd_file, ts=ts_enrg, ms=ms_enrg, mdff="0")
+            self.logger.debug(f"{output_name}: ts={ts_enrg}, ms={ms_enrg}, mdff=0")
+            folder_last = run_namd()
+            step += 1
 
         # cascades
         for cascade in range(n_repeat):
             for n in range(n_cascade):
                 # for bad docking the system will be relaxed with pure enrgMD after first iteration
                 if cascade == 1 and n == 0:
-                    step += 1
                     enrgmd_file = f"{prefix}.exb"
                     output_name = f"{step}/{prefix}"
                     time_steps_last = create_namd_file(
@@ -205,6 +206,7 @@ class Cascade(object):
                     self.logger.debug(
                         f"{step}-{cascade}-{n}: ts={TS_RELAX}, mdff=0, enrgMD relax")
                     folder_last = run_namd()
+                    step += 1
 
                 if cascade == 1 and n > first_stop:
                     break
@@ -214,22 +216,22 @@ class Cascade(object):
                 else:
                     enrgmd_file = f"{prefix}.exb"
                 grid_file = f"grid-{n}.dx"
-                step += 1
                 output_name = f"{step}/{prefix}"
                 time_steps_last = create_namd_file(
                     namd_file, ts=base_time_steps)
                 self.logger.debug(
                     f"{step}-{cascade}-{n}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
                 folder_last = run_namd()
+                step += 1
 
         # refine by removing intrahelical bonds
         if not is_SR:
-            step += 1
             enrgmd_file = f"{prefix}-BP.exb"
             time_steps_last = create_namd_file(namd_file, ts=base_time_steps)
             self.logger.debug(
                 f"{step}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
             folder_last = run_namd()
+            step += 1
 
         # energy minimization with increased gscale to relax bonds
         gscale = 1.0
