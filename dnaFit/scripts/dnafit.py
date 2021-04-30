@@ -15,6 +15,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
+
 import logging
 import os
 
@@ -149,6 +150,9 @@ def fit(cadnano, sequence, mrc, top, conf, exb, prefix, timesteps, resolution, s
     conf = _check_path(conf, [".pdb", ".coor"])
     exb = _check_path(exb, [".exb"])
     prefix = cad_file.stem if prefix is None else prefix
+
+    # TODO: gpu support
+    logger.info("GPU currently not supported for fitting. using CPU only.")
 
     # create duplicates of input files in dnaFit folder
     Path("dnaFit").mkdir(parents=True, exist_ok=True)
