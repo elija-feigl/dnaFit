@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Tuple
 
 import MDAnalysis as mda
 import pandas as pd
@@ -8,15 +8,18 @@ import pandas as pd
 from ..data.basepair import BasePair
 from ..data.crossover import Crossover
 
-""" Linkage class stores the translation from cadnano base-indexing to
-    namd-indexing of bases.
-
-    COMMENTS:
-"""
-
 
 @dataclass
 class Linkage(object):
+    """ Linkage class stores the translation from cadnano base-indexing to
+        namd-indexing of bases.
+
+        COMMENTS:
+        Insertions will be assigned a negative position value to retain unique
+        keys. Multi-insertions (ins>1) receive an incremented positions.
+        If multiple multi-insertions are close to each other, their positions
+        might be ordered incorrectly.
+    """
     Fbp: Dict[int, int] = field(default_factory=dict)
     DidFid: Dict[int, int] = field(default_factory=dict)
     DhpsDid: Dict[Tuple[int, int, bool], int] = field(default_factory=dict)
@@ -26,7 +29,6 @@ class Linkage(object):
     FidSeq_global: Dict[int, str] = field(default_factory=dict)
     FidHN: Dict[int, List[int]] = field(default_factory=dict)
     Fco: Dict[str, Crossover] = field(default_factory=dict)
-    Dhp_skips: Set[Tuple[int, int]] = field(default_factory=set)
     u: mda.Universe = None
 
     def __post_init__(self) -> None:
@@ -47,7 +49,7 @@ class Linkage(object):
             f"{prefix}_F-resID--D-helix-position-strand.csv"
         FidDhps_header = ["Atomic model resID",
                           "cadnano helix", "cadnano position", "is_scaffold"]
-        FidDhps_data = {Fid: self.DidDhps.get(Did, (-1, -1, -1))
+        FidDhps_data = {Fid: self.DidDhps[Did]
                         for Fid, Did in self.FidDid.items()}
         out.append((FidDhps_file, FidDhps_data, FidDhps_header))
         # TODO: add more if needed

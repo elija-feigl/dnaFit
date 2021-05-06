@@ -28,6 +28,8 @@ def categorise(link: Linkage,
         expand = set()
         for resindex in selection:
             h, p, is_scaf = link.DidDhps[link.FidDid[resindex]]
+            # NOTE: insertions have negative position values
+            p = abs(p)  # hotfix for single insertions
             for i in range(-plus, plus):
                 position = (h, p + i, is_scaf)
                 if position in link.DhpsDid:  # skips included as None
@@ -67,6 +69,8 @@ def categorise(link: Linkage,
 
         nick_plus = _expand_selection(selection=nick, link=link, plus=plus)
         h, p, _ = link.DidDhps[link.FidDid[res]]
+        # NOTE: insertions have negative position values
+        p = abs(p)  # hotfix for single insertions
         identifier = f"{h}-{p}"
         typ = "nick"
         nick_segment.add(tuple([nick_plus, identifier, typ]))

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import MDAnalysis as mda
@@ -26,12 +26,12 @@ class BDna(object):
     def __post_init__(self) -> None:
         self.bps: Dict[Tuple[int, int], BasePair] = self._get_pot_bp()
         self.link.relink_crossover_basepairs(self.bps)
-        self.bp_quality: Dict[int, Any] = {}
-        self.bp_geometry_local: Dict[int, Any] = {}
-        self.bp_geometry_global: Dict[int, Any] = {}
-        self.dh_quality: Dict[int, Any] = {}
-        self.distances: Dict[int, Any] = {}
-        self.co_angles: Dict[str, Any] = {}
+        self.bp_quality: Dict[int, Any] = field(default_factory=dict)
+        self.bp_geometry_local: Dict[int, Any] = field(default_factory=dict)
+        self.bp_geometry_global: Dict[int, Any] = field(default_factory=dict)
+        self.dh_quality: Dict[int, Any] = field(default_factory=dict)
+        self.distances: Dict[int, Any] = field(default_factory=dict)
+        self.co_angles: Dict[str, Any] = field(default_factory=dict)
 
     def sample(self) -> None:
         for bp in self.bps.values():
@@ -44,6 +44,8 @@ class BDna(object):
 
     def _get_bp(self, resindex: int) -> Tuple[Tuple[int, int], BasePair]:
         h, p, is_scaf = self.link.DidDhps[self.link.FidDid[resindex]]
+        # NOTE: insertions have negative position values
+        p = abs(p)  # hotfix for single insertions
         res = self.link.u.residues[resindex]
         wcindex = self.link.Fbp_full.get(resindex, None)
         wc = None if wcindex is None else self.link.u.residues[wcindex]
@@ -84,11 +86,11 @@ class BDna(object):
         n_skips = 0
         for n in range(direct, direct * (steps + 1), direct):
             n_position = position + n
-            if (helix, n_position) in self.link.Dhp_skips:
+            if (helix, n_position) not in self.link.DhpsDid.keys():
                 n_skips += 1
         # move one position further if on skip
         n_position = position + direct * (steps + n_skips)
-        if (helix, n_position) in self.link.Dhp_skips:
+        if (helix, n_position) not in self.link.DhpsDid.keys():
             n_position += direct
 
         return self.bps.get((helix, n_position), None)

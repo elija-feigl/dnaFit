@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional
 
 from nanodesign.converters import Converter
 from nanodesign.data.base import DnaBase
@@ -33,8 +33,6 @@ class Design(object):
         self.stapleorder = self._create_staple_order()
         self.allbases = [b for s in self.design.strands for b in s.tour]
         self.Dhps_base: dict = self._init_hps_base()
-        self.Dhp_skips: Set[Tuple[int, int]] = set()
-        self.Dhp_insrt: Set[Tuple[int, int]] = set()
 
     def _init_hps_base(self):
         hps_base = dict()
@@ -79,29 +77,6 @@ class Design(object):
             raise FileNotFoundError
         converter.dna_structure.compute_aux_data()
         dnaStructure = converter.dna_structure
-
-        # TODO: implement without reusing converter
-        converter2 = Converter()
-        converter2.modify = False
-        converter2.read_cadnano_file(
-            file_name=str(self.json),
-            seq_file_name=seq,
-            seq_name=None,
-        )
-        converter2.dna_structure.compute_aux_data()
-        dna_structure_del_ins = converter2.dna_structure
-
-        hps_deletions = set()
-        hps_insertions = set()
-        for strand in dna_structure_del_ins.strands:
-            for base in strand.tour:
-                if base.num_deletions != 0:
-                    hps_deletions.add((base.h, base.p))
-                if base.num_insertions != 0:
-                    hps_insertions.add((base.h, base.p))
-
-        self.Dhp_skips = hps_deletions
-        self.Dhp_insrt = hps_insertions
         return dnaStructure
 
     def _create_helix_order(self) -> Dict[int, int]:

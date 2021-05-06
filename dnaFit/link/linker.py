@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import nanodesign as nd
 from nanodesign.data.base import DnaBase
@@ -12,12 +12,16 @@ from ..data.design import Design
 from ..data.fit import Fit
 from .linkage import Linkage
 
-""" create Linkage."""
-
 
 @dataclass
 class Linker(object):
     """ Linker class
+
+        COMMENTS:
+        Insertions will be assigned a negative position value to retain unique
+        keys. Multi-insertions (ins>1) receive an incremented positions.
+        If multiple multi-insertions are close to each other, their positions
+        might be ordered incorrectly.
     """
     conf: Path
     top: Path
@@ -38,7 +42,6 @@ class Linker(object):
         self.design: Design = Design(
             json=self.json, seq=self.seq,
             generated_with_mrdna=self.generated_with_mrdna)
-        self.Dhp_skips: Set[Tuple[int, int]] = self.design.Dhp_skips
         self.logger = logging.getLogger(__name__)
 
     def _eval_sequence(self, steps=5) -> None:
@@ -152,9 +155,22 @@ class Linker(object):
             FidSeq_global=self.FidSeq_global,
             FidHN=self.FidHN,
             u=self.fit.u,
-            Dhp_skips=self.Dhp_skips
         )
         return self.link
+
+    def _get_hp_list(self, strand: list, is_scaffold: bool) -> list:
+        Dhp = list()
+        for base in strand:
+            hps = (base.h, base.p, is_scaffold)
+            if hps in Dhp:  # insertion
+                hps = (base.h, -base.p, is_scaffold)
+            if hps in Dhp:  # multi-insertion
+                pos = -base.p
+                while hps in Dhp:
+                    pos -= 1
+                    hps = (base.h, pos, is_scaffold)
+            Dhp.append(hps)
+        return Dhp
 
     def _link(self) -> Tuple[Dict[int, int],
                              Dict[Tuple[int, int, bool], int],
@@ -174,8 +190,7 @@ class Linker(object):
             """
             Dscaffold = self.design.scaffold
             Did = [base.id for base in Dscaffold]
-            Dhp = [(base.h, base.p, True) for base in Dscaffold]
-            # TODO insertions are duplicates!!!
+            Dhp = self._get_hp_list(strand=Dscaffold, is_scaffold=True)
             Fid_local = [Did.index(base.id) for base in Dscaffold]
             Fid_global = self.fit.scaffold.residues[Fid_local].resindices
 
@@ -210,7 +225,7 @@ class Linker(object):
                 seg_id = self.design.stapleorder[i]
 
                 Did = [base.id for base in staple]
-                Dhp = [(base.h, base.p, False) for base in staple]
+                Dhp = self._get_hp_list(strand=staple, is_scaffold=False)
 
                 Fid_local = [Did.index(base.id)for base in staple]
                 Fid_global = [get_resid(seg_id, resid) for resid in Fid_local]
@@ -283,11 +298,11 @@ class Linker(object):
         n_skips = 0
         for n in range(direct, direct * (steps + 1), direct):
             n_position = position + n
-            if (helix, n_position) in self.design.Dhp_skips:
+            if (helix, n_position, True) not in self.DhpsDid:
                 n_skips += 1
         # move one position further if on skip
         n_position = position + direct * (steps + n_skips)
-        if (helix, n_position) in self.design.Dhp_skips:
+        if (helix, n_position) not in self.DhpsDid:
             n_position += direct
         return self.design.Dhps_base.get((helix, n_position, is_scaf), None)
 
