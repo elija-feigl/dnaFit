@@ -1,11 +1,11 @@
 
-import numpy as np
-from MDAnalysis.core.groups import Residue
-import attr
+from dataclasses import dataclass
 from typing import Dict, Tuple
 
-from ..core.utils import _norm
+import numpy as np
+from MDAnalysis.core.groups import Residue
 
+from ..core.utils import _norm
 
 """ BasePair Class represents a watson-crick baspair of two nanodesign base
     object. Important Attributes are their position in the design-file and
@@ -15,32 +15,34 @@ from ..core.utils import _norm
 """
 
 
-@attr.s(slots=True, frozen=True)
+@dataclass(frozen=True)
 class BasePairPlane(object):
     """n0: plane-normal vector. always pointing in scaffold 5'->3' direction
     """
-    P: Dict[str, np.ndarray] = attr.ib()
-    a: Dict[str, np.ndarray] = attr.ib()
-    n0: np.ndarray = attr.ib()
+    __slots__ = ["P", "a", "n0"]
+    P: Dict[str, np.ndarray]
+    a: Dict[str, np.ndarray]
+    n0: np.ndarray
 
 
-@attr.s(slots=True, frozen=True)
+@dataclass(frozen=True)
 class BasePlane(object):
     """n0: plane-normal vector. always pointing in scaffold 5'->3' direction
     """
-    P: Dict[str, np.ndarray] = attr.ib()
-    n0: np.ndarray = attr.ib()
+    __slots__ = ["P", "n0"]
+    P: Dict[str, np.ndarray]
+    n0: np.ndarray
 
 
-@attr.s
+@dataclass
 class BasePair(object):
     """ every square of the JSON can be represented as BP
     """
-    sc: Residue = attr.ib()
-    st: Residue = attr.ib()
-    hp: Tuple[int, int] = attr.ib()
+    sc: Residue
+    st: Residue
+    hp: Tuple[int, int]
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         if self.sc is None or self.st is None:
             self.is_ds = False
         else:

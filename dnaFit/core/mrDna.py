@@ -31,16 +31,17 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory="mrdna", gp
     _exec(cmd)
 
     logger.info("mrDNA: finished. Checking for final files.")
-    is_ok = (os.path.isfile(f"./{prefix}-{export_idx}.psf")
-             and os.path.isfile(f"./{prefix}-{export_idx}.pdb")
-             and os.path.isfile(f"./{prefix}-{export_idx}.exb"))
+    is_ok = (os.path.isfile(f"./{directory}/{prefix}-{export_idx}.psf")
+             and os.path.isfile(f"./{directory}/{prefix}-{export_idx}.pdb")
+             and os.path.isfile(f"./{directory}/{prefix}-{export_idx}.exb"))
     if not is_ok:
         logger.error(
             f"At least one of mrdna's *-{export_idx}. files was not created")
         sys.exit(1)
 
 
-def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path, mrc_file: Path, directory="mrdna"):
+def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path,
+                          mrc_file: Path, directory="mrdna", multidomain=False):
     """ prep cascaded fitting:
             prepares a new folder "dnaFit" with files from a finished mrDNA run
             in subfolder "mrDNA" and copies necessary files.
@@ -54,10 +55,15 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path, mrc_file:
         copyfile(cad_file, f"./{prefix}.json")
         copyfile(seq_file, f"./{prefix}.seq")
         copyfile(mrc_file, f"./{prefix}.mrc")
+        export_idx = 4 if multidomain else 3
+        pre_mrdna = f"../{directory}/{prefix}-{export_idx}"
+        copyfile(f"{pre_mrdna}.psf", f"./{prefix}.psf")
+        copyfile(f"{pre_mrdna}.exb", f"./{prefix}.exb")
 
-        copyfile(f"../{directory}/{prefix}-3.psf", f"./{prefix}.psf")
-        copyfile(f"../{directory}/{prefix}-3.exb", f"./{prefix}.exb")
-        copyfile(f"../{directory}/{prefix}-3.pdb", f"./{prefix}.pdb")
+        # NOTE: pdb is start not finish. use output/NAME.coor instead
+        coor = f"../{directory}/output/{prefix}-{export_idx}-1.coor"
+        u = mda.Universe(f"./{prefix}.psf", coor)
+        u.atoms.write(f"./{prefix}.pdb")
 
         mrc_shift = recenter_mrc(mrc_file, apply=False)
         recenter_conf(top=Path(f"./{prefix}.psf"),

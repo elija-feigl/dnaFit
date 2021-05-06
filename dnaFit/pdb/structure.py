@@ -1,23 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Tuple
-
-import attr
 
 from .atom import Atom
 from .files import CIF, PDB
 
 
-@attr.s
+@dataclass
 class Structure(object):
-    path: Path = attr.ib()
-    remove_H: bool = attr.ib(default=True)
-    atoms: List[Atom] = list()
+    path: Path
+    remove_H: bool = True
+    atoms: List[Atom] = field(default_factory=list)
     # TODO: default and other attributes: sequences etc
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         self.name = self.path.stem  # TODO pass name option
         self.keep_resID: bool = True
         self.previous_atm: Tuple[str, int] = ("", 0)

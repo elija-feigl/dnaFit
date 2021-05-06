@@ -61,7 +61,8 @@ def mrDna(cadnano, mrc, sequence, gpu, prefix, multidomain):
     prefix = cad_file.stem if prefix is None else prefix
 
     run_mrDNA(cad_file, seq_file, prefix, gpu=gpu, multidomain=multidomain)
-    prep_cascaded_fitting(prefix, cad_file, seq_file, mrc_file)
+    prep_cascaded_fitting(prefix, cad_file, seq_file,
+                          mrc_file, multidomain=multidomain)
 
     logger.info("Config file is moved to center of mass with mrc map but still \
         has to be rotated before fitting. execute vmd_info for additional info")
@@ -177,9 +178,9 @@ def fit(cadnano, sequence, mrc, top, conf, exb, gpu, prefix, timesteps, resoluti
 @click.argument('mrc', type=click.Path(exists=True))
 @click.argument('top', type=click.Path(exists=True))
 @click.argument('conf', type=click.Path(exists=True))
-@click.option('--enrgMD_server', is_flag=True,
-              help='add if pdb has already been docked to the mrc data')
-def link(cadnano, sequence, mrc, top, conf, enrgMD_server):
+@click.option('--enrgmd_server', is_flag=True,
+              help='add if pdb generated with enrgMD')
+def link(cadnano, sequence, mrc, top, conf, enrgmd_server):
     """ links structural information of the cadnano designfile[design.json] to
          fitted atomic model[design.psf, design.dcd].
         * linkage information ist stored in human readable csv format
@@ -198,7 +199,7 @@ def link(cadnano, sequence, mrc, top, conf, enrgMD_server):
     sequence = Path(sequence).resolve()
 
     dnaFit = AtomicModelFit(conf=conf, top=top, mrc=mrc,
-                            generated_with_mrdna=enrgMD_server)
+                            generated_with_mrdna=(not enrgmd_server))
     dnaFit.write_linkage(json=cadnano, seq=sequence)
 
 

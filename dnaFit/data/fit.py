@@ -1,12 +1,12 @@
 
+import logging
+from dataclasses import dataclass
+from operator import attrgetter
+from pathlib import Path
+from typing import List, Tuple
+
 import MDAnalysis as mda
 from MDAnalysis.core.groups import Segment
-import attr
-import logging
-from operator import attrgetter
-from typing import List, Tuple
-from pathlib import Path
-
 
 """ Fit Class managing MDAnalysis structure for a given topology and
     configuration/trajectory file of a namd simulation.
@@ -16,12 +16,12 @@ from pathlib import Path
 """
 
 
-@attr.s
+@dataclass
 class Fit(object):
-    conf: Path = attr.ib()
-    top: Path = attr.ib()
+    conf: Path
+    top: Path
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         self.u: mda.Universe = self._get_universe()
         self.scaffold, self.staples = self._split_strands()
         self.logger = logging.getLogger(__name__)

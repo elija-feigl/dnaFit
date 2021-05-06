@@ -77,11 +77,15 @@ class Cascade(object):
         def run_namd():
             if not Path(folder).is_dir():
                 Path(folder).mkdir()
-                cmd = f"{self.charmrun} +p32 {self.namd2} +netpoll {namd_file} 2 > &1 | tee {folder}.log".split()
-                self.logger.info(f"cascade:  with {cmd}")
+                cmd = f"{self.charmrun} +p32 {self.namd2} +netpoll {namd_file}".split()
+                self.logger.info(f"cascade: step {folder} with {cmd}")
                 _exec(cmd)
+                if not any(Path(folder).iterdir()):
+                    Path(folder).rmdir()
+                    self.logger.error("No files written. Abort cascade")
+                    sys.exit(1)
             else:
-                self.logger.info(f"skipping existing cascade:  with {cmd}")
+                self.logger.info(f"skipping existing cascade: {folder}")
             return folder
 
         def create_namd_file(namd_file, ts, ms=0, mdff="1"):
@@ -140,13 +144,15 @@ class Cascade(object):
             lines.append(f"mol new {self.top}")
             name = self.top.stem
             # full dcd
-            lines.append(
-                f"mol addfile ./enrgMD/{name}.dcd start 0 step 1 waitfor all")
-            for n in range(n_cascade):
+            if Path("./enrgMD").is_dir():
+                lines.append(
+                    f"mol addfile ./enrgMD/{name}.dcd start 0 step 1 waitfor all")
+            for n in range(n_cascade):  # TODO steps?
                 lines.append(
                     f"mol addfile ./{n}/{name}.dcd start 0 step 1 waitfor all")
-            lines.append(
-                f"mol addfile ./final/{name}.dcd start 0 step 1 waitfor all")
+            if Path("./final").is_dir():
+                lines.append(
+                    f"mol addfile ./final/{name}.dcd start 0 step 1 waitfor all")
 
             lines.append(f"animate write dcd {name}.dcd")
             # last frame pdb
@@ -183,7 +189,6 @@ class Cascade(object):
         grid_pdb = Path("grid.pdb")
         if not grid_pdb.exists():
             vmd_prep()
-        namd_file = self.top.with_name(f"{prefix}_c-mrDNA-MDff.namd")
         init = 1  # init on first run
         step = 0
         time_steps_last = 0
@@ -193,6 +198,8 @@ class Cascade(object):
             folder = "enrgMD"
             grid_file = "none"
             enrgmd_file = "none"
+            namd_file = self.top.with_name(
+                f"{prefix}_c-mrDNA-MDff-{folder}.namd")
             time_steps_last = create_namd_file(
                 namd_file, ts=ts_enrg, ms=ms_enrg, mdff="0")
             self.logger.debug(
@@ -207,6 +214,8 @@ class Cascade(object):
                 if cascade == 1 and n == 0:
                     enrgmd_file = f"{prefix}.exb"
                     folder = f"{step}"
+                    namd_file = self.top.with_name(
+                        f"{prefix}_c-mrDNA-MDff-{folder}.namd")
                     time_steps_last = create_namd_file(
                         namd_file, ts=ts_relax, mdff="0")
                     self.logger.debug(
@@ -223,6 +232,8 @@ class Cascade(object):
                     enrgmd_file = f"{prefix}.exb"
                 grid_file = f"grid-{n}.dx"
                 folder = f"{step}"
+                namd_file = self.top.with_name(
+                    f"{prefix}_c-mrDNA-MDff-{folder}.namd")
                 time_steps_last = create_namd_file(
                     namd_file, ts=base_time_steps)
                 self.logger.debug(
@@ -234,6 +245,8 @@ class Cascade(object):
         # refine by removing intrahelical bonds
         if not is_SR:
             enrgmd_file = f"{prefix}-BP.exb"
+            namd_file = self.top.with_name(
+                f"{prefix}_c-mrDNA-MDff-{folder}.namd")
             time_steps_last = create_namd_file(namd_file, ts=base_time_steps)
             self.logger.debug(
                 f"{step}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
@@ -243,6 +256,8 @@ class Cascade(object):
         # energy minimization with increased gscale to relax bonds
         gscale = 1.0
         folder = "final"
+        namd_file = self.top.with_name(
+            f"{prefix}_c-mrDNA-MDff-{folder}.namd")
         time_steps_last = create_namd_file(
             namd_file, ts=0, ms=base_time_steps)
         self.logger.debug(

@@ -2,24 +2,22 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-
-import attr
-
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, TextIO, TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, List, TextIO, Tuple
 
 if TYPE_CHECKING:
     from .structure import Structure
-from .types import ChainID, ResName
 
 from .. import get_resource
+from .types import ChainID, ResName
 
 
-@attr.s
+@dataclass
 class PDB(object):
-    struct: Structure = attr.ib()
+    struct: Structure
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         # TODO: get box from struct
         self.box = "1000.000 1000.000 1000.000"
 
@@ -53,11 +51,11 @@ class PDB(object):
                 of.writelines(part)
 
 
-@attr.s
+@dataclass
 class CIF(object):
-    struct: Structure = attr.ib()
+    struct: Structure
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         self.atoms: List[str] = self._set_atoms()
         self.chains, self.seqs = self._get_chains_seqs()
 

@@ -1,26 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import attr
+
+from dataclasses import dataclass
+from typing import List, Tuple, Union
+
 import numpy as np
-from typing import Union, List, Tuple
 
-from .types import Number, AtomName, ResName, ChainID
+from .types import AtomName, ChainID, Number, ResName
 
 
-@attr.s
+@dataclass
 class Atom(object):
     i_atom_coor: Union[np.ndarray, Tuple[str, str, str],
-                       Tuple[float, float, float]] = attr.ib()
-    i_atom_number: Union[int, str] = attr.ib()
-    i_atom_name: str = attr.ib()
-    i_res_name: str = attr.ib()
-    i_chain_id: Union[int, str] = attr.ib()
-    i_res_number: Union[int, str] = attr.ib()
-    i_opacity: Union[float, str] = attr.ib(default=0.0)
-    i_temperature: Union[float, str] = attr.ib(default=0.0)
+                       Tuple[float, float, float]]
+    i_atom_number: Union[int, str]
+    i_atom_name: str
+    i_res_name: str
+    i_chain_id: Union[int, str]
+    i_res_number: Union[int, str]
+    i_opacity: Union[float, str] = 0.0
+    i_temperature: Union[float, str] = 0.0
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         self.atom_coor: np.ndarray = self._convert_coor_input(self.i_atom_coor)
         self.atom_number: Number = Number(self.i_atom_number)
         self.atom_name: AtomName = AtomName(self.i_atom_name)

@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import attr
+from dataclasses import dataclass
 from typing import Union
 
-from .utils import int_2_h36, h36_2_int, int_2_cifSegID, int_2_chimeraSegID
+from .utils import h36_2_int, int_2_chimeraSegID, int_2_cifSegID, int_2_h36
 
 
-@attr.s
+@dataclass
 class Number(object):
     """ read from hybrid36 string string or int """
-    _input: Union[int, str] = attr.ib()
+    _input: Union[int, str]
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         self.n: int = self._convert_input(self._input)
 
     def _convert_input(self, inpt: Union[int, str]):
@@ -37,12 +37,12 @@ class Number(object):
         return str(self.n)
 
 
-@attr.s
+@dataclass
 class AtomName(object):
     """ use cif standart """
-    _input: str = attr.ib()
+    _input: str
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         self.NAMD = {"O1P": "OP1", "O2P": "OP2", "C5M": "C7", }
         self.name: str = self._convert_input(ipt=self._input)
 
@@ -77,12 +77,12 @@ class AtomName(object):
         return self.name
 
 
-@attr.s
+@dataclass
 class ResName(object):
     """resname [DA, DC, DG, DT]"""
-    _input: str = attr.ib()
+    _input: str
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         self.NAMD = {"CYT": "DC", "GUA": "DG", "THY": "DT", "ADE": "DA", }
         self.name: str = self._convert_input(inpt=self._input)
 
@@ -106,11 +106,11 @@ class ResName(object):
         return self.name[-1]
 
 
-@attr.s
+@dataclass
 class ChainID(object):
-    _input: Union[int, str] = attr.ib()
+    _input: Union[int, str]
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
         self.n: int = self._convert_input(self._input)
 
     def _convert_input(self, inpt: Union[int, str]):

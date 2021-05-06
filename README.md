@@ -17,7 +17,6 @@ A Python3 package that contains a collection of scripts related to the fitting o
   * scipy >= 1.1
   * mdanalysis >= 1.0 
   * mrcfile >= ??
-  * attrs >= ??
   * nanodesign3  >= ?? # not publised yet
 
 ## without  mrDNA:

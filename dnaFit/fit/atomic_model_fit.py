@@ -1,16 +1,15 @@
 import datetime
 import logging
-
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 from shutil import copyfile
+from typing import Optional
 
-import attr
 import MDAnalysis as mda
 
-from ..link.linker import Linker
-from ..link.linkage import Linkage
 from ..data.mrc import write_mrc_from_atoms
+from ..link.linkage import Linkage
+from ..link.linker import Linker
 from ..pdb.structure import Structure
 
 """ class containing a minished atomic model for a specific cryo EM file.
@@ -18,29 +17,29 @@ from ..pdb.structure import Structure
 """
 
 
-@ attr.s
+@dataclass
 class AtomicModelFit(object):
-    conf: Path = attr.ib()
-    top: Path = attr.ib()
-    mrc: Path = attr.ib()
-    linkage: Optional[Linkage] = attr.ib(default=None)
-    generated_with_mrdna: bool = attr.ib(default=True)
+    conf: Path
+    top: Path
+    mrc: Path
+    linkage: Optional[Linkage] = None
+    generated_with_mrdna: bool = True
 
-    def __attrs_post_init__(self) -> None:
+    def __post_init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
     def _write_logfile(self, prefix: str, dest: Path, **kwargs):
         log_file = dest / f"{prefix}_log.txt"
         with log_file.open(mode='w') as f:
-            f.write(f"{datetime.datetime.now()}")
-            f.write(f"topology: {self.top}")
-            f.write(f"coordinate file: {self.conf}")
-            f.write(f"fitted to cryo-EM data: {self.conf}")
+            f.write(f"{datetime.datetime.now()}\n")
+            f.write(f"topology: {self.top}\n")
+            f.write(f"coordinate file: {self.conf}\n")
+            f.write(f"fitted to cryo-EM data: {self.mrc}\n")
             for key, value in kwargs.items():
-                f.write(f"{key}: {value}")
+                f.write(f"{key}: {value}\n")
 
     def _get_linkage(self, json: Path, seq: Path) -> Linkage:
-        """ call Linker calss to create linkage of design and atomic model"""
+        """ call Linker class to create linkage of design and atomic model"""
         linker = Linker(conf=self.conf, top=self.top, json=json, seq=seq,
                         generated_with_mrdna=self.generated_with_mrdna)
         return linker.create_linkage()

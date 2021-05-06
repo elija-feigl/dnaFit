@@ -1,8 +1,8 @@
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
-import attr
 from nanodesign.converters import Converter
 from nanodesign.data.base import DnaBase
 from nanodesign.data.dna_structure import DnaStructure
@@ -17,13 +17,15 @@ from nanodesign.data.dna_structure import DnaStructure
 """
 
 
-@attr.s
+@dataclass
 class Design(object):
-    json: Path = attr.ib()
-    seq: Optional[Path] = attr.ib()
-    generated_with_mrdna: bool = attr.ib(default=True)
+    json: Path
+    seq: Optional[Path]
+    generated_with_mrdna: bool = True
 
-    def __attrs_post_init__(self):
+    def __post_init__(self):
+        self.logger = logging.getLogger(__name__)
+        logging.getLogger("nanodesign").setLevel(logging.ERROR)
         self.design = self._get_design()
         self.scaffold = self._scaffold()
         self.staples = self._staple()
@@ -32,8 +34,7 @@ class Design(object):
         self.allbases = [b for s in self.design.strands for b in s.tour]
         self.Dhps_base: dict = self._init_hps_base()
         self.Dhp_skips: Set[Tuple[int, int]] = set()
-        self.logger = logging.getLogger(__name__)
-        logging.getLogger("nanodesign").setLevel(logging.ERROR)
+        self.Dhp_insrt: Set[Tuple[int, int]] = set()
 
     def _init_hps_base(self):
         hps_base = dict()
@@ -62,20 +63,16 @@ class Design(object):
         return [s.tour for s in self.design.strands if not s.is_scaffold]
 
     def _get_design(self) -> DnaStructure:
+        seq = str(self.seq) if self.seq is not None else None
         converter = Converter()
         converter.modify = True
-        if self.json.exists() and self.seq is None:
+        if self.json.exists():
             converter.read_cadnano_file(
                 file_name=str(self.json),
-                seq_file_name=None,
+                seq_file_name=seq,
                 seq_name=None,
             )
-        elif self.json.exists() and self.seq.exists():
-            converter.read_cadnano_file(
-                file_name=str(self.json),
-                seq_file_name=str(self.seq),
-                seq_name=None,
-            )
+            # TODO sequence file may not be working!!!
         else:
             self.logger.error(
                 f"Failed to initialize nanodesign due to missing files: {self.json} {self.seq}")
@@ -84,19 +81,27 @@ class Design(object):
         dnaStructure = converter.dna_structure
 
         # TODO: implement without reusing converter
-        converter = Converter()
-        converter.modify = False
-        converter.read_cadnano_file(self.json, None, self.seq)
-        converter.dna_structure.compute_aux_data()
-        dna_structure_del_ins = converter.dna_structure
+        converter2 = Converter()
+        converter2.modify = False
+        converter2.read_cadnano_file(
+            file_name=str(self.json),
+            seq_file_name=seq,
+            seq_name=None,
+        )
+        converter2.dna_structure.compute_aux_data()
+        dna_structure_del_ins = converter2.dna_structure
 
         hps_deletions = set()
+        hps_insertions = set()
         for strand in dna_structure_del_ins.strands:
             for base in strand.tour:
                 if base.num_deletions != 0:
                     hps_deletions.add((base.h, base.p))
+                if base.num_insertions != 0:
+                    hps_insertions.add((base.h, base.p))
 
         self.Dhp_skips = hps_deletions
+        self.Dhp_insrt = hps_insertions
         return dnaStructure
 
     def _create_helix_order(self) -> Dict[int, int]:

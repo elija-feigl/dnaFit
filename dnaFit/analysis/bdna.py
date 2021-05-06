@@ -1,33 +1,29 @@
-import numpy as np
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Set, Tuple
+
 import MDAnalysis as mda
 import mrcfile as mrc
-from MDAnalysis.lib import mdamath
+import numpy as np
 from MDAnalysis.core.groups import Residue
+from MDAnalysis.lib import mdamath
 
-import attr
-from typing import Dict, Tuple, Any, Optional, List, Set
-
-from ..link.linkage import Linkage
+from ..core.utils import (BB_ATOMS, C1P_BASEDIST, DH_ATOMS, PUR_ATOMS,
+                          PYR_ATOMS, WC_HBONDS, WC_HBONDS_DIST, _dh_angle,
+                          _norm, _proj, _proj2plane, _save_arccos_deg, _v_proj)
 from ..data.basepair import BasePair
 from ..data.crossover import Crossover
-from ..core.utils import (
-    C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, BB_ATOMS,
-    PUR_ATOMS, PYR_ATOMS, DH_ATOMS,
-    _proj, _norm, _v_proj, _save_arccos_deg,
-    _dh_angle, _proj2plane
-)
-
+from ..link.linkage import Linkage
 
 """ BDna Class handles evaluation of B-DNA properties and local-resolution of
     cryo em reconstruction of specific bases
 """
 
 
-@attr.s
+@dataclass
 class BDna(object):
-    link: Linkage = attr.ib()
+    link: Linkage
 
-    def __attrs_post_init__(self) -> None:
+    def __post_init__(self) -> None:
         self.bps: Dict[Tuple[int, int], BasePair] = self._get_pot_bp()
         self.link.relink_crossover_basepairs(self.bps)
         self.bp_quality: Dict[int, Any] = {}

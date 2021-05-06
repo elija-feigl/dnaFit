@@ -23,18 +23,17 @@ setup(
     include_package_data=True,
     install_requires=(
         'numpy',
-        'attrs',
         'click',
         'mdanalysis>=1.0',
         'mrcfile>=1.0',
         # 'mrdna>=0.0'  # TODO: add link in readme
         # 'nanodesign>=???'  # TODO: add version
     ),
-    classifiers=(
+    classifiers=[
         "Programming Language :: Python :: 3",
         "License :: GNU General Public License Version 3",
         "Operating System :: OS Independent",
-    ),
+    ],
     entry_points='''
         [console_scripts]
         dnaFit=dnaFit.scripts.dnafit:cli

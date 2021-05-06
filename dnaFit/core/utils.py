@@ -111,5 +111,6 @@ def _exec(cmd):
     process = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, universal_newlines=True)
     for line in process.stdout:
+        # TODO: write to separate log files?
         sys.stdout.write(line)
         sys.stdout.flush()

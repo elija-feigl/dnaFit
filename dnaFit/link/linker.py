@@ -1,8 +1,8 @@
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
-import attr
 import nanodesign as nd
 from nanodesign.data.base import DnaBase
 
@@ -15,25 +15,25 @@ from .linkage import Linkage
 """ create Linkage."""
 
 
-@attr.s
+@dataclass
 class Linker(object):
     """ Linker class
     """
-    conf: Path = attr.ib()
-    top: Path = attr.ib()
-    json: Path = attr.ib()
-    seq: Optional[Path] = attr.ib()
-    generated_with_mrdna: bool = attr.ib(default=True)
+    conf: Path
+    top: Path
+    json: Path
+    seq: Optional[Path]
+    generated_with_mrdna: bool = True
 
-    Fbp: Dict[int, int] = dict()
-    DidFid: Dict[int, int] = dict()
-    DhpsDid: Dict[Tuple[int, int, bool], int] = dict()
-    Fnicks: Dict[int, int] = dict()
-    FidSeq_local: Dict[int, str] = dict()
-    FidSeq_global: Dict[int, str] = dict()
-    Fco: Dict[str, Crossover] = dict()
+    Fbp: Dict[int, int] = field(default_factory=dict)
+    DidFid: Dict[int, int] = field(default_factory=dict)
+    DhpsDid: Dict[Tuple[int, int, bool], int] = field(default_factory=dict)
+    Fnicks: Dict[int, int] = field(default_factory=dict)
+    FidSeq_local: Dict[int, str] = field(default_factory=dict)
+    FidSeq_global: Dict[int, str] = field(default_factory=dict)
+    Fco: Dict[str, Crossover] = field(default_factory=dict)
 
-    def __attrs_post_init__(self) -> None:
+    def __post_init__(self) -> None:
         self.fit: Fit = Fit(top=self.top, conf=self.conf)
         self.design: Design = Design(
             json=self.json, seq=self.seq,
@@ -175,6 +175,7 @@ class Linker(object):
             Dscaffold = self.design.scaffold
             Did = [base.id for base in Dscaffold]
             Dhp = [(base.h, base.p, True) for base in Dscaffold]
+            # TODO insertions are duplicates!!!
             Fid_local = [Did.index(base.id) for base in Dscaffold]
             Fid_global = self.fit.scaffold.residues[Fid_local].resindices
 
