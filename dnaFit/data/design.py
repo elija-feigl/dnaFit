@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from nanodesign.converters import Converter
+from nanodesign.converters.converter import Converter
 from nanodesign.data.base import DnaBase
 from nanodesign.data.dna_structure import DnaStructure
 
