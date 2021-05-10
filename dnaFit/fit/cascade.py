@@ -22,7 +22,7 @@ FIRST_STOP = 2  # abort first cascade after as many steps
 LR_STOP = 3  # turn off long range enrgMD bonds after as many steps
 GSCALE = 0.3  # scaling factor for map potential
 DIEL_CONST = 1  # dielectric constant (enrgMD==1)
-RES_SPAN = 14  # resolution range covered by low pass filtering
+RES_SPAN = 24  # resolution range covered by low pass filtering
 MAPTHRES = 0.0  # threshold for cropping mrc data (voxel smaller than)
 TS_ENRG = 18000  # steps for initial enrgMD
 TS_RELAX = 18000  # steps for relax enrgMD
@@ -124,7 +124,7 @@ class Cascade(object):
                 f"volutil -clamp {MAPTHRES}:1.0 {self.mrc} -o base.dx")
             n_layers = n_cascade - 1
             for n in range(n_cascade):
-                gfilter = RES_SPAN/n_layers*(n_layers-n) + resolution
+                gfilter = (RES_SPAN-resolution)/n_layers*(n_layers-n) + resolution
                 lines.append(
                     f"volutil -smooth {gfilter} base.dx -o {n}.dx")
                 lines.append(f"mdff griddx -i {n}.dx -o grid-{n}.dx")
@@ -223,7 +223,7 @@ class Cascade(object):
                     previous_folder = run_namd()
                     step += 1
 
-                if cascade == 1 and n > first_stop:
+                if cascade == 0 and n > first_stop:
                     break
 
                 if n > longrange_stop:

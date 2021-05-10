@@ -1,11 +1,10 @@
 import os
-import sys
 import subprocess
-
-import numpy as np
-
+import sys
+from pathlib import Path
 from typing import List
 
+import numpy as np
 
 C1P_BASEDIST: float = 10.7
 TOL: float = 10e-6
@@ -114,3 +113,14 @@ def _exec(cmd):
         # TODO: write to separate log files?
         sys.stdout.write(line)
         sys.stdout.flush()
+
+
+def _check_path(filepath: str, extensions: list):
+    path = Path(filepath).resolve()
+    if path.exists():
+        if path.suffix in extensions:
+            return path
+        else:
+            raise Exception(
+                f"input file {filepath} does not have correct extension {extensions}")
+    raise Exception(f"input file {filepath} was not found")

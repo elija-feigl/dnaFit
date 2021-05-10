@@ -10,6 +10,7 @@ from shutil import copyfile, copytree
 import click
 from dnaFit import get_resource
 from dnaFit.core.mrDna import run_mrDNA, prep_cascaded_fitting, recenter_conf
+from dnaFit.core.utils import _check_path
 from dnaFit.data.mrc import write_mrc_from_atoms, recenter_mrc
 from dnaFit.fit.atomic_model_fit import AtomicModelFit
 from dnaFit.fit.cascade import Cascade
@@ -38,8 +39,8 @@ def cli():
 
 @cli.command()
 @click.argument('cadnano', type=click.Path(exists=True))
-@click.argument('mrc', type=click.Path(exists=True))
 @click.argument('sequence', type=click.Path(exists=True))
+@click.argument('mrc', type=click.Path(exists=True))
 @click.option('-g', '--gpu', type=int, default=0, help='GPU used for simulation', show_default=True)
 @click.option('-o', '--output-prefix', 'prefix', type=str, default=None,
               help="short design name, default to json name")
@@ -54,9 +55,9 @@ def mrDna(cadnano, mrc, sequence, gpu, prefix, multidomain):
         MRC is the name of the cryo EM volumetric data file [.mrc]\n
     """
     # NOTE: click will drop python2 support soon and actually return a Path
-    cad_file = Path(cadnano).resolve()
-    mrc_file = Path(mrc).resolve()
-    seq_file = Path(sequence).resolve()
+    cad_file = _check_path(cadnano, [".json"])
+    mrc_file = _check_path(mrc, [".mrc"])
+    seq_file = _check_path(sequence, [".txt", ".seq"])
 
     prefix = cad_file.stem if prefix is None else prefix
 
@@ -82,9 +83,9 @@ def center_on_map(mrc, top, conf):
         CONF is the name of the namd configuration file, docked to map (VMD)  [.pdb, .coor]\n
     """
     # NOTE: click will drop python2 support soon and actually return a Path
-    mrc = Path(mrc).resolve()
-    top = Path(top).resolve()
-    conf = Path(conf).resolve()
+    mrc = _check_path(mrc, [".mrc"])
+    top = _check_path(top, [".psf"])
+    conf = _check_path(conf, [".pdb", ".coor"])
     conf_docked = conf.with_name(f"{conf.stem}-docked.pdb")
     copyfile(conf, conf_docked)
 
@@ -127,12 +128,12 @@ def fit(cadnano, sequence, mrc, top, conf, exb, gpu, prefix, timesteps, resoluti
         EXB is the name of the enrgMD extrabond file (expect mrDNA > march 2021) [.exb]
     """
     # NOTE: click will drop python2 support soon and actually return a Path
-    cad_file = Path(cadnano).resolve()
-    seq_file = Path(sequence).resolve()
-    mrc_file = Path(mrc).resolve()
-    top = Path(top).resolve()
-    conf = Path(conf).resolve()
-    exb = Path(exb).resolve()
+    cad_file = _check_path(cadnano, [".json"])
+    seq_file = _check_path(sequence, [".txt", ".seq"])
+    mrc_file = _check_path(mrc, [".mrc"])
+    top = _check_path(top, [".psf"])
+    conf = _check_path(conf, [".pdb", ".coor"])
+    exb = _check_path(exb, [".exb"])
     prefix = cad_file.stem if prefix is None else prefix
 
     # TODO: gpu support
@@ -165,7 +166,7 @@ def fit(cadnano, sequence, mrc, top, conf, exb, gpu, prefix, timesteps, resoluti
         dnaFit = cascade.run_cascaded_fitting(
             base_time_steps=timesteps, resolution=resolution, is_SR=sr_fitting)
         dnaFit.write_linkage(cad_file, seq_file)
-        dnaFit.write_output(dest=home_directory,
+        dnaFit.write_output(dest=Path(home_directory),
                             write_mmCif=True, crop_mrc=True)
     finally:
         os.chdir(home_directory)
@@ -192,11 +193,11 @@ def link(cadnano, sequence, mrc, top, conf, enrgmd_server):
         CONF is the name of the namd configuration file [.pdb, .coor]\n
     """
     # NOTE: click will drop python2 support soon and actually return a Path
-    mrc = Path(mrc).resolve()
-    top = Path(top).resolve()
-    conf = Path(conf).resolve()
-    cadnano = Path(cadnano).resolve()
-    sequence = Path(sequence).resolve()
+    mrc = _check_path(mrc, [".mrc"])
+    top = _check_path(top, [".psf"])
+    conf = _check_path(conf, [".pdb", ".coor"])
+    cadnano = _check_path(cadnano, [".json"])
+    sequence = _check_path(sequence, [".txt", ".seq"])
 
     dnaFit = AtomicModelFit(conf=conf, top=top, mrc=mrc,
                             generated_with_mrdna=(not enrgmd_server))
@@ -219,9 +220,9 @@ def mask(mrc, top, conf, enrgMD_server):
         CONF is the name of the namd configuration file [.pdb, .coor]\n
     """
     # NOTE: click will drop python2 support soon and actually return a Path
-    mrc = Path(mrc).resolve()
-    top = Path(top).resolve()
-    conf = Path(conf).resolve()
+    mrc = _check_path(mrc, [".mrc"])
+    top = _check_path(top, [".psf"])
+    conf = _check_path(conf, [".pdb", ".coor"])
 
     dnaFit = AtomicModelFit(conf=conf, top=top, mrc=mrc,
                             generated_with_mrdna=enrgMD_server)
@@ -241,7 +242,7 @@ def pdb2CIF(pdb, remove_h):
         PDB is the name of the namd configuration file [.pdb]\n
     """
     # NOTE: click will drop python2 support soon and actually return a Path
-    pdb = Path(pdb).resolve()
+    pdb = _check_path(pdb, [".pdb"])
 
     structure = Structure(path=pdb, remove_H=remove_h)
     structure.parse_pdb()

@@ -43,13 +43,13 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory="mrdna", gp
 def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path,
                           mrc_file: Path, directory="mrdna", multidomain=False):
     """ prep cascaded fitting:
-            prepares a new folder "dnaFit" with files from a finished mrDNA run
+            prepares a new folder "prep" with files from a finished mrDNA run
             in subfolder "mrDNA" and copies necessary files.
     """
     home_directory = os.getcwd()
     try:
-        Path("dnaFit").mkdir(parents=True, exist_ok=True)
-        os.chdir("dnaFit")
+        Path("prep").mkdir(parents=True, exist_ok=True)
+        os.chdir("prep")
         logger.debug(f"changing directory to: {os.getcwd()}")
 
         copyfile(cad_file, f"./{prefix}.json")
@@ -61,8 +61,9 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path,
         copyfile(f"{pre_mrdna}.exb", f"./{prefix}.exb")
 
         # NOTE: pdb is start not finish. use output/NAME.coor instead
-        coor = f"../{directory}/output/{prefix}-{export_idx}-1.coor"
+        coor = f"../{directory}/output/{prefix}-{export_idx}-1.dcd"
         u = mda.Universe(f"./{prefix}.psf", coor)
+        u.trajectory[-1]
         u.atoms.write(f"./{prefix}.pdb")
 
         mrc_shift = recenter_mrc(mrc_file, apply=False)
