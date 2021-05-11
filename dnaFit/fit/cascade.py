@@ -74,20 +74,6 @@ class Cascade(object):
 
     def run_cascaded_fitting(self, base_time_steps: int, resolution: float,
                              is_SR=False, is_film=False, is_enrgMD=False):
-        def run_namd():
-            if not Path(folder).is_dir():
-                Path(folder).mkdir()
-                cmd = f"{self.charmrun} +p32 {self.namd2} +netpoll {namd_file}".split()
-                self.logger.info(f"cascade: step {folder} with {cmd}")
-                _exec(cmd)
-                if not any(Path(folder).iterdir()):
-                    Path(folder).rmdir()
-                    self.logger.error("No files written. Abort cascade")
-                    sys.exit(1)
-            else:
-                self.logger.info(f"skipping existing cascade: {folder}")
-            return folder
-
         def create_namd_file(namd_file, ts, ms=0, mdff="1"):
             with namd_file.open(mode='w') as f:
                 if not is_film:
@@ -116,56 +102,7 @@ class Cascade(object):
                 f.write("\n".join([namd_header, namd_parameters, namd_base]))
             return (time_steps_last + ts)
 
-        def vmd_prep():
-            vmd_prep = Path("mdff-prep.vmd")
-            lines = ["package require volutil", "package require mdff"]
-
-            lines.append(
-                f"volutil -clamp {MAPTHRES}:1.0 {self.mrc} -o base.dx")
-            n_layers = n_cascade - 1
-            for n in range(n_cascade):
-                gfilter = (RES_SPAN-resolution)/n_layers*(n_layers-n) + resolution
-                lines.append(
-                    f"volutil -smooth {gfilter} base.dx -o {n}.dx")
-                lines.append(f"mdff griddx -i {n}.dx -o grid-{n}.dx")
-            lines.append(
-                f"mdff gridpdb -psf {self.top} -pdb {self.conf} -o {grid_pdb}")
-            lines.append("exit")
-
-            with vmd_prep.open(mode='w') as f:
-                f.write('\n'.join(lines))
-            cmd = f"{self.vmd} -dispdev text -eofexit -e {vmd_prep}".split()
-            self.logger.info(f"vmd prep:  with {cmd}")
-            _exec(cmd)
-
-        def vmd_post():
-            vmd_post = Path("mdff-post.vmd")
-            lines = ["package require volutil", "package require mdff"]
-            lines.append(f"mol new {self.top}")
-            name = self.top.stem
-            # full dcd
-            if Path("./enrgMD").is_dir():
-                lines.append(
-                    f"mol addfile ./enrgMD/{name}.dcd start 0 step 1 waitfor all")
-            for n in range(n_cascade):  # TODO steps?
-                lines.append(
-                    f"mol addfile ./{n}/{name}.dcd start 0 step 1 waitfor all")
-            if Path("./final").is_dir():
-                lines.append(
-                    f"mol addfile ./final/{name}.dcd start 0 step 1 waitfor all")
-
-            lines.append(f"animate write dcd {name}.dcd")
-            # last frame pdb
-            lines.append("set sel [atomselect top all]")
-            lines.append(f"$sel writepdb {name}-last.pdb")
-            lines.append("exit")
-            with vmd_post.open(mode='w') as f:
-                f.write('\n'.join(lines))
-
-            cmd = f"{self.vmd} -dispdev text -eofexit -e {vmd_post}".split()
-            self.logger.info(f"vmd postprocess:  with {cmd}")
-            _exec(cmd)
-
+        # TODO: create individual dataclass for each step to allow easy setting passing
         prefix = self.prefix
         n_cascade = N_CASCADE
         n_repeat = N_REPEAT
@@ -188,7 +125,9 @@ class Cascade(object):
 
         grid_pdb = Path("grid.pdb")
         if not grid_pdb.exists():
-            vmd_prep()
+            self._vmd_prep(resolution=resolution,
+                           n_cascade=n_cascade,
+                           grid_pdb=grid_pdb)
         init = 1  # init on first run
         step = 0
         time_steps_last = 0
@@ -204,23 +143,27 @@ class Cascade(object):
                 namd_file, ts=ts_enrg, ms=ms_enrg, mdff="0")
             self.logger.debug(
                 f"{folder}: ts={ts_enrg}, ms={ms_enrg}, mdff=0")
-            previous_folder = run_namd()
+            previous_folder = self._run_namd(
+                folder=folder, namd_file=namd_file)
             init = 0
 
         # cascades
         for cascade in range(n_repeat):
             for n in range(n_cascade):
                 # for bad docking the system will be relaxed with pure enrgMD after first iteration
+                # TODO: better strong annealing instead?
                 if cascade == 1 and n == 0:
                     enrgmd_file = f"{prefix}.exb"
                     folder = f"{step}"
                     namd_file = self.top.with_name(
                         f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+
                     time_steps_last = create_namd_file(
                         namd_file, ts=ts_relax, mdff="0")
                     self.logger.debug(
                         f"{step}-{cascade}-{n}: ts={TS_RELAX}, mdff=0, enrgMD relax")
-                    previous_folder = run_namd()
+                    previous_folder = self._run_namd(
+                        folder=folder, namd_file=namd_file)
                     step += 1
 
                 if cascade == 0 and n > first_stop:
@@ -234,23 +177,30 @@ class Cascade(object):
                 folder = f"{step}"
                 namd_file = self.top.with_name(
                     f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+
                 time_steps_last = create_namd_file(
                     namd_file, ts=base_time_steps)
                 self.logger.debug(
                     f"{step}-{cascade}-{n}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
-                previous_folder = run_namd()
+                previous_folder = self._run_namd(
+                    folder=folder, namd_file=namd_file)
                 step += 1
                 init = 0
+
+        # TODO: add annealing step?
 
         # refine by removing intrahelical bonds
         if not is_SR:
             enrgmd_file = f"{prefix}-BP.exb"
+            folder = f"{step}"
             namd_file = self.top.with_name(
                 f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+
             time_steps_last = create_namd_file(namd_file, ts=base_time_steps)
             self.logger.debug(
                 f"{step}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
-            previous_folder = run_namd()
+            previous_folder = self._run_namd(
+                folder=folder, namd_file=namd_file)
             step += 1
 
         # energy minimization with increased gscale to relax bonds
@@ -258,15 +208,15 @@ class Cascade(object):
         folder = "final"
         namd_file = self.top.with_name(
             f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+
         time_steps_last = create_namd_file(
             namd_file, ts=0, ms=base_time_steps)
         self.logger.debug(
             f"{folder}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
-        _ = run_namd()
+        _ = self._run_namd(folder=folder, namd_file=namd_file)
 
         self.logger.debug("VMD based cascade MDff prep.")
-        vmd_post()
-        # TODO: cleanup??
+        self._vmd_post(step)
 
         final_conf = self.conf.with_name(f"{self.prefix}-last.pdb")
         if not final_conf.is_file():
@@ -276,3 +226,69 @@ class Cascade(object):
 
         return AtomicModelFit(
             conf=final_conf, top=self.top, mrc=self.mrc)
+
+    def _run_namd(self, namd_file, folder):
+        if not Path(folder).is_dir():
+            Path(folder).mkdir()
+            cmd = f"{self.charmrun} +p32 {self.namd2} +netpoll {namd_file}".split()
+            self.logger.info(f"cascade: step {folder} with {cmd}")
+            _exec(cmd)
+            if not any(Path(folder).iterdir()):
+                Path(folder).rmdir()
+                self.logger.error("No files written. Abort cascade")
+                sys.exit(1)
+        else:
+            self.logger.info(f"skipping existing cascade: {folder}")
+        return folder
+
+    def _vmd_prep(self, n_cascade, resolution, grid_pdb):
+        vmd_prep = Path("mdff-prep.vmd")
+        lines = ["package require volutil", "package require mdff"]
+
+        lines.append(
+            f"volutil -clamp {MAPTHRES}:1.0 {self.mrc} -o base.dx")
+        lines.append("mdff griddx -i base.dx -o grid-base.dx")
+
+        n_layers = n_cascade - 1
+        for n in range(n_cascade):
+            gfilter = (n * (resolution - RES_SPAN))/n_layers + RES_SPAN
+            lines.append(
+                f"volutil -smooth {gfilter} base.dx -o {n}.dx")
+            lines.append(f"mdff griddx -i {n}.dx -o grid-{n}.dx")
+        lines.append(
+            f"mdff gridpdb -psf {self.top} -pdb {self.conf} -o {grid_pdb}")
+        # lines.append("exit")  # TODO: check if cause of file error
+
+        with vmd_prep.open(mode='w') as f:
+            f.write('\n'.join(lines))
+        cmd = f"{self.vmd} -dispdev text -eofexit -e {vmd_prep}".split()
+        self.logger.info(f"vmd prep:  with {cmd}")
+        _exec(cmd)
+
+    def _vmd_post(self, step):
+        vmd_post = Path("mdff-post.vmd")
+        lines = ["package require volutil", "package require mdff"]
+        lines.append(f"mol new {self.top}")
+        name = self.top.stem
+        # full dcd
+        if Path("./enrgMD").is_dir():
+            lines.append(
+                f"mol addfile ./enrgMD/{name}.dcd start 0 step 1 waitfor all")
+        for n in range(step):
+            lines.append(
+                f"mol addfile ./{n}/{name}.dcd start 0 step 1 waitfor all")
+        if Path("./final").is_dir():
+            lines.append(
+                f"mol addfile ./final/{name}.dcd start 0 step 1 waitfor all")
+
+        lines.append(f"animate write dcd {name}.dcd")
+        # last frame pdb
+        lines.append("set sel [atomselect top all]")
+        lines.append(f"$sel writepdb {name}-last.pdb")
+        # lines.append("exit")  # TODO: check if cause of file error
+        with vmd_post.open(mode='w') as f:
+            f.write('\n'.join(lines))
+
+        cmd = f"{self.vmd} -dispdev text -eofexit -e {vmd_post}".split()
+        self.logger.info(f"vmd postprocess:  with {cmd}")
+        _exec(cmd)
