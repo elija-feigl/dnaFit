@@ -25,7 +25,7 @@ DIEL_CONST = 1  # dielectric constant (enrgMD==1)
 RES_SPAN = 24  # resolution range covered by low pass filtering
 MAPTHRES = 0.0  # threshold for cropping mrc data (voxel smaller than)
 TS_ENRG = 18000  # steps for initial enrgMD
-TS_RELAX = 18000  # steps for relax enrgMD
+TS_RELAX = 12000  # steps for relax enrgMD
 ###############################################################################
 
 
@@ -74,7 +74,7 @@ class Cascade(object):
 
     def run_cascaded_fitting(self, base_time_steps: int, resolution: float,
                              is_SR=False, is_film=False, is_enrgMD=False):
-        def create_namd_file(namd_file, ts, ms=0, mdff="1"):
+        def create_namd_file(namd_file, ts, ms=0, mdff="1", i_temp=300, f_temp=300):
             with namd_file.open(mode='w') as f:
                 if not is_film:
                     namd_base = get_resource("namd.txt").read_text()
@@ -98,6 +98,8 @@ class Cascade(object):
                     set TSLAST {time_steps_last}
                     set CURRENT {folder}
                     set PREVIOUS {previous_folder}
+                    set ITEMP {i_temp}
+                    set FTEMP {f_temp}
                     """)
                 f.write("\n".join([namd_header, namd_parameters, namd_base]))
             return (time_steps_last + ts)
@@ -150,21 +152,42 @@ class Cascade(object):
         # cascades
         for cascade in range(n_repeat):
             for n in range(n_cascade):
-                # for bad docking the system will be relaxed with pure enrgMD after first iteration
-                # TODO: better strong annealing instead?
+
+                # for bad docking the system will be relaxed reduced gscale and increased temperatur
                 if cascade == 1 and n == 0:
+                    # TODO: cleanup
                     enrgmd_file = f"{prefix}.exb"
+                    grid_file = "grid-0.dx"
+                    gscale = 0.01
+
+                    # increase T with smaller gscale
                     folder = f"{step}"
                     namd_file = self.top.with_name(
                         f"{prefix}_c-mrDNA-MDff-{folder}.namd")
 
                     time_steps_last = create_namd_file(
-                        namd_file, ts=ts_relax, mdff="0")
+                        namd_file, ts=ts_relax, i_temp=300, f_temp=400)
                     self.logger.debug(
-                        f"{step}-{cascade}-{n}: ts={TS_RELAX}, mdff=0, enrgMD relax")
+                        f"{step}-{cascade}-{n}: annealing ts={TS_RELAX}, mdff={gscale}, annealing heating")
                     previous_folder = self._run_namd(
                         folder=folder, namd_file=namd_file)
                     step += 1
+
+                    # decrease T with smaller gscale
+                    folder = f"{step}"
+                    namd_file = self.top.with_name(
+                        f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+
+                    time_steps_last = create_namd_file(
+                        namd_file, ts=ts_relax, i_temp=400, f_temp=300)
+                    self.logger.debug(
+                        f"{step}-{cascade}-{n}: ts={TS_RELAX},  mdff={gscale}, annealing cooling")
+                    previous_folder = self._run_namd(
+                        folder=folder, namd_file=namd_file)
+                    step += 1
+
+                    # reset
+                    gscale = GSCALE
 
                 if cascade == 0 and n > first_stop:
                     break
@@ -187,7 +210,7 @@ class Cascade(object):
                 step += 1
                 init = 0
 
-        # TODO: add annealing step?
+        # TODO: add additional annealing step?
 
         # refine by removing intrahelical bonds
         if not is_SR:
@@ -257,11 +280,11 @@ class Cascade(object):
             lines.append(f"mdff griddx -i {n}.dx -o grid-{n}.dx")
         lines.append(
             f"mdff gridpdb -psf {self.top} -pdb {self.conf} -o {grid_pdb}")
-        # lines.append("exit")  # TODO: check if cause of file error
+        lines.append("exit")
 
         with vmd_prep.open(mode='w') as f:
             f.write('\n'.join(lines))
-        cmd = f"{self.vmd} -dispdev text -eofexit -e {vmd_prep}".split()
+        cmd = f"{self.vmd} -dispdev text -e {vmd_prep}".split()
         self.logger.info(f"vmd prep:  with {cmd}")
         _exec(cmd)
 
@@ -285,10 +308,10 @@ class Cascade(object):
         # last frame pdb
         lines.append("set sel [atomselect top all]")
         lines.append(f"$sel writepdb {name}-last.pdb")
-        # lines.append("exit")  # TODO: check if cause of file error
+        lines.append("exit")
         with vmd_post.open(mode='w') as f:
             f.write('\n'.join(lines))
 
-        cmd = f"{self.vmd} -dispdev text -eofexit -e {vmd_post}".split()
+        cmd = f"{self.vmd} -dispdev text -e {vmd_post}".split()
         self.logger.info(f"vmd postprocess:  with {cmd}")
         _exec(cmd)

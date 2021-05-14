@@ -12,10 +12,8 @@ set TDAMPING 0.1 ;#less friction for faster relaxation
 set MARGIN 30
 
 set SCALING_1_4 1.0
-set ITEMP 300
-set FTEMP 300
 
-set EXTRAB 0 
+set EXTRAB 0
 set CONSPDB 0
 set FIXPDB  0
 set BOX 1000
@@ -24,10 +22,10 @@ set BOX 1000
 ############################################################################
 #   Load Environment
 ############################################################################
- 
+
 structure $PREFIX.psf
 coordinates $PREFIX.pdb
- 
+
 paraTypeCharmm on
 parameters          charmm36.nbfix/par_all36_na.prm
 parameters	    charmm36.nbfix/par_water_ions_na.prm
@@ -38,7 +36,7 @@ wrapAll             off
 if {$INIT} {
   temperature $ITEMP
 }
- 
+
 firsttimestep   $TSLAST
 
 
@@ -52,34 +50,34 @@ exclude             scaled1-4
 switching           on
 switchdist          $SWITCHDIST
 dielectric          $DIEL
-margin              $MARGIN 
+margin              $MARGIN
 cutoff              $CUTOFF
 pairlistdist        $PAIRLISTDIST
 
 # Integrator Parameters
-timestep            $TIMESTEP 
+timestep            $TIMESTEP
 rigidBonds          $RIGIDBONDS
 nonbondedFreq       1
-fullElectFrequency  3  
+fullElectFrequency  3
 stepspercycle       12
 
-# Constant Temperature Control 
+# Constant Temperature Control
 if {$ITEMP == $FTEMP} {
   langevin            on    ;# do langevin dynamics
   langevinDamping     $TDAMPING     ;# damping coefficient (gamma) of 5/ps
   langevinTemp        $FTEMP
   langevinHydrogen    off    ;# don't couple langevin bath to hydrogens
 } else {
-  reassignFreq 1000
+  reassignFreq 1200
   if {$FTEMP > $ITEMP} {
-    reassignIncr 10 
+    reassignIncr 10
   } else {
-    reassignIncr -10 
+    reassignIncr -10
   }
   reassignTemp $ITEMP
   reassignHold $FTEMP
 }
-    
+
 
 ############################################################################
 #   	Output
@@ -104,7 +102,7 @@ extraBondsFile $ENRGMDBONDS
 
 
 ############################################################################
-#	set MDFF parameters 
+#	set MDFF parameters
 ############################################################################
 if {$GRIDON} {
   mgridForce               on
@@ -113,7 +111,7 @@ if {$GRIDON} {
     mgridForceCol $i       O
     mgridForceChargeCol $i B
     mgridForcePotFile $i   [lindex $GRIDFILE $i]
-    mgridForceScale $i     [lindex $GSCALE $i] [lindex $GSCALE $i] [lindex $GSCALE $i] 
+    mgridForceScale $i     [lindex $GSCALE $i] [lindex $GSCALE $i] [lindex $GSCALE $i]
   }
 }
 
@@ -128,7 +126,7 @@ if {$GRIDON} {
 
 #set cell
 cellBasisVector1 $BOX 0 0
-cellBasisVector2 0 $BOX 0 
+cellBasisVector2 0 $BOX 0
 cellBasisVector3 0 0 $BOX
 
 
@@ -144,11 +142,5 @@ if {$MS != 0} {
   minimize $MS
   reinitvels $ITEMP
 }
-
-#reset temperature if necessary
-if {$ITEMP != $FTEMP} {
-  run [expr abs($FTEMP-$ITEMP)*100]
-}
-
 
 run $TS
