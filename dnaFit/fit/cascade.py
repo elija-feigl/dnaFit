@@ -48,6 +48,8 @@ class Cascade(object):
         self.namd2 = _get_executable("namd2")
         self.vmd = _get_executable("vmd")
 
+        Path("run").mkdir()
+
     def _split_exb_file(self) -> None:
         self.logger.info(
             "assuming annotated, sorted .exb files (mrDNA > march 2021)")
@@ -63,12 +65,12 @@ class Cascade(object):
             bond_list.append(line)
         exb_split.pop(0)
 
-        with self.exb.with_name(f"{self.prefix}-BP.exb").open(mode='w') as f:
+        with self.exb.with_name(f"run/{self.prefix}-BP.exb").open(mode='w') as f:
             for bond_list in exb_split:
                 if bond_list[0].lower().startswith("# pair"):
                     f.writelines(bond_list)
 
-        with self.exb.with_name(f"{self.prefix}-SR.exb").open(mode='w') as f:
+        with self.exb.with_name(f"run/{self.prefix}-SR.exb").open(mode='w') as f:
             for bond_list in exb_split:
                 if not bond_list[0].lower().startswith("# pushbonds"):
                     f.writelines(bond_list)
@@ -106,9 +108,9 @@ class Cascade(object):
             return (time_steps_last + ts)
 
         def _regular(step):
-            folder = f"{step}"
+            folder = f"run/{step}"
             namd_file = self.top.with_name(
-                f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+                f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
             time_steps_last = create_namd_file(namd_file, ts=base_time_steps)
             self.logger.debug(
                 f"{step}: ts={base_time_steps}, mdff={gscale}, exb={enrgmd_file}, grid={grid_file}")
@@ -119,9 +121,9 @@ class Cascade(object):
 
         def _annealing(step, gscale=0.01):
             # increase T with smaller gscale
-            folder = f"{step}"
+            folder = f"run/{step}"
             namd_file = self.top.with_name(
-                f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+                f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
 
             time_steps_last = create_namd_file(
                 namd_file, ts=ts_relax, i_temp=300, f_temp=400)
@@ -132,9 +134,9 @@ class Cascade(object):
             step += 1
 
             # decrease T with smaller gscale
-            folder = f"{step}"
+            folder = f"run/{step}"
             namd_file = self.top.with_name(
-                f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+                f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
 
             time_steps_last = create_namd_file(
                 namd_file, ts=ts_relax, i_temp=400, f_temp=300)
@@ -146,7 +148,6 @@ class Cascade(object):
 
             return time_steps_last, previous_folder, step
 
-        # TODO: place files in subfolders right away
         # TODO: create individual dataclass for each step to allow easy setting passing
         prefix = self.prefix
         n_cascade = N_CASCADE
@@ -168,7 +169,7 @@ class Cascade(object):
 
         self.logger.debug("VMD based cascade MDff prep.")
 
-        grid_pdb = Path("grid.pdb")
+        grid_pdb = Path("run/grid.pdb")
         if not grid_pdb.exists():
             self._vmd_prep(resolution=resolution,
                            n_cascade=n_cascade,
@@ -179,11 +180,11 @@ class Cascade(object):
         previous_folder = "none"
 
         if is_enrgMD:  # pure enrgMD run without map
-            folder = "enrgMD"
+            folder = "run/enrgMD"
             grid_file = "none"
             enrgmd_file = "none"
             namd_file = self.top.with_name(
-                f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+                f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
             time_steps_last = create_namd_file(
                 namd_file, ts=ts_enrg, ms=ms_enrg, mdff="0")
             self.logger.debug(
@@ -199,18 +200,18 @@ class Cascade(object):
                 # for bad docking the system will be relaxed reduced gscale and increased temperatur
                 if cascade == 1 and n == 0:
                     enrgmd_file = f"{prefix}.exb"
-                    grid_file = "grid-0.dx"
+                    grid_file = "run/grid-0.dx"
                     time_steps_last, previous_folder, step = _annealing(step)
 
                 if cascade == 0 and n > first_stop:
                     break
 
                 if n > longrange_stop:
-                    enrgmd_file = f"{prefix}-SR.exb"
+                    enrgmd_file = f"run/{prefix}-SR.exb"
                     gscale = GSCALE
                 else:
-                    enrgmd_file = f"{prefix}.exb"
-                grid_file = f"grid-{n}.dx"
+                    enrgmd_file = f"run/{prefix}.exb"
+                grid_file = f"run/grid-{n}.dx"
                 time_steps_last, previous_folder, step = _regular(step)
                 init = 0
 
@@ -218,14 +219,14 @@ class Cascade(object):
 
         # refine by removing intrahelical bonds
         if not is_SR:
-            enrgmd_file = f"{prefix}-BP.exb"
+            enrgmd_file = f"run/{prefix}-BP.exb"
             time_steps_last, previous_folder, step = _regular(step)
 
         # energy minimization with increased gscale to relax bonds
         gscale = 1.0
-        folder = "final"
+        folder = "run/final"
         namd_file = self.top.with_name(
-            f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+            f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
 
         time_steps_last = create_namd_file(
             namd_file, ts=0, ms=base_time_steps)
@@ -260,19 +261,19 @@ class Cascade(object):
         return folder
 
     def _vmd_prep(self, n_cascade, resolution, grid_pdb):
-        vmd_prep = Path("mdff-prep.vmd")
+        vmd_prep = Path("run/mdff-prep.vmd")
         lines = ["package require volutil", "package require mdff"]
 
         lines.append(
-            f"volutil -clamp {MAPTHRES}:1.0 {self.mrc} -o base.dx")
-        lines.append("mdff griddx -i base.dx -o grid-base.dx")
+            f"volutil -clamp {MAPTHRES}:1.0 {self.mrc} -o run/base.dx")
+        lines.append("mdff griddx -i run/base.dx -o run/grid-base.dx")
 
         n_layers = n_cascade - 1
         for n in range(n_cascade):
             gfilter = (n * (resolution - RES_SPAN))/n_layers + RES_SPAN
             lines.append(
-                f"volutil -smooth {gfilter} base.dx -o {n}.dx")
-            lines.append(f"mdff griddx -i {n}.dx -o grid-{n}.dx")
+                f"volutil -smooth {gfilter} run/base.dx -o run/{n}.dx")
+            lines.append(f"mdff griddx -i run/{n}.dx -o run/grid-{n}.dx")
         lines.append(
             f"mdff gridpdb -psf {self.top} -pdb {self.conf} -o {grid_pdb}")
         lines.append("exit")
@@ -284,20 +285,20 @@ class Cascade(object):
         _exec(cmd)
 
     def _vmd_post(self, step):
-        vmd_post = Path("mdff-post.vmd")
+        vmd_post = Path("run/mdff-post.vmd")
         lines = ["package require volutil", "package require mdff"]
         lines.append(f"mol new {self.top}")
         name = self.top.stem
         # full dcd
-        if Path("./enrgMD").is_dir():
+        if Path("./run/enrgMD").is_dir():
             lines.append(
-                f"mol addfile ./enrgMD/{name}.dcd start 0 step 1 waitfor all")
+                f"mol addfile ./run/enrgMD/{name}.dcd start 0 step 1 waitfor all")
         for n in range(step):
             lines.append(
-                f"mol addfile ./{n}/{name}.dcd start 0 step 1 waitfor all")
-        if Path("./final").is_dir():
+                f"mol addfile ./run/{n}/{name}.dcd start 0 step 1 waitfor all")
+        if Path("./run/final").is_dir():
             lines.append(
-                f"mol addfile ./final/{name}.dcd start 0 step 1 waitfor all")
+                f"mol addfile ./run/final/{name}.dcd start 0 step 1 waitfor all")
 
         lines.append(f"animate write dcd {name}.dcd")
         # last frame pdb
