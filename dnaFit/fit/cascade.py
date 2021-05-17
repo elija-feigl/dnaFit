@@ -21,6 +21,7 @@ N_REPEAT = 2  # number of consecutive cascades
 FIRST_STOP = 2  # abort first cascade after as many steps
 LR_STOP = 3  # turn off long range enrgMD bonds after as many steps
 GSCALE = 0.3  # scaling factor for map potential
+GSCALE_PRE = 0.1
 DIEL_CONST = 1  # dielectric constant (enrgMD==1)
 RES_SPAN = 24  # resolution range covered by low pass filtering
 MAPTHRES = 0.0  # threshold for cropping mrc data (voxel smaller than)
@@ -104,13 +105,55 @@ class Cascade(object):
                 f.write("\n".join([namd_header, namd_parameters, namd_base]))
             return (time_steps_last + ts)
 
+        def _regular(step):
+            folder = f"{step}"
+            namd_file = self.top.with_name(
+                f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+            time_steps_last = create_namd_file(namd_file, ts=base_time_steps)
+            self.logger.debug(
+                f"{step}: ts={base_time_steps}, mdff={gscale}, exb={enrgmd_file}, grid={grid_file}")
+            previous_folder = self._run_namd(
+                folder=folder, namd_file=namd_file)
+            step += 1
+            return time_steps_last, previous_folder, step
+
+        def _annealing(step, gscale=0.01):
+            # increase T with smaller gscale
+            folder = f"{step}"
+            namd_file = self.top.with_name(
+                f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+
+            time_steps_last = create_namd_file(
+                namd_file, ts=ts_relax, i_temp=300, f_temp=400)
+            self.logger.debug(
+                f"{step}-{cascade}-{n}: annealing ts={TS_RELAX}, mdff={gscale}, annealing heating")
+            previous_folder = self._run_namd(
+                folder=folder, namd_file=namd_file)
+            step += 1
+
+            # decrease T with smaller gscale
+            folder = f"{step}"
+            namd_file = self.top.with_name(
+                f"{prefix}_c-mrDNA-MDff-{folder}.namd")
+
+            time_steps_last = create_namd_file(
+                namd_file, ts=ts_relax, i_temp=400, f_temp=300)
+            self.logger.debug(
+                f"{step}-{cascade}-{n}: ts={TS_RELAX},  mdff={gscale}, annealing cooling")
+            previous_folder = self._run_namd(
+                folder=folder, namd_file=namd_file)
+            step += 1
+
+            return time_steps_last, previous_folder, step
+
+        # TODO: place files in subfolders right away
         # TODO: create individual dataclass for each step to allow easy setting passing
         prefix = self.prefix
         n_cascade = N_CASCADE
         n_repeat = N_REPEAT
         first_stop = FIRST_STOP
         longrange_stop = LR_STOP
-        gscale = GSCALE
+        gscale = GSCALE_PRE
         dielectr_constant = DIEL_CONST
 
         if is_film:
@@ -155,59 +198,20 @@ class Cascade(object):
 
                 # for bad docking the system will be relaxed reduced gscale and increased temperatur
                 if cascade == 1 and n == 0:
-                    # TODO: cleanup
                     enrgmd_file = f"{prefix}.exb"
                     grid_file = "grid-0.dx"
-                    gscale = 0.01
-
-                    # increase T with smaller gscale
-                    folder = f"{step}"
-                    namd_file = self.top.with_name(
-                        f"{prefix}_c-mrDNA-MDff-{folder}.namd")
-
-                    time_steps_last = create_namd_file(
-                        namd_file, ts=ts_relax, i_temp=300, f_temp=400)
-                    self.logger.debug(
-                        f"{step}-{cascade}-{n}: annealing ts={TS_RELAX}, mdff={gscale}, annealing heating")
-                    previous_folder = self._run_namd(
-                        folder=folder, namd_file=namd_file)
-                    step += 1
-
-                    # decrease T with smaller gscale
-                    folder = f"{step}"
-                    namd_file = self.top.with_name(
-                        f"{prefix}_c-mrDNA-MDff-{folder}.namd")
-
-                    time_steps_last = create_namd_file(
-                        namd_file, ts=ts_relax, i_temp=400, f_temp=300)
-                    self.logger.debug(
-                        f"{step}-{cascade}-{n}: ts={TS_RELAX},  mdff={gscale}, annealing cooling")
-                    previous_folder = self._run_namd(
-                        folder=folder, namd_file=namd_file)
-                    step += 1
-
-                    # reset
-                    gscale = GSCALE
+                    time_steps_last, previous_folder, step = _annealing(step)
 
                 if cascade == 0 and n > first_stop:
                     break
 
                 if n > longrange_stop:
                     enrgmd_file = f"{prefix}-SR.exb"
+                    gscale = GSCALE
                 else:
                     enrgmd_file = f"{prefix}.exb"
                 grid_file = f"grid-{n}.dx"
-                folder = f"{step}"
-                namd_file = self.top.with_name(
-                    f"{prefix}_c-mrDNA-MDff-{folder}.namd")
-
-                time_steps_last = create_namd_file(
-                    namd_file, ts=base_time_steps)
-                self.logger.debug(
-                    f"{step}-{cascade}-{n}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
-                previous_folder = self._run_namd(
-                    folder=folder, namd_file=namd_file)
-                step += 1
+                time_steps_last, previous_folder, step = _regular(step)
                 init = 0
 
         # TODO: add additional annealing step?
@@ -215,16 +219,7 @@ class Cascade(object):
         # refine by removing intrahelical bonds
         if not is_SR:
             enrgmd_file = f"{prefix}-BP.exb"
-            folder = f"{step}"
-            namd_file = self.top.with_name(
-                f"{prefix}_c-mrDNA-MDff-{folder}.namd")
-
-            time_steps_last = create_namd_file(namd_file, ts=base_time_steps)
-            self.logger.debug(
-                f"{step}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
-            previous_folder = self._run_namd(
-                folder=folder, namd_file=namd_file)
-            step += 1
+            time_steps_last, previous_folder, step = _regular(step)
 
         # energy minimization with increased gscale to relax bonds
         gscale = 1.0
