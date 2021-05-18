@@ -108,9 +108,8 @@ def _get_executable(name: str):
 def _exec(cmd, logfile: Path):
     process = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, universal_newlines=True)
-    with logfile.open() as log:
+    with logfile.open(mode='w') as log:
         for line in process.stdout:
-            # TODO: write to separate log files?
             log.write(line)
 
 
