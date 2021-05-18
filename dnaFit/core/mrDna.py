@@ -28,7 +28,8 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory="mrdna", gp
     export_idx = 4 if multidomain else 3
     cmd += ["--sequence-file", str(seq_file), str(cad_file)]
     logger.info(f"starting mrDNA: creates folder ./{directory}.")
-    _exec(cmd)
+    logfile = Path("mrDNA-interal.log}")
+    _exec(cmd, logfile)
 
     logger.info("mrDNA: finished. Checking for final files.")
     is_ok = (os.path.isfile(f"./{directory}/{prefix}-{export_idx}.psf")

@@ -218,6 +218,7 @@ class Cascade(object):
         # TODO: add additional annealing step?
 
         # refine by removing intrahelical bonds
+        grid_file = "run/grid-base.dx"
         if not is_SR:
             enrgmd_file = f"run/{prefix}-BP.exb"
             time_steps_last, previous_folder, step = _regular(step)
@@ -231,7 +232,7 @@ class Cascade(object):
         time_steps_last = create_namd_file(
             namd_file, ts=0, ms=base_time_steps)
         self.logger.debug(
-            f"{folder}: ts={base_time_steps}, mdff=1, {enrgmd_file}, {grid_file}")
+            f"{folder}: ts={base_time_steps}, mdff={gscale}, exb={enrgmd_file}, {grid_file}")
         _ = self._run_namd(folder=folder, namd_file=namd_file)
 
         self.logger.debug("VMD based cascade MDff prep.")
@@ -251,7 +252,8 @@ class Cascade(object):
             Path(folder).mkdir()
             cmd = f"{self.charmrun} +p32 {self.namd2} +netpoll {namd_file}".split()
             self.logger.info(f"cascade: step {folder} with {cmd}")
-            _exec(cmd)
+            logfile = Path(f"{folder}/namd-out.log")
+            _exec(cmd, logfile)
             if not any(Path(folder).iterdir()):
                 Path(folder).rmdir()
                 self.logger.error("No files written. Abort cascade")
@@ -270,7 +272,8 @@ class Cascade(object):
 
         n_layers = n_cascade - 1
         for n in range(n_cascade):
-            gfilter = (n * (resolution - RES_SPAN))/n_layers + RES_SPAN
+            gfilter = (n * (resolution - RES_SPAN)) / \
+                n_layers + RES_SPAN - resolution
             lines.append(
                 f"volutil -smooth {gfilter} run/base.dx -o run/{n}.dx")
             lines.append(f"mdff griddx -i run/{n}.dx -o run/grid-{n}.dx")
@@ -282,7 +285,8 @@ class Cascade(object):
             f.write('\n'.join(lines))
         cmd = f"{self.vmd} -dispdev text -e {vmd_prep}".split()
         self.logger.info(f"vmd prep:  with {cmd}")
-        _exec(cmd)
+        logfile = Path("run/vmd_prep-out.log")
+        _exec(cmd, logfile)
 
     def _vmd_post(self, step):
         vmd_post = Path("run/mdff-post.vmd")
@@ -310,4 +314,5 @@ class Cascade(object):
 
         cmd = f"{self.vmd} -dispdev text -e {vmd_post}".split()
         self.logger.info(f"vmd postprocess:  with {cmd}")
-        _exec(cmd)
+        logfile = Path("run/vmd_post-out.log")
+        _exec(cmd, logfile)

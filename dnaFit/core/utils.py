@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sys
 from pathlib import Path
 from typing import List
 
@@ -106,13 +105,13 @@ def _get_executable(name: str):
     raise Exception(f"{name} was not found")
 
 
-def _exec(cmd):
+def _exec(cmd, logfile: Path):
     process = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, universal_newlines=True)
-    for line in process.stdout:
-        # TODO: write to separate log files?
-        sys.stdout.write(line)
-        sys.stdout.flush()
+    with logfile.open() as log:
+        for line in process.stdout:
+            # TODO: write to separate log files?
+            log.write(line)
 
 
 def _check_path(filepath: str, extensions: list):
