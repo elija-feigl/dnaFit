@@ -164,8 +164,8 @@ class Cascade(object):
 
         self.logger.debug("VMD based cascade MDff prep.")
 
-        grid_pdb = Path("run/grid.pdb")
-        if not grid_pdb.exists():
+        grid_pdb = "grid.pdb"
+        if not Path(f"run/{grid_pdb}").exists():
             self._vmd_prep(resolution=resolution,
                            n_cascade=n_cascade,
                            grid_pdb=grid_pdb)
@@ -193,8 +193,8 @@ class Cascade(object):
 
                 # for bad docking the system will be relaxed reduced gscale and increased temperatur
                 if cascade == 1 and n == 0:
-                    enrgmd_file = f"{prefix}.exb"
-                    grid_file = "run/grid-0.dx"
+                    enrgmd_file = f"../{prefix}.exb"
+                    grid_file = "grid-0.dx"
                     folder = f"run/{step}"
                     time_steps_last, previous_folder, step = _annealing_incr(
                         step, folder)
@@ -206,11 +206,11 @@ class Cascade(object):
                     break
 
                 if n > longrange_stop:
-                    enrgmd_file = f"run/{prefix}-SR.exb"
+                    enrgmd_file = f"{prefix}-SR.exb"
                     gscale = GSCALE
                 else:
-                    enrgmd_file = f"{prefix}.exb"
-                grid_file = f"run/grid-{n}.dx"
+                    enrgmd_file = f"../{prefix}.exb"
+                grid_file = f"grid-{n}.dx"
                 folder = f"run/{step}"
                 time_steps_last, previous_folder, step = _regular(step, folder)
                 init = 0
@@ -218,9 +218,9 @@ class Cascade(object):
         # TODO: add additional annealing step?
 
         # refine by removing intrahelical bonds
-        grid_file = "run/grid-base.dx"
+        grid_file = "grid-base.dx"
         if not is_SR:
-            enrgmd_file = f"run/{prefix}-BP.exb"
+            enrgmd_file = f"{prefix}-BP.exb"
             folder = f"run/{step}"
             time_steps_last, previous_folder, step = _regular(step, folder)
 
