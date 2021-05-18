@@ -42,13 +42,12 @@ class Cascade(object):
     def __post_init__(self) -> None:
         self.prefix: str = self.top.stem
         self.logger = logging.getLogger(__name__)
-        self._split_exb_file()
+        Path("run").mkdir()
 
+        self._split_exb_file()
         self.charmrun = _get_executable("charmrun")
         self.namd2 = _get_executable("namd2")
         self.vmd = _get_executable("vmd")
-
-        Path("run").mkdir()
 
     def _split_exb_file(self) -> None:
         self.logger.info(
