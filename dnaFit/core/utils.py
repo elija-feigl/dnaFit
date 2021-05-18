@@ -111,6 +111,7 @@ def _exec(cmd, logfile: Path):
     with logfile.open(mode='w') as log:
         for line in process.stdout:
             log.write(line)
+            log.flush()
 
 
 def _check_path(filepath: str, extensions: list):
