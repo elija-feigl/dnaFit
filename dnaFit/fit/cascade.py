@@ -64,12 +64,12 @@ class Cascade(object):
             bond_list.append(line)
         exb_split.pop(0)
 
-        with self.exb.with_name(f"run/{self.prefix}-BP.exb").open(mode='w') as f:
+        with Path(f"run/{self.prefix}-BP.exb").open(mode='w') as f:
             for bond_list in exb_split:
                 if bond_list[0].lower().startswith("# pair"):
                     f.writelines(bond_list)
 
-        with self.exb.with_name(f"run/{self.prefix}-SR.exb").open(mode='w') as f:
+        with Path(f"run/{self.prefix}-SR.exb").open(mode='w') as f:
             for bond_list in exb_split:
                 if not bond_list[0].lower().startswith("# pushbonds"):
                     f.writelines(bond_list)
@@ -108,8 +108,7 @@ class Cascade(object):
 
         def _regular(step):
             folder = f"run/{step}"
-            namd_file = self.top.with_name(
-                f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
+            namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
             time_steps_last = create_namd_file(namd_file, ts=base_time_steps)
             self.logger.debug(
                 f"{step}: ts={base_time_steps}, mdff={gscale}, exb={enrgmd_file}, grid={grid_file}")
@@ -121,8 +120,7 @@ class Cascade(object):
         def _annealing(step, gscale=0.01):
             # increase T with smaller gscale
             folder = f"run/{step}"
-            namd_file = self.top.with_name(
-                f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
+            namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
 
             time_steps_last = create_namd_file(
                 namd_file, ts=ts_relax, i_temp=300, f_temp=400)
@@ -134,9 +132,7 @@ class Cascade(object):
 
             # decrease T with smaller gscale
             folder = f"run/{step}"
-            namd_file = self.top.with_name(
-                f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
-
+            namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
             time_steps_last = create_namd_file(
                 namd_file, ts=ts_relax, i_temp=400, f_temp=300)
             self.logger.debug(
@@ -182,8 +178,7 @@ class Cascade(object):
             folder = "run/enrgMD"
             grid_file = "none"
             enrgmd_file = "none"
-            namd_file = self.top.with_name(
-                f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
+            namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
             time_steps_last = create_namd_file(
                 namd_file, ts=ts_enrg, ms=ms_enrg, mdff="0")
             self.logger.debug(
@@ -225,8 +220,7 @@ class Cascade(object):
         # energy minimization with increased gscale to relax bonds
         gscale = 1.0
         folder = "run/final"
-        namd_file = self.top.with_name(
-            f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
+        namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-{folder}.namd")
 
         time_steps_last = create_namd_file(
             namd_file, ts=0, ms=base_time_steps)
