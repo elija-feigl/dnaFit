@@ -175,7 +175,7 @@ class Cascade(object):
         previous_folder = "none"
 
         if is_enrgMD:  # pure enrgMD run without map
-            folder = "run/enrgMD"
+            folder = "enrgMD"
             grid_file = "none"
             enrgmd_file = "none"
             namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-enrgMD.namd")
@@ -195,10 +195,10 @@ class Cascade(object):
                 if cascade == 1 and n == 0:
                     enrgmd_file = f"../{prefix}.exb"
                     grid_file = "grid-0.dx"
-                    folder = f"run/{step}"
+                    folder = f"{step}"
                     time_steps_last, previous_folder, step = _annealing_incr(
                         step, folder)
-                    folder = f"run/{step}"
+                    folder = f"{step}"
                     time_steps_last, previous_folder, step = _annealing_decr(
                         step, folder)
 
@@ -211,7 +211,7 @@ class Cascade(object):
                 else:
                     enrgmd_file = f"../{prefix}.exb"
                 grid_file = f"grid-{n}.dx"
-                folder = f"run/{step}"
+                folder = f"{step}"
                 time_steps_last, previous_folder, step = _regular(step, folder)
                 init = 0
 
@@ -221,12 +221,12 @@ class Cascade(object):
         grid_file = "grid-base.dx"
         if not is_SR:
             enrgmd_file = f"{prefix}-BP.exb"
-            folder = f"run/{step}"
+            folder = f"{step}"
             time_steps_last, previous_folder, step = _regular(step, folder)
 
         # energy minimization with increased gscale to relax bonds
         gscale = 1.0
-        folder = "run/final"
+        folder = "final"
         namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-final.namd")
 
         time_steps_last = create_namd_file(
@@ -248,14 +248,14 @@ class Cascade(object):
             conf=final_conf, top=self.top, mrc=self.mrc)
 
     def _run_namd(self, namd_file, folder):
-        if not Path(folder).is_dir():
-            Path(folder).mkdir()
+        if not Path(f"run/{folder}").is_dir():
+            Path(f"run/{folder}").mkdir()
             cmd = f"{self.charmrun} +p32 {self.namd2} +netpoll {namd_file}".split()
             self.logger.info(f"cascade: step {folder} with {cmd}")
-            logfile = Path(f"{folder}/namd-out.log")
+            logfile = Path(f"run/{folder}/namd-out.log")
             _exec(cmd, logfile)
-            if not any(Path(folder).iterdir()):
-                Path(folder).rmdir()
+            if not any(Path(f"run/{folder}").iterdir()):
+                Path(f"run/{folder}").rmdir()
                 self.logger.error("No files written. Abort cascade")
                 sys.exit(1)
         else:
