@@ -53,6 +53,8 @@ class Cascade(object):
         self.logger.info(
             "assuming annotated, sorted .exb files (mrDNA > march 2021)")
         # TODO: alternative splittings
+        # TODO: include custom extrabonds
+        # TODO: skip if exists
         with self.exb.open(mode='r') as f:
             exb_data = f.readlines()
         exb_split: List[List[str]] = list()
@@ -106,8 +108,7 @@ class Cascade(object):
                 f.write("\n".join([namd_header, namd_parameters, namd_base]))
             return (time_steps_last + ts)
 
-        def _regular(step):
-            folder = f"run/{step}"
+        def _regular(step, folder):
             namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-{step}.namd")
             time_steps_last = create_namd_file(namd_file, ts=base_time_steps)
             self.logger.debug(
@@ -117,9 +118,8 @@ class Cascade(object):
             step += 1
             return time_steps_last, previous_folder, step
 
-        def _annealing(step, gscale=0.01):
+        def _annealing_incr(step, folder, gscale=0.01):
             # increase T with smaller gscale
-            folder = f"run/{step}"
             namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-{step}.namd")
 
             time_steps_last = create_namd_file(
@@ -129,9 +129,10 @@ class Cascade(object):
             previous_folder = self._run_namd(
                 folder=folder, namd_file=namd_file)
             step += 1
+            return time_steps_last, previous_folder, step
 
+        def _annealing_decr(step, folder, gscale=0.01):
             # decrease T with smaller gscale
-            folder = f"run/{step}"
             namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-{step}.namd")
             time_steps_last = create_namd_file(
                 namd_file, ts=ts_relax, i_temp=400, f_temp=300)
@@ -140,7 +141,6 @@ class Cascade(object):
             previous_folder = self._run_namd(
                 folder=folder, namd_file=namd_file)
             step += 1
-
             return time_steps_last, previous_folder, step
 
         # TODO: create individual dataclass for each step to allow easy setting passing
@@ -195,7 +195,12 @@ class Cascade(object):
                 if cascade == 1 and n == 0:
                     enrgmd_file = f"{prefix}.exb"
                     grid_file = "run/grid-0.dx"
-                    time_steps_last, previous_folder, step = _annealing(step)
+                    folder = f"run/{step}"
+                    time_steps_last, previous_folder, step = _annealing_incr(
+                        step, folder)
+                    folder = f"run/{step}"
+                    time_steps_last, previous_folder, step = _annealing_decr(
+                        step, folder)
 
                 if cascade == 0 and n > first_stop:
                     break
@@ -206,7 +211,8 @@ class Cascade(object):
                 else:
                     enrgmd_file = f"run/{prefix}.exb"
                 grid_file = f"run/grid-{n}.dx"
-                time_steps_last, previous_folder, step = _regular(step)
+                folder = f"run/{step}"
+                time_steps_last, previous_folder, step = _regular(step, folder)
                 init = 0
 
         # TODO: add additional annealing step?
@@ -215,7 +221,8 @@ class Cascade(object):
         grid_file = "run/grid-base.dx"
         if not is_SR:
             enrgmd_file = f"run/{prefix}-BP.exb"
-            time_steps_last, previous_folder, step = _regular(step)
+            folder = f"run/{step}"
+            time_steps_last, previous_folder, step = _regular(step, folder)
 
         # energy minimization with increased gscale to relax bonds
         gscale = 1.0
