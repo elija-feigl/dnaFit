@@ -209,7 +209,7 @@ class Cascade(object):
                     enrgmd_file = f"run/{prefix}-SR.exb"
                     gscale = GSCALE
                 else:
-                    enrgmd_file = f"run/{prefix}.exb"
+                    enrgmd_file = f"{prefix}.exb"
                 grid_file = f"run/grid-{n}.dx"
                 folder = f"run/{step}"
                 time_steps_last, previous_folder, step = _regular(step, folder)

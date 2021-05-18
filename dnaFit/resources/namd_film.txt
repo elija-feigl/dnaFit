@@ -23,12 +23,12 @@ set BOX 1000
 #   Load Environment
 ############################################################################
 
-structure $PREFIX.psf
-coordinates $PREFIX.pdb
+structure ../$PREFIX.psf
+coordinates ../$PREFIX.pdb
 
 paraTypeCharmm on
-parameters          charmm36.nbfix/par_all36_na.prm
-parameters	    charmm36.nbfix/par_water_ions_na.prm
+parameters          ../charmm36.nbfix/par_all36_na.prm
+parameters	    ../charmm36.nbfix/par_water_ions_na.prm
 
 wrapAll             off
 
