@@ -24,7 +24,7 @@ N_REPEAT = 2  # number of consecutive cascades
 FIRST_STOP = 2  # abort first cascade after as many steps
 LR_STOP = 3  # turn off long range enrgMD bonds after as many steps
 GSCALE = 0.3  # scaling factor for map potential
-GSCALE_PRE = 0.1
+GSCALE_PRE = 0.5  # gscale for initial docking
 DIEL_CONST = 1  # dielectric constant (enrgMD==1)
 RES_SPAN = 24  # resolution range covered by low pass filtering
 MAPTHRES = 0.0  # threshold for cropping mrc data (voxel smaller than)
