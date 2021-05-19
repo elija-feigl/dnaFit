@@ -107,8 +107,6 @@ def vmd_info():
 @ click.argument('top', type=click.Path(exists=True))
 @ click.argument('conf', type=click.Path(exists=True))
 @ click.argument('exb', type=click.Path(exists=True))
-@ click.option('-g', '--gpu', type=int, default=0,
-               help='!Not supported yet! GPU used for simulation', show_default=True)
 @ click.option('-o', '--output-prefix', 'prefix', type=str, default=None,
                help="short design name, default to json name")
 @ click.option('--timesteps', type=int, default=12000,  show_default=True,
@@ -117,7 +115,9 @@ def vmd_info():
                help='mrc map resolution in Angstrom')
 @ click.option('--SR-fitting', is_flag=True,
                help='retain Sr bonds troughout fitting cascade.')
-def fit(cadnano, sequence, mrc, top, conf, exb, gpu, prefix, timesteps, resolution, sr_fitting):
+@ click.option('--include-ss', is_flag=True,
+               help='dont exclude single stranded DNA from flexible fitting.')
+def fit(cadnano, sequence, mrc, top, conf, exb, prefix, timesteps, resolution, sr_fitting, include_ss):
     """Cascaded mrDNA-driven MD flexible fitting to MRC cryo data, creates dnaFit folder
 
         CADNANO is the name of the design file [.json]\n
@@ -135,9 +135,6 @@ def fit(cadnano, sequence, mrc, top, conf, exb, gpu, prefix, timesteps, resoluti
     conf = _check_path(conf, [".pdb", ".coor"])
     exb = _check_path(exb, [".exb"])
     prefix = cad_file.stem if prefix is None else prefix
-
-    # TODO: gpu support
-    logger.info("GPU currently not supported for fitting. using CPU only.")
 
     # create duplicates of input files in dnaFit folder
     Path("dnaFit").mkdir(parents=True, exist_ok=True)
@@ -161,10 +158,11 @@ def fit(cadnano, sequence, mrc, top, conf, exb, gpu, prefix, timesteps, resoluti
         if not Path("./charmm36.nbfix").exists():
             copytree(get_resource("charmm36.nbfix"), "./charmm36.nbfix")
 
-        cascade = Cascade(conf=con_file, top=top_file,
-                          mrc=mrc_file, exb=exb_file)
+        cascade = Cascade(conf=con_file, top=top_file, mrc=mrc_file,
+                          exb=exb_file, json=cad_file, seq=seq_file)
         dnaFit = cascade.run_cascaded_fitting(
-            base_time_steps=timesteps, resolution=resolution, is_SR=sr_fitting)
+            base_time_steps=timesteps, resolution=resolution,
+            is_SR=sr_fitting, include_ss=include_ss)
         dnaFit.write_linkage(cad_file, seq_file)
         dnaFit.write_output(dest=Path(home_directory),
                             write_mmCif=True, crop_mrc=True)

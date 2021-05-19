@@ -6,9 +6,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
+
 from .. import get_resource
 from ..core.utils import _get_executable, _exec
 from .atomic_model_fit import AtomicModelFit
+from ..link.linker import Linker
+
 
 warnings.filterwarnings('ignore')
 
@@ -37,7 +40,10 @@ class Cascade(object):
     conf: Path
     top: Path
     exb: Path
+    json: Path
+    seq: Path
     mrc: Path
+    generated_with_mrdna: bool = True
 
     def __post_init__(self) -> None:
         self.prefix: str = self.top.stem
@@ -77,7 +83,7 @@ class Cascade(object):
                     f.writelines(bond_list)
 
     def run_cascaded_fitting(self, base_time_steps: int, resolution: float,
-                             is_SR=False, is_film=False, is_enrgMD=False):
+                             is_SR=False, is_film=False, include_ss=False):
         def create_namd_file(namd_file, ts, ms=0, mdff="1", i_temp=300, f_temp=300):
             with namd_file.open(mode='w') as f:
                 if not is_film:
@@ -165,16 +171,21 @@ class Cascade(object):
         self.logger.debug("VMD based cascade MDff prep.")
 
         grid_pdb = "grid.pdb"
+        if not Path("run/grid-base.dx").exists():
+            self.logger.debug("Running VMD prep for generating cascade maps.")
+            self._vmd_prep(resolution=resolution, n_cascade=n_cascade)
         if not Path(f"run/{grid_pdb}").exists():
-            self._vmd_prep(resolution=resolution,
-                           n_cascade=n_cascade,
-                           grid_pdb=grid_pdb)
+            self.logger.debug("Generate custom gridPdb that excludes ssDNA.")
+            linker = Linker(conf=self.conf, top=self.top, json=self.json, seq=self.seq,
+                            generated_with_mrdna=self.generated_with_mrdna)
+            linker.write_custom_gridpdb(
+                dest=Path(f"run/{grid_pdb}"), exclude_ss=(not include_ss))
         init = 1  # init on first run
         step = 0
         time_steps_last = 0
         previous_folder = "none"
 
-        if is_enrgMD:  # pure enrgMD run without map
+        if not self.generated_with_mrdna:  # pure enrgMD run without map
             folder = "enrgMD"
             grid_file = "none"
             enrgmd_file = "none"
@@ -248,27 +259,27 @@ class Cascade(object):
             conf=final_conf, top=self.top, mrc=self.mrc)
 
     def _run_namd(self, namd_file, folder):
-        if not Path(f"run/{folder}").is_dir():
-            Path(f"run/{folder}").mkdir()
+        exec_folder = Path(f"run/{folder}")
+        if not exec_folder.is_dir():
+            exec_folder.mkdir()
             cmd = f"{self.charmrun} +p32 {self.namd2} +netpoll {namd_file}".split()
             self.logger.info(f"cascade: step {folder} with {cmd}")
             logfile = Path(f"run/{folder}/namd-out.log")
             _exec(cmd, logfile)
-            if not any(Path(f"run/{folder}").iterdir()):
-                Path(f"run/{folder}").rmdir()
-                self.logger.error("No files written. Abort cascade")
+            if not any(exec_folder.glob('*.xst')):
+                self.logger.warn(
+                    "No .xst data written -> NAMD2 critical error. Abort cascade")
                 sys.exit(1)
         else:
-            self.logger.info(f"skipping existing cascade: {folder}")
+            self.logger.info(f"Skipping existing cascade: {folder}")
         return folder
 
-    def _vmd_prep(self, n_cascade, resolution, grid_pdb):
+    def _vmd_prep(self, n_cascade, resolution):
         vmd_prep = Path("run/mdff-prep.vmd")
         lines = ["package require volutil", "package require mdff"]
 
         lines.append(
             f"volutil -clamp {MAPTHRES}:1.0 {self.mrc} -o run/base.dx")
-        lines.append("mdff griddx -i run/base.dx -o run/grid-base.dx")
 
         n_layers = n_cascade - 1
         for n in range(n_cascade):
@@ -277,8 +288,7 @@ class Cascade(object):
             lines.append(
                 f"volutil -smooth {gfilter} run/base.dx -o run/{n}.dx")
             lines.append(f"mdff griddx -i run/{n}.dx -o run/grid-{n}.dx")
-        lines.append(
-            f"mdff gridpdb -psf {self.top} -pdb {self.conf} -o {grid_pdb}")
+        lines.append("mdff griddx -i run/base.dx -o run/grid-base.dx")
         lines.append("exit")
 
         with vmd_prep.open(mode='w') as f:

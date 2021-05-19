@@ -21,12 +21,20 @@ from ..pdb.structure import Structure
 class AtomicModelFit(object):
     conf: Path
     top: Path
-    mrc: Path
+    mrc: Optional[Path] = None
+    json: Optional[Path] = None
+    seq: Optional[Path] = None
     linkage: Optional[Linkage] = None
     generated_with_mrdna: bool = True
 
     def __post_init__(self) -> None:
         self.logger = logging.getLogger(__name__)
+        if self.linkage is not None:
+            self.logger.debug("Using existing Linkage.")
+        elif self.json is not None and self.seq is not None:
+            self.logger.debug(
+                "Auto-generate linkage using seq and json attributes of AtomicModel.")
+            self.linkage = self._get_linkage(self.json, self.seq)
 
     def _write_logfile(self, prefix: str, dest: Path, **kwargs):
         log_file = dest / f"{prefix}_log.txt"
@@ -49,23 +57,33 @@ class AtomicModelFit(object):
         out_link = json.parent / "dnaLink"
 
         Path(out_link).mkdir(parents=True, exist_ok=True)
-        self.linkage = self._get_linkage(json=json, seq=seq)
+        if self.linkage is None:
+            self.linkage = self._get_linkage(json=json, seq=seq)
+
         self.linkage.write_linkage(prefix=json.stem, dest=out_link)
         self.logger.debug(f"writing linkage log file to {out_link}")
         self._write_logfile(
             prefix=json.stem, dest=out_link, json=json, seq=seq)
 
-    def write_output(self, dest: Path, write_mmCif=True, crop_mrc=True):
+    def write_output(self, dest: Path, mrc=None, write_mmCif=True, crop_mrc=True):
         def _copyfile(f, dest):
             copyfile(f, dest / f"{f.stem}-AtomicModelFit{f.suffix}")
 
         if crop_mrc:
-            mrc_masked = self.mrc.with_name(f"{self.mrc.stem}-masked.mrc")
+            if mrc is None:
+                if self.mrc is None:
+                    self.logger.warn("no mrc file specified.")
+                    return
+                else:
+                    self.logger.debug("Using mrc attribute of AtomicModel.")
+                    mrc = self.mrc
+
+            mrc_masked = mrc.with_name(f"{mrc.stem}-masked.mrc")
             if self.linkage is None:
-                u = mda.Universe(str(self.top), str(self.conf))
+                u = self.get_universe()
             else:
                 u = self.linkage.u
-            write_mrc_from_atoms(path=self.mrc, atoms=u.atoms,
+            write_mrc_from_atoms(path=mrc, atoms=u.atoms,
                                  path_out=mrc_masked, context=10., cut_box=True)
 
             copyfile(mrc_masked, dest / mrc_masked.name)

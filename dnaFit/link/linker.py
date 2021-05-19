@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import nanodesign as nd
+from MDAnalysis.core.groups import AtomGroup
 from nanodesign.data.base import DnaBase
 
 from ..data.basepair import BasePair
@@ -424,3 +425,34 @@ class Linker(object):
             for candi in end_bases
             if is_nick(candidate=candi, base=start)
         }
+
+    def write_custom_gridpdb(self, dest: Path, exclude_ss=True, exclude_id=None, exclude_resId=None):
+        if not hasattr(self, "link"):
+            self.logger.debug("Creating Linkage")
+            _ = self.create_linkage()  # initializes and returns link
+        u = self.link.u
+        u.add_TopologyAttr('tempfactor')  # init as 0.
+        u.add_TopologyAttr('occupancy')  # init as 0.
+
+        atoms_exclude = AtomGroup([], u)
+        if exclude_ss:
+            for residue in u.residues:
+                res_id = residue.resindex
+                is_bp_scaffold = res_id in self.Fbp.keys()
+                is_bp_staple = res_id in self.Fbp.values()
+                if not is_bp_scaffold and not is_bp_staple:
+                    atoms_exclude += residue.atoms
+        if exclude_id is not None:
+            for atom_id in exclude_id:
+                atoms_exclude += u.atoms[atom_id]
+        if exclude_resId is not None:
+            for res_id in exclude_resId:
+                atoms_exclude += u.residues[res_id].atoms
+
+        for atom in u.residues.atoms:
+            is_H = "H" in atom.name
+            is_excluded = atom in atoms_exclude
+            if not is_H and not is_excluded:
+                atom.tempfactor = atom.mass
+                atom.occupancy = 1.
+        u.atoms.write(str(dest), bonds=None)
