@@ -22,14 +22,13 @@ import sys
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
-
+from shutil import copyfile
+from typing import List, Optional
 
 from .. import get_resource
-from ..core.utils import _get_executable, _exec
-from .atomic_model_fit import AtomicModelFit
+from ..core.utils import _exec, _get_executable
 from ..link.linker import Linker
-
+from .atomic_model_fit import AtomicModelFit
 
 warnings.filterwarnings('ignore')
 
@@ -62,11 +61,14 @@ class Cascade(object):
     seq: Path
     mrc: Path
     generated_with_mrdna: bool = True
+    grid_pdb: Optional[Path] = None
 
     def __post_init__(self) -> None:
         self.prefix: str = self.top.stem
         self.logger = logging.getLogger(__name__)
         Path("run").mkdir(exist_ok=True)
+        if self.grid_pdb is not None:
+            copyfile(self.grid_pdb, "run/grid.pdb")
 
         self._split_exb_file()
         self.charmrun = _get_executable("charmrun")

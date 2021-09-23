@@ -132,7 +132,9 @@ def vmd_info():
                help='retain Sr bonds troughout fitting cascade.')
 @ click.option('--include-ss', is_flag=True,
                help='dont exclude single stranded DNA from flexible fitting.')
-def fit(cadnano, sequence, mrc, top, conf, exb, prefix, timesteps, resolution, sr_fitting, include_ss):
+@ click.option('--grid_pdb', type=click.Path(exists=True), default=None,
+               help='use custom grid.pdb for segment exclusion.')
+def fit(cadnano, sequence, mrc, top, conf, exb, prefix, timesteps, resolution, sr_fitting, include_ss, grid_pdb):
     """Cascaded mrDNA-driven MD flexible fitting to MRC cryo data, creates dnaFit folder
 
         CADNANO is the name of the design file [.json]\n
@@ -176,8 +178,8 @@ def fit(cadnano, sequence, mrc, top, conf, exb, prefix, timesteps, resolution, s
         if not Path("./charmm36.nbfix").exists():
             copytree(get_resource("charmm36.nbfix"), "./charmm36.nbfix")
 
-        cascade = Cascade(conf=con_file, top=top_file, mrc=mrc_file,
-                          exb=exb_file, json=cad_file, seq=seq_file)
+        cascade = Cascade(conf=con_file, top=top_file, mrc=mrc_file, exb=exb_file,
+                          json=cad_file, seq=seq_file, grid_pdb=grid_pdb)
         dnaFit = cascade.run_cascaded_fitting(
             base_time_steps=timesteps, resolution=resolution,
             is_SR=sr_fitting, include_ss=include_ss)
