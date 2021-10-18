@@ -77,9 +77,9 @@ def mrDna(cadnano, mrc, sequence, gpu, prefix, multidomain, bond_cutoff):
 
     prefix = cad_file.stem if prefix is None else prefix
 
-    run_mrDNA(cad_file, seq_file, prefix, gpu=gpu, multidomain=multidomain)
+    run_mrDNA(cad_file, seq_file, prefix, gpu=gpu, multidomain=multidomain, bond_cutoff=bond_cutoff)
     prep_cascaded_fitting(prefix, cad_file, seq_file,
-                          mrc_file, multidomain=multidomain, bond_cutoff=bond_cutoff)
+                          mrc_file, multidomain=multidomain)
 
     logger.info("Config file is moved to center of mass with mrc map but still \
         has to be rotated before fitting. execute vmd_info for additional info")
