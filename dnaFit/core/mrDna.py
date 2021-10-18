@@ -31,7 +31,8 @@ from .utils import _exec, _get_executable
 logger = logging.getLogger(__name__)
 
 
-def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory="mrdna", gpu: int = 0, multidomain=False):
+def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory="mrdna",
+              gpu: int = 0, multidomain=False, bond_cutoff=300):
     """ running a mrDNA simulation by executing mrDNA externally
             all files are automatically written into a folder "mrDNA"
             checks of completion of mrDNA run
@@ -41,8 +42,8 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory="mrdna", gp
     cmd = [str(mrDNA), "-o", str(prefix), "-d",
            str(directory), "-g", str(gpu), "--run-enrg-md"]
     if multidomain:
-        cmd += ["--coarse-steps", "3e7", "--crossover-to-intrahelical-cutoff",
-                "25", "--coarse-bond-cutoff", "300"]
+        cmd += ["--coarse-steps", "5e7", "--crossover-to-intrahelical-cutoff",
+                "25", "--coarse-bond-cutoff", str(bond_cutoff)]
     export_idx = 4 if multidomain else 3
     cmd += ["--sequence-file", str(seq_file), str(cad_file)]
     logger.info(f"starting mrDNA: creates folder ./{directory}.")

@@ -61,7 +61,8 @@ def cli():
               help="short design name, default to json name")
 @click.option('--multidomain', is_flag=True,
               help='multidomain structures require different settings for equilibration')
-def mrDna(cadnano, mrc, sequence, gpu, prefix, multidomain):
+@click.option('--bond_cutoff', 'bond_cutoff', type=int, default=30, help='mrdna coarse_bond_cutoff', show_default=True)
+def mrDna(cadnano, mrc, sequence, gpu, prefix, multidomain, bond_cutoff):
     """ mrDNA simulation of CADNANO design file followed by prep of cascaded
         mrDNA-driven MD flexible fitting to MRC cryo data
 
@@ -78,7 +79,7 @@ def mrDna(cadnano, mrc, sequence, gpu, prefix, multidomain):
 
     run_mrDNA(cad_file, seq_file, prefix, gpu=gpu, multidomain=multidomain)
     prep_cascaded_fitting(prefix, cad_file, seq_file,
-                          mrc_file, multidomain=multidomain)
+                          mrc_file, multidomain=multidomain, bond_cutoff=bond_cutoff)
 
     logger.info("Config file is moved to center of mass with mrc map but still \
         has to be rotated before fitting. execute vmd_info for additional info")
