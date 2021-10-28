@@ -40,7 +40,7 @@ def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory="mrdna",
     mrDNA = _get_executable("mrdna")
 
     cmd = [str(mrDNA), "-o", str(prefix), "-d",
-           str(directory), "-g", str(gpu), "--run-enrg-md"]
+           str(directory), "-g", str(gpu), "--run-enrg-md", "--enrg-md-steps", "1e5"]
     if multidomain:
         cmd += ["--coarse-steps", "5e7", "--crossover-to-intrahelical-cutoff",
                 "25", "--coarse-bond-cutoff", str(bond_cutoff)]
