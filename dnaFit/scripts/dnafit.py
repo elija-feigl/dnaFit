@@ -64,7 +64,10 @@ def cli():
 @click.option('--bond_cutoff', 'bond_cutoff', type=int, default=30, help='mrdna coarse_bond_cutoff', show_default=True)
 def mrDna(cadnano, mrc, sequence, gpu, prefix, multidomain, bond_cutoff):
     """ mrDNA simulation of CADNANO design file followed by prep of cascaded
-        mrDNA-driven MD flexible fitting to MRC cryo data
+        includes centering of both map and model
+        Note: map and model are not rigid body docked -> manual in vmd
+        for mrDNA-driven MD flexible fitting to MRC cryo data run "dnaFit fit"
+
 
         CADNANO is the name of the design file [.json]\n
         SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
@@ -77,7 +80,8 @@ def mrDna(cadnano, mrc, sequence, gpu, prefix, multidomain, bond_cutoff):
 
     prefix = cad_file.stem if prefix is None else prefix
 
-    run_mrDNA(cad_file, seq_file, prefix, gpu=gpu, multidomain=multidomain, bond_cutoff=bond_cutoff)
+    run_mrDNA(cad_file, seq_file, prefix, gpu=gpu,
+              multidomain=multidomain, bond_cutoff=bond_cutoff)
     prep_cascaded_fitting(prefix, cad_file, seq_file,
                           mrc_file, multidomain=multidomain)
 
@@ -136,7 +140,8 @@ def vmd_info():
 @ click.option('--grid_pdb', type=click.Path(exists=True), default=None,
                help='use custom grid.pdb for segment exclusion.')
 def fit(cadnano, sequence, mrc, top, conf, exb, prefix, timesteps, resolution, sr_fitting, include_ss, grid_pdb):
-    """Cascaded mrDNA-driven MD flexible fitting to MRC cryo data, creates dnaFit folder
+    """Cascaded mrDNA-driven MD flexible fitting to MRC cryo data, creates dnaFit folder.
+       Usually run after mrdna.
 
         CADNANO is the name of the design file [.json]\n
         SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
@@ -227,9 +232,9 @@ def link(cadnano, sequence, mrc, top, conf, enrgmd_server):
 @click.argument('mrc', type=click.Path(exists=True))
 @click.argument('top', type=click.Path(exists=True))
 @click.argument('conf', type=click.Path(exists=True))
-@click.option('--enrgMD_server', is_flag=True,
-              help='add if pdb has already been docked to the mrc data')
-def mask(mrc, top, conf, enrgMD_server):
+@click.option('-e', '--enrgmd_server', 'enrgmd_server', is_flag=True,
+              help='add if pdb has been generated with enrgMD server')
+def mask(mrc, top, conf, enrgmd_server):
     """ links structural information of the cadnano designfile[design.json] to
          fitted atomic model[design.psf, design.dcd].
          used to mask mrc map to fit
@@ -244,11 +249,11 @@ def mask(mrc, top, conf, enrgMD_server):
     conf = _check_path(conf, [".pdb", ".coor"])
 
     dnaFit = AtomicModelFit(conf=conf, top=top, mrc=mrc,
-                            generated_with_mrdna=enrgMD_server)
+                            generated_with_mrdna=enrgmd_server)
     u = dnaFit.get_universe()
     mrc_masked = mrc.with_name(f"{mrc.stem}-masked.mrc")
     write_mrc_from_atoms(path=mrc, atoms=u.atoms,
-                         path_out=mrc_masked, context=10., cut_box=True)
+                         path_out=mrc_masked, context=40., cut_box=True, keep_data=True)
 
 
 @cli.command()

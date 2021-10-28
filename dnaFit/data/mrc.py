@@ -44,7 +44,7 @@ def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0]), apply=True) 
 
 
 def write_mrc_from_atoms(path: Path, atoms: mda.AtomGroup,
-                         path_out: Path, context: float = 4., cut_box=True):
+                         path_out: Path, context: float = 4., cut_box=True, keep_data=False):
     if not len(atoms):
         logger.warning("Cannot crop empty atom selection. No file written")
         return
@@ -55,7 +55,8 @@ def write_mrc_from_atoms(path: Path, atoms: mda.AtomGroup,
     data_mask = _create_voxel_mask(atoms, grid, origin, voxel, context)
     data = full_data * data_mask
     if cut_box:
-        data, origin, voxel = _mrc_cutbox(data, origin, voxel)
+        data, origin, voxel = _mrc_cutbox(
+            data, full_data, origin, voxel, keep_full=keep_data)
 
     with mrcfile.new(path_out, overwrite=True) as mrc_out:
         mrc_out.set_data(data.transpose())
@@ -91,8 +92,10 @@ def _get_mrc_properties(mrc):
     return (voxel_size, grid, origin, data)
 
 
-def _mrc_cutbox(data, m_origin, m_spacing):
+def _mrc_cutbox(data, full_data, m_origin, m_spacing, keep_full=False):
     idx_data = np.nonzero(data)
+    if keep_full:
+        data = full_data
 
     x_min, x_max = np.min(idx_data[0]), np.max(idx_data[0])
     y_min, y_max = np.min(idx_data[1]), np.max(idx_data[1])
