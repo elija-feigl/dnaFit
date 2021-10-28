@@ -80,15 +80,14 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path,
         copyfile(f"{pre_mrdna}.psf", f"./{prefix}.psf")
         copyfile(f"{pre_mrdna}.exb", f"./{prefix}.exb")
 
-        # NOTE: pdb is start not finish. use output/NAME.coor instead
-        coor = f"../{directory}/output/{prefix}-{export_idx}-1.dcd"
+        # NAME.pdb is start not finish. use output/NAME.coor instead
+        coor = f"../{directory}/output/{prefix}-{export_idx}-1.coor"
         u = mda.Universe(f"./{prefix}.psf", coor)
-        u.trajectory[-1]
-        u.atoms.write(f"./{prefix}.pdb")
 
         mrc_shift = recenter_mrc(mrc_file, apply=False)
-        recenter_conf(top=Path(f"./{prefix}.psf"),
-                      conf=Path(f"./{prefix}.pdb"), to_position=mrc_shift)
+        translation = mrc_shift - u.atoms.center_of_geometry()
+        u.atoms.translate(translation)
+        u.atoms.write(f"./{prefix}.pdb")
 
         copytree(f"../{directory}/charmm36.nbfix", "./charmm36.nbfix")
     except Exception:
