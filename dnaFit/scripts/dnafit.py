@@ -61,7 +61,7 @@ def cli():
               help="short design name, default to json name")
 @click.option('--multidomain', is_flag=True,
               help='multidomain structures require different settings for equilibration')
-@click.option('--bond_cutoff', 'bond_cutoff', type=int, default=30, help='mrdna coarse_bond_cutoff', show_default=True)
+@click.option('--bond_cutoff', 'bond_cutoff', type=int, default=300, help='mrdna coarse_bond_cutoff', show_default=True)
 def mrDna(cadnano, mrc, sequence, gpu, prefix, multidomain, bond_cutoff):
     """ mrDNA simulation of CADNANO design file followed by prep of cascaded
         includes centering of both map and model

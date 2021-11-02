@@ -82,6 +82,13 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path,
 
         # NAME.pdb is start not finish. use output/NAME.coor instead
         coor = f"../{directory}/output/{prefix}-{export_idx}-1.coor"
+        if not Path(coor).is_file():
+            logger.debug(
+                "using last frame of .dcd file over nonexisting .coor")
+            coor = f"../{directory}/output/{prefix}-{export_idx}-1.dcd"
+        u = mda.Universe(f"./{prefix}.psf", coor)
+        if not Path(coor).is_file():
+            u.trajectory[-1]
         u = mda.Universe(f"./{prefix}.psf", coor)
 
         mrc_shift = recenter_mrc(mrc_file, apply=False)
