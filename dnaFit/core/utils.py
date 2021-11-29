@@ -132,12 +132,7 @@ def _exec(cmd, logfile: Path):
             log.flush()
 
 
-def _check_path(filepath: str, extensions: list):
-    path = Path(filepath).resolve()
-    if path.exists():
-        if path.suffix in extensions:
-            return path
-        else:
-            raise Exception(
-                f"input file {filepath} does not have correct extension {extensions}")
-    raise Exception(f"input file {filepath} was not found")
+def _check_path(filepath: Path, extensions: list):
+    if filepath.suffix not in extensions:
+        raise Exception(
+            f"input file {filepath} does not have correct extension {extensions}")

@@ -41,7 +41,7 @@ setup(
     include_package_data=True,
     install_requires=(
         'numpy',
-        'click',
+        'click>=8.0.0',
         'mdanalysis>=1.0',
         'mrcfile>=1.0',
         # 'mrdna>=0.0'  # TODO: add link in readme
