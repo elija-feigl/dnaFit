@@ -16,10 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
-from dnaFit.version import get_version
-from setuptools import setup, find_packages
+""" Atomic model construction and analysis for lattice based DNAOrigami."""
 
-"""Atomic model construction and analysis for lattice based DNAOrigami."""
+from setuptools import find_packages, setup
+
+from dnaFit.version import get_version
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -40,12 +41,12 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=(
-        'numpy',
+        'numpy>=1.20',
         'click>=8.0.0',
         'mdanalysis>=1.0',
-        'mrcfile>=1.0',
-        # 'mrdna>=0.0'  # TODO: add link in readme
-        # 'nanodesign>=???'  # TODO: add version
+        'mrcfile>=1.3',
+        'mrdna>=1.0'
+        'nanodesign>=1.0'
     ),
     classifiers=[
         "Programming Language :: Python :: 3",

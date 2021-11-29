@@ -13,11 +13,12 @@ A Python3 package that contains a collection of scripts related to the fitting o
 ## Dependencies
 
 * Python >= 3.7
-  * numpy >= 1.14
-  * scipy >= 1.1
+  * numpy >= 1.20
+  * click >= 8.0
   * mdanalysis >= 1.0
-  * mrcfile >= ??
-  * nanodesign3  >= ?? # not publised yet
+  * mrcfile >= 1.3
+  * mrdna > 1.0 (march 2021)
+  * nanodesign >= 1.0 (python3 fork)
 
 ### without  mrDNA:
 
@@ -37,7 +38,8 @@ install all required Python Packages. the following are not available via the Py
 ### mrDNA install
 link: https://gitlab.engr.illinois.edu/tbgl/tools/mrdna
 ### nanodesign3
-https://github.com/elija-feigl/nanodesign_dietz
+python3 fork of autodesk/nanodesign
+https://github.com/elija-feigl/nanodesign
 
 
     git clone https://github.com/elija-feigl/DNA_Fit
