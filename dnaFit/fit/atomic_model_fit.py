@@ -36,7 +36,7 @@ from ..pdb.structure import Structure
 
 
 @dataclass
-class AtomicModelFit(object):
+class AtomicModelFit:
     """ Atomic Model class generated form a specific cadnano design and sequence file,
             built to fit a specific cryp em mrc map.
             design positions and model indices can be linked
@@ -74,7 +74,7 @@ class AtomicModelFit(object):
                         generated_with_mrdna=self.generated_with_mrdna)
         return linker.create_linkage()
 
-    def _get_universe(self):
+    def get_universe(self):
         """ return MDAnalysis universe"""
         return mda.Universe(str(self.top), str(self.conf))
 
@@ -91,13 +91,13 @@ class AtomicModelFit(object):
         self._write_logfile(
             prefix=json.stem, dest=out_link, json=json, seq=seq)
 
-    def write_output(self, dest: Path, is_write_mmcif=True, is_mask_mrc=True):
+    def write_output(self, dest: Path, write_mmcif=True, mask_mrc=True):
         """ write atomic model and masked mrc file from."""
         def _copyfile(filepath: Path, dest):
             copyfile(filepath, dest /
                      f"{filepath.stem}-AtomicModelFit{filepath.suffix}")
 
-        if is_write_mmcif:
+        if write_mmcif:
             # NOTE: Hydrogen removed is standart for RCSB upload
             structure = Structure(path=self.conf, remove_H=True)
             structure.parse_pdb()
@@ -108,14 +108,14 @@ class AtomicModelFit(object):
             _copyfile(self.top, dest)
             _copyfile(self.conf, dest)
 
-        if is_mask_mrc:
+        if mask_mrc:
             if self.mrc is None:
                 self.logger.warning(
                     "no mrc file specified. Omitting mrc output")
             else:
                 mrc_masked = self.mrc.with_name(f"{self.mrc.stem}-masked.mrc")
                 if self.linkage is None:
-                    universe = self._get_universe()
+                    universe = self.get_universe()
                 else:
                     universe = self.linkage.u
                     write_mrc_from_atoms(path=self.mrc, atoms=universe.atoms,

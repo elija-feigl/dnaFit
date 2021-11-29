@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
+""" atomic coordinate file type"""
+
 from dataclasses import dataclass
 from typing import List, Tuple, Union
 
@@ -25,8 +27,9 @@ from .types import AtomName, ChainID, Number, ResName
 
 
 @dataclass
-class Atom(object):
-    i_atom_coor: Union[np.ndarray, Tuple[str, str, str],
+class Atom:
+    """ pdb/cif atom class"""
+    i_atom_coor: Union[np.ndarray, List[str],
                        Tuple[float, float, float]]
     i_atom_number: Union[int, str]
     i_atom_name: str
@@ -59,7 +62,8 @@ class Atom(object):
         else:
             raise NotImplementedError
 
-    def asCif(self) -> str:
+    def as_cif(self) -> str:
+        """ return atom in mmCIF format"""
         return "".join([
             "ATOM ",
             self.atom_number.as_str().ljust(12, " "),
@@ -85,7 +89,8 @@ class Atom(object):
             "\n",
         ])
 
-    def asPdb(self) -> str:
+    def as_pdb(self) -> str:
+        """ return atom in PDB format"""
         return "".join([
             "ATOM  ",
             self.atom_number.as_pdb4namd(width=5),

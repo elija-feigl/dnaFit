@@ -23,7 +23,7 @@ from .utils import h36_2_int, int_2_chimeraSegID, int_2_cifSegID, int_2_h36
 
 
 @dataclass
-class Number(object):
+class Number:
     """ read from hybrid36 string string or int """
     _input: Union[int, str]
 
@@ -53,7 +53,7 @@ class Number(object):
 
 
 @dataclass
-class AtomName(object):
+class AtomName:
     """ use cif standart """
     _input: str
 
@@ -93,7 +93,7 @@ class AtomName(object):
 
 
 @dataclass
-class ResName(object):
+class ResName:
     """resname [DA, DC, DG, DT]"""
     _input: str
 
@@ -122,7 +122,7 @@ class ResName(object):
 
 
 @dataclass
-class ChainID(object):
+class ChainID:
     _input: Union[int, str]
 
     def __post_init__(self):

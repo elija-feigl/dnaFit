@@ -16,14 +16,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
+"""linker module"""
+
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-import nanodesign as nd
+import MDAnalysis as mda
 from MDAnalysis.core.groups import AtomGroup
 from nanodesign.data.base import DnaBase
+from nanodesign.data.dna_structure_helix import DnaStructureHelix
 
 from ..data.basepair import BasePair
 from ..data.crossover import Crossover
@@ -33,7 +36,7 @@ from .linkage import Linkage
 
 
 @dataclass
-class Linker(object):
+class Linker:
     """ Linker class
 
         COMMENTS:
@@ -48,6 +51,8 @@ class Linker(object):
     seq: Optional[Path]
     generated_with_mrdna: bool = True
 
+    link: Linkage = field(init=False)
+
     Fbp: Dict[int, int] = field(default_factory=dict)
     DidFid: Dict[int, int] = field(default_factory=dict)
     DhpsDid: Dict[Tuple[int, int, bool], int] = field(default_factory=dict)
@@ -55,6 +60,10 @@ class Linker(object):
     FidSeq_local: Dict[int, str] = field(default_factory=dict)
     FidSeq_global: Dict[int, str] = field(default_factory=dict)
     Fco: Dict[str, Crossover] = field(default_factory=dict)
+
+    FidSeq: Dict[int, str] = field(default_factory=dict)
+    FidHN: Dict[int, List[int]] = field(default_factory=dict)
+    Dcolor: Dict[int, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.fit: Fit = Fit(top=self.top, conf=self.conf)
@@ -70,7 +79,6 @@ class Linker(object):
                 self.FidSeq_global
 
         """
-        self.FidSeq: Dict[int, str] = dict()
         for base in self.design.allbases:
             # local: scaffold 5'->3'
             sequence = ""
@@ -115,7 +123,7 @@ class Linker(object):
             -------
                 self.FidHN
         """
-        def is_occupied_helix(H: Optional["nd.DnaStructureHelix"],
+        def is_occupied_helix(H: Optional[DnaStructureHelix],
                               p: int,
                               ) -> bool:
             if H is None:
@@ -127,7 +135,6 @@ class Linker(object):
             else:
                 return False
 
-        self.FidHN: Dict[int, List[int]] = dict()
         for base in self.design.allbases:
             HidH = self.design.design.structure_helices_map
             HrcH = self.design.design.structure_helices_coord_map
@@ -325,7 +332,7 @@ class Linker(object):
             n_position += direct
         return self.design.Dhps_base.get((helix, n_position, is_scaf), None)
 
-    def _get_bp(self, base: "nd.residue") -> Optional[BasePair]:
+    def _get_bp(self, base: DnaBase) -> Optional[BasePair]:
         if base is None:
             return None
         else:
@@ -338,10 +345,10 @@ class Linker(object):
             sc = None if sc_index is None else self.fit.u.residues[sc_index]
             st = None if st_index is None else self.fit.u.residues[st_index]
             hp = (base.h, base.p)
-            return BasePair(sc=sc, st=st, hp=hp)
+            return BasePair(scaffold=sc, staple=st, hp=hp)
 
-    def is_co(self, base: DnaBase, neighbor: Optional[DnaBase]
-              ) -> bool:
+    def is_co(self, base: DnaBase, neighbor: Optional[DnaBase]) -> bool:
+        """ determine if a base is part of a crossover. """
         if neighbor is None:
             return False
         else:
@@ -372,16 +379,16 @@ class Linker(object):
             bC_ = get_co_leg(base=bC, direct=(-1 * direct))
             bD_ = get_co_leg(base=bD, direct=direct)
 
-            Ps, Ls = list(), list()
+            positionals, legs = list(), list()
             co_pos = list()
             for bP, bL in zip([bA, bB, bC, bD], [bA_, bB_, bC_, bD_]):
-                Ps.append(self._get_bp(base=bP))
+                positionals.append(self._get_bp(base=bP))
                 if bP is not None:
                     co_pos.append((bP.h, bP.p))
-                Ls.append(self._get_bp(base=bL))
+                legs.append(self._get_bp(base=bL))
             co = Crossover(
-                Ps=Ps,
-                Ls=Ls,
+                positionals=positionals,
+                legs=legs,
                 typ=typ,
                 is_scaf=bA.is_scaf,
             )
@@ -444,11 +451,13 @@ class Linker(object):
             if is_nick(candidate=candi, base=start)
         }
 
-    def write_custom_gridpdb(self, dest: Path, exclude_ss=True, exclude_id=None, exclude_resId=None):
+    def write_custom_gridpdb(self, dest: Path,
+                             exclude_ss=True, exclude_id=None, exclude_resid=None):
+        """ write custom grid.pdb file for a given set of indices"""
         if not hasattr(self, "link"):
             self.logger.debug("Creating Linkage")
             _ = self.create_linkage()  # initializes and returns link
-        u = self.link.u
+        u: mda.Universe = self.link.u
         u.add_TopologyAttr('tempfactor')  # init as 0.
         u.add_TopologyAttr('occupancy')  # init as 0.
 
@@ -463,8 +472,8 @@ class Linker(object):
         if exclude_id is not None:
             for atom_id in exclude_id:
                 atoms_exclude += u.atoms[atom_id]
-        if exclude_resId is not None:
-            for res_id in exclude_resId:
+        if exclude_resid is not None:
+            for res_id in exclude_resid:
                 atoms_exclude += u.residues[res_id].atoms
 
         for atom in u.residues.atoms:

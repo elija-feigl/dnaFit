@@ -216,11 +216,11 @@ def fit(cadnano, sequence, mrc, top, conf, exb,
                           json=cadnano, seq=sequence, grid_pdb=grid_pdb)
         model = cascade.run_cascaded_fitting(
             base_time_steps=timesteps, resolution=resolution,
-            is_SR=sr_fitting, include_ss=include_ss
+            is_sr=sr_fitting, include_ss=include_ss
         )
         model.write_linkage(cadnano, sequence)
         model.write_output(dest=Path(home_directory),
-                           write_mmcif=True, crop_mrc=True)
+                           write_mmcif=True, mask_mrc=True)
     finally:
         os.chdir(home_directory)
         logger.debug("changing directory to: %s", os.getcwd())

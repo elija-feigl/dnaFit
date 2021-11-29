@@ -16,6 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
+""" Fit Class managing MDAnalysis structure for a given topology and
+    configuration/trajectory file of a namd simulation.
+
+    COMMENTS:
+    16.11.2020 not covering multi-scaffold structures
+"""
+
 import logging
 from dataclasses import dataclass
 from operator import attrgetter
@@ -25,16 +32,10 @@ from typing import List, Tuple
 import MDAnalysis as mda
 from MDAnalysis.core.groups import Segment
 
-""" Fit Class managing MDAnalysis structure for a given topology and
-    configuration/trajectory file of a namd simulation.
-
-    COMMENTS:
-    16.11.2020 not covering multi-scaffold structures
-"""
-
 
 @dataclass
-class Fit(object):
+class Fit:
+    """ atomic model class"""
     conf: Path
     top: Path
 
@@ -45,12 +46,13 @@ class Fit(object):
 
     def _get_universe(self) -> mda.Universe:
         if self.top.exists() and self.conf.exists():
-            u = mda.Universe(str(self.top), str(self.conf))
+            universe = mda.Universe(str(self.top), str(self.conf))
         else:
             self.logger.error(
-                f"Failed to initialize mda.Universe due to missing files: {self.top} {self.conf}")
+                "Failed to initialize mda.Universe due to missing files: %s %s",
+                self.top, self.conf)
             raise FileNotFoundError
-        return u
+        return universe
 
     def _split_strands(self) -> Tuple[Segment, List[Segment]]:
         # TODO: -low- multiscaffold

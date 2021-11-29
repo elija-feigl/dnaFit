@@ -16,6 +16,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
+"""
+    VIEWERTOOL:
+    This module defines the classes used to define the connectivity and
+    geometry of a DNA structure.
+
+    A DNA structure consists of a number of scaffold and staple strands
+    (DNA origami), or oligo strands alone, bound together to form a designed
+    geometric shape.
+
+    NOTE: requires ipywidget and which is not listed in dnaFit requirements
+"""
+
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,21 +44,9 @@ from ..link.linkage import Linkage
 from ..link.linker import Linker
 from ..pdb.structure import Structure
 
-"""
-    VIEWERTOOL:
-    This module defines the classes used to define the connectivity and
-    geometry of a DNA structure.
-
-    A DNA structure consists of a number of scaffold and staple strands
-    (DNA origami), or oligo strands alone, bound together to form a designed
-    geometric shape.
-
-    NOTE: requires ipywidget and which is not listed in dnaFit requirements
-"""
-
 
 @dataclass
-class Viewer(object):
+class Viewer:
     conf: Path
     top: Path
     mrc: Path
@@ -98,7 +98,7 @@ class Viewer(object):
         else:
             residues = atoms.residues
 
-        atoms_ds = self.empty_atomGroup()
+        atoms_ds = self.empty_atom_group()
         for residue in residues:
             if residue.resindex in self.link.Fbp_full.keys():
                 atoms_ds += residue.atoms
@@ -110,7 +110,7 @@ class Viewer(object):
         else:
             residues = atoms.residues
 
-        atoms_sc = self.empty_atomGroup()
+        atoms_sc = self.empty_atom_group()
         for residue in residues:
             if residue.resindex in self.link.Fbp.keys():
                 atoms_sc += residue.atoms
@@ -120,7 +120,7 @@ class Viewer(object):
         if atoms is None:
             atoms = self.u.atoms
 
-        atoms_noH = self.empty_atomGroup()
+        atoms_noH = self.empty_atom_group()
         for atom in atoms:
             if "H" not in atom.name:
                 atoms_noH += atom
@@ -136,8 +136,8 @@ class Viewer(object):
                 atom.occupancy = 1.
         if name is None:
             name = self.conf.name + "_grid"
-        self.writepdb(atoms=self.u.atoms, name=name,
-                      destination=destination, as_mmCif=False)
+        self.write_pdb(atoms=self.u.atoms, name=name,
+                       destination=destination, as_cif=False)
         self.u.atoms.write("/Users/elija/Desktop/grid_s.pdb", bonds=None)
         return
 
@@ -171,8 +171,8 @@ class Viewer(object):
                 return min(alist), max(alist)
 
         minb, maxb = _minmax([base.p for base in self.linker.design.allbases])
-        r_range = _minmax([coor[0] for coor in self.Hcoor2H.keys()], True)
-        c_range = _minmax([coor[1] for coor in self.Hcoor2H.keys()], True)
+        r_range = _minmax([coor[0] for coor in self.Hcoor2H], True)
+        c_range = _minmax([coor[1] for coor in self.Hcoor2H], True)
 
         lattice = ("square" if self.linker.design.design.lattice_type == 0
                    else "honeycomb")
@@ -219,11 +219,12 @@ class Viewer(object):
 
         return (selection_helices, selection_bases), context
 
-    def writepdb(self, atoms, name=None, destination=None, singleframe=True, frame=-1, as_mmCif=True):
+    def write_pdb(self, atoms,
+                  name=None, destination=None, singleframe=True, frame=-1, as_cif=True):
         import warnings
         warnings.filterwarnings('ignore')
 
-        if not len(atoms):
+        if not atoms:
             self.logger.warning("Empty atom selection. No file written.")
             return
 
@@ -245,22 +246,22 @@ class Viewer(object):
         path = destination / f"{name}.pdb"
 
         with mda.Writer(path, multiframe=True,
-                        n_atoms=atoms.n_atoms) as W:
+                        n_atoms=atoms.n_atoms) as mda_writer:
             if singleframe:
                 self.link.u.trajectory[frame]
-                W.write(atoms)
+                mda_writer.write(atoms)
             else:
                 for _ in self.link.u.trajectory:
-                    W.write(atoms)
+                    mda_writer.write(atoms)
 
-        if as_mmCif:
+        if as_cif:
             structure = Structure(path=path, remove_H=False)
             structure.parse_pdb()
             mmcif = self.conf.with_suffix(".cif")
             structure.write_cif(mmcif)
 
-    def writedcd(self, atoms, name=None, destination=None):
-        if not len(atoms):
+    def write_dcd(self, atoms, name=None, destination=None):
+        if not atoms:
             self.logger.warning("Empty atom selection. No file written.")
             return
 
@@ -305,5 +306,6 @@ class Viewer(object):
         write_mrc_from_atoms(path=self.mrc, atoms=atomsXX,
                              path_out=path, context=context, cut_box=cut_box)
 
-    def empty_atomGroup(self) -> AtomGroup:
+    def empty_atom_group(self) -> AtomGroup:
+        """ return an empty mdanalysis atom group"""
         return AtomGroup([], self.u)

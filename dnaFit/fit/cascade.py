@@ -16,6 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
+""" mrdna driven cascade fitting simulation class.
+    TODO: document current setup
+"""
+
 import inspect
 import logging
 import sys
@@ -32,8 +36,7 @@ from .atomic_model_fit import AtomicModelFit
 
 warnings.filterwarnings('ignore')
 
-""" mrdna driven cascade fitting simulation class.
-"""
+
 ###############################################################################
 # PRESET PARAMETERS
 N_CASCADE = 8  # number of steps in the cascade
@@ -51,7 +54,7 @@ TS_RELAX = 12000  # steps for relax enrgMD
 
 
 @dataclass
-class Cascade(object):
+class Cascade:
     """ Cascade simulation class
     """
     conf: Path
@@ -81,8 +84,8 @@ class Cascade(object):
         # TODO: alternative splittings
         # TODO: include custom extrabonds
         # TODO: skip if exists
-        with self.exb.open(mode='r') as f:
-            exb_data = f.readlines()
+        with self.exb.open(mode='r') as exb_file:
+            exb_data = exb_file.readlines()
         exb_split: List[List[str]] = list()
         bond_list: List[str] = list()
         for line in exb_data:
@@ -92,20 +95,21 @@ class Cascade(object):
             bond_list.append(line)
         exb_split.pop(0)
 
-        with Path(f"run/{self.prefix}-BP.exb").open(mode='w') as f:
+        with Path(f"run/{self.prefix}-BP.exb").open(mode='w') as exb_file_bp:
             for bond_list in exb_split:
                 if bond_list[0].lower().startswith("# pair"):
-                    f.writelines(bond_list)
+                    exb_file_bp.writelines(bond_list)
 
-        with Path(f"run/{self.prefix}-SR.exb").open(mode='w') as f:
+        with Path(f"run/{self.prefix}-SR.exb").open(mode='w') as exb_file_sr:
             for bond_list in exb_split:
                 if not bond_list[0].lower().startswith("# pushbonds"):
-                    f.writelines(bond_list)
+                    exb_file_sr.writelines(bond_list)
 
     def run_cascaded_fitting(self, base_time_steps: int, resolution: float,
-                             is_SR=False, is_film=False, include_ss=False):
-        def create_namd_file(namd_file, ts, ms=0, mdff="1", i_temp=300, f_temp=300):
-            with namd_file.open(mode='w') as f:
+                             is_sr=False, is_film=False, include_ss=False):
+        """ main function call to perform fitting protocol """
+        def create_namd_file(namd_path, ts, ms=0, mdff="1", i_temp=300, f_temp=300):
+            with namd_path.open(mode='w') as namd_file:
                 if not is_film:
                     namd_base = get_resource("namd.txt").read_text()
                 else:
@@ -131,8 +135,10 @@ class Cascade(object):
                     set ITEMP {i_temp}
                     set FTEMP {f_temp}
                     """)
-                f.write("\n".join([namd_header, namd_parameters, namd_base]))
-            return (time_steps_last + ts)
+                namd_file.write(
+                    "\n".join([namd_header, namd_parameters, namd_base]))
+            new_time_steps_last = time_steps_last + ts
+            return new_time_steps_last
 
         def _regular(step, folder):
             namd_file = Path(f"run/{prefix}_c-mrdna-MDff-{step}.namd")
@@ -219,6 +225,8 @@ class Cascade(object):
                 folder=folder, namd_file=namd_file)
             init = 0
 
+        # TODO: for >15A maps use binary maps instead?
+
         # cascades
         for cascade in range(n_repeat):
             for n in range(n_cascade):
@@ -251,7 +259,7 @@ class Cascade(object):
 
         # refine by removing intrahelical bonds
         grid_file = "grid-base.dx"
-        if not is_SR:
+        if not is_sr:
             enrgmd_file = f"{prefix}-BP.exb"
             folder = f"{step}"
             time_steps_last, previous_folder, step = _regular(step, folder)
@@ -288,7 +296,7 @@ class Cascade(object):
             logfile = Path(f"run/{folder}/namd-out.log")
             _exec(cmd, logfile)
             if not any(exec_folder.glob('*.xst')):
-                self.logger.warn(
+                self.logger.warning(
                     "No .xst data written -> NAMD2 critical error. Abort cascade")
                 sys.exit(1)
         else:
@@ -296,7 +304,7 @@ class Cascade(object):
         return folder
 
     def _vmd_prep(self, n_cascade, resolution):
-        vmd_prep = Path("run/mdff-prep.vmd")
+        vmd_prep_path = Path("run/mdff-prep.vmd")
         lines = ["package require volutil", "package require mdff"]
 
         lines.append(
@@ -312,15 +320,15 @@ class Cascade(object):
         lines.append("mdff griddx -i run/base.dx -o run/grid-base.dx")
         lines.append("exit")
 
-        with vmd_prep.open(mode='w') as f:
-            f.write('\n'.join(lines))
-        cmd = f"{self.vmd} -dispdev text -e {vmd_prep}".split()
+        with vmd_prep_path.open(mode='w') as vmd_file:
+            vmd_file.write('\n'.join(lines))
+        cmd = f"{self.vmd} -dispdev text -e {vmd_prep_path}".split()
         self.logger.info(f"vmd prep:  with {cmd}")
         logfile = Path("run/vmd_prep-out.log")
         _exec(cmd, logfile)
 
     def _vmd_post(self, step):
-        vmd_post = Path("run/mdff-post.vmd")
+        vmd_post_path = Path("run/mdff-post.vmd")
         lines = ["package require volutil", "package require mdff"]
         lines.append(f"mol new {self.top}")
         name = self.top.stem
@@ -340,10 +348,10 @@ class Cascade(object):
         lines.append("set sel [atomselect top all]")
         lines.append(f"$sel writepdb {name}-last.pdb")
         lines.append("exit")
-        with vmd_post.open(mode='w') as f:
-            f.write('\n'.join(lines))
+        with vmd_post_path.open(mode='w') as vmd_file:
+            vmd_file.write('\n'.join(lines))
 
-        cmd = f"{self.vmd} -dispdev text -e {vmd_post}".split()
+        cmd = f"{self.vmd} -dispdev text -e {vmd_post_path}".split()
         self.logger.info(f"vmd postprocess:  with {cmd}")
         logfile = Path("run/vmd_post-out.log")
         _exec(cmd, logfile)

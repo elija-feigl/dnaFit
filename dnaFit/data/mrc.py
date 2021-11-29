@@ -16,26 +16,27 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
-import logging
-import mrcfile
-import numpy as np
-import MDAnalysis as mda
+""" collection of scripts to allow manipulation of a cryo-EM map."""
 
+import logging
 from pathlib import Path
 
+import MDAnalysis as mda
+import mrcfile
+import numpy as np
 
-""" collection of scripts to allow manipulation of a cryo-EM map."""
 logger = logging.getLogger(__name__)
 
 
 def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0]), apply=True) -> np.ndarray:
+    """ recenter the mrc file to a specific position. returns required shift"""
     with mrcfile.open(path, mode='r+') as mrc:
-        c = np.array(mrc.header["cella"])
-        half_box = 0.5 * np.array([c["x"], c["y"], c["z"]])
+        _cell = np.array(mrc.header["cella"])
+        half_box = 0.5 * np.array([_cell["x"], _cell["y"], _cell["z"]])
         to_origin = (to_position - half_box)
 
-        h = np.array(mrc.header["origin"])
-        origin = np.array([h["x"], h["y"], h["z"]])
+        _origin = np.array(mrc.header["origin"])
+        origin = np.array([_origin["x"], _origin["y"], _origin["z"]])
 
         shift = to_origin - origin
         if apply:
@@ -45,7 +46,8 @@ def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0]), apply=True) 
 
 def write_mrc_from_atoms(path: Path, atoms: mda.AtomGroup,
                          path_out: Path, context: float = 4., cut_box=True, keep_data=False):
-    if not len(atoms):
+    """ mask a mrc map using an group of atoms """
+    if not atoms:
         logger.warning("Cannot crop empty atom selection. No file written")
         return
 
@@ -80,14 +82,14 @@ def _create_voxel_mask(atoms, grid, origin, voxel_size, context):
 
 
 def _get_mrc_properties(mrc):
-    o = np.array(mrc.header["origin"])
-    origin = np.array([o["x"], o["y"], o["z"]])
-    c = np.array(mrc.header["cella"])
-    cell = np.array([c["x"], c["y"], c["z"]])
+    _origin = np.array(mrc.header["origin"])
+    origin = np.array([_origin["x"], _origin["y"], _origin["z"]])
+    _cell = np.array(mrc.header["cella"])
+    box = np.array([_cell["x"], _cell["y"], _cell["z"]])
     grid = np.array(
         [mrc.header["nx"], mrc.header["ny"], mrc.header["nz"]])
     data = mrc.data.transpose()
-    voxel_size = cell / grid
+    voxel_size = box / grid
 
     return (voxel_size, grid, origin, data)
 

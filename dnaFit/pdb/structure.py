@@ -25,7 +25,7 @@ from .files import CIF, PDB
 
 
 @dataclass
-class Structure(object):
+class Structure:
     path: Path
     remove_H: bool = True
     atoms: List[Atom] = field(default_factory=list)
@@ -54,7 +54,7 @@ class Structure(object):
         raise NotImplementedError
 
     def _parse_pdb_info(self, line: str):
-        # TODO: collect extra data
+        # TODO-low: collect extra data
         return
 
     def _eval_atm_number(self, string: str, ) -> int:

@@ -16,90 +16,96 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
+""" BasePair Class represents a watson-crick baspair of two nanodesign base
+    object. Important Attributes are their position in the design-file and
+    their spatial orientation in real space (BasePlane and BasePairPlane class)
+"""
+
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple, Optional
 
 import numpy as np
 from MDAnalysis.core.groups import Residue
 
 from ..core.utils import _norm
 
-""" BasePair Class represents a watson-crick baspair of two nanodesign base
-    object. Important Attributes are their position in the design-file and
-    their spatial orientation in real space (BasePlane and BasePairPlane class)
 
-    COMMENTS:
-"""
+@dataclass(frozen=True)
+class BasePairPlane:
+    """ plane_versor: plane-normal vector. always pointing in scaffold 5'->3' direction
+        wc_vector: vector pointing from scaffold to staple
+    """
+    __slots__ = ["positions", "wc_vectors", "plane_versor"]
+    positions: Dict[str, Any]
+    wc_vectors: Dict[str, Any]
+    plane_versor: np.ndarray
 
 
 @dataclass(frozen=True)
-class BasePairPlane(object):
-    """n0: plane-normal vector. always pointing in scaffold 5'->3' direction
+class BasePlane:
+    """plane_versor: plane-normal vector. always pointing in scaffold 5'->3' direction
     """
-    __slots__ = ["P", "a", "n0"]
-    P: Dict[str, np.ndarray]
-    a: Dict[str, np.ndarray]
-    n0: np.ndarray
-
-
-@dataclass(frozen=True)
-class BasePlane(object):
-    """n0: plane-normal vector. always pointing in scaffold 5'->3' direction
-    """
-    __slots__ = ["P", "n0"]
-    P: Dict[str, np.ndarray]
-    n0: np.ndarray
+    __slots__ = ["positions", "plane_versor"]
+    positions: Dict[str, Any]
+    plane_versor: np.ndarray
 
 
 @dataclass
-class BasePair(object):
+class BasePair:
     """ every square of the JSON can be represented as BP
     """
-    sc: Residue
-    st: Residue
+    scaffold: Residue
+    staple: Residue
     hp: Tuple[int, int]
 
+    sc_plane: Optional[BasePlane] = None
+    st_plane: Optional[BasePlane] = None
+    plane: Optional[BasePairPlane] = None
+
     def __post_init__(self):
-        if self.sc is None or self.st is None:
+        if self.scaffold is None or self.staple is None:
             self.is_ds = False
         else:
             self.is_ds = True
 
     def calculate_baseplanes(self):
-        self.sc_plane = (self._get_base_plane(res=self.sc, is_scaf=True)
-                         if self.sc is not None else None)
-        self.st_plane = (self._get_base_plane(res=self.st, is_scaf=False)
-                         if self.st is not None else None)
-        self.plane = (self._get_bp_plane(sc=self.sc_plane, st=self.st_plane)
+        """ calculate base planes and basepair planes"""
+        self.sc_plane = (self._get_base_plane(res=self.scaffold, is_scaf=True)
+                         if self.scaffold is not None else None)
+        self.st_plane = (self._get_base_plane(res=self.staple, is_scaf=False)
+                         if self.staple is not None else None)
+        self.plane = (self._get_bp_plane(scaffold=self.sc_plane, staple=self.st_plane)
                       if self.is_ds else None)
 
     def _get_base_plane(self, res: Residue, is_scaf: bool) -> BasePlane:
-        P = dict()
+        positions = dict()
         atom = []
         for atom_name in ["C2", "C4", "C6"]:
-            A, = res.atoms.select_atoms("name " + atom_name)
-            atom.append(A.position)
+            atom_select, = res.atoms.select_atoms("name " + atom_name)
+            atom.append(atom_select.position)
 
-        n0 = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[0])))
+        plane_versor = _norm(
+            np.cross((atom[1] - atom[0]), (atom[2] - atom[0])))
         if res.resname in ["ADE", "GUA"] and is_scaf:
-            n0 = -n0
+            plane_versor = -plane_versor
         elif res.resname in ["THY", "CYT"] and not is_scaf:
-            n0 = -n0
+            plane_versor = -plane_versor
 
-        P["diazine"] = sum(atom) / 3.
+        positions["diazine"] = sum(atom) / 3.
 
-        C6C8 = "C8" if res.resname in ["ADE", "GUA"] else "C6"
-        P["C6C8"] = res.atoms.select_atoms("name " + C6C8)[0].position
+        c6c8 = "C8" if res.resname in ["ADE", "GUA"] else "C6"
+        positions["C6C8"] = res.atoms.select_atoms("name " + c6c8)[0].position
 
-        P["C1'"] = res.atoms.select_atoms("name C1'")[0].position
+        positions["C1'"] = res.atoms.select_atoms("name C1'")[0].position
 
-        return BasePlane(n0=n0, P=P)
+        return BasePlane(plane_versor=plane_versor, positions=positions)
 
-    def _get_bp_plane(self, sc, st) -> BasePairPlane:
-        a, P = dict(), dict()
-        n0 = (sc.n0 + st.n0) * 0.5
-        for n in sc.P:
-            P[n] = (sc.P[n] + st.P[n]) * 0.5
-            a[n] = st.P[n] - sc.P[n]
+    def _get_bp_plane(self, scaffold, staple) -> BasePairPlane:
+        wc_vectors, positions = dict(), dict()
+        plane_versor = (scaffold.plane_versor + staple.plane_versor) * 0.5
+        for pos in scaffold.positions:
+            positions[pos] = (scaffold.positions[pos] +
+                              staple.positions[pos]) * 0.5
+            wc_vectors[pos] = staple.positions[pos] - scaffold.positions[pos]
 
-        return BasePairPlane(n0=n0, a=a, P=P)
+        return BasePairPlane(plane_versor=plane_versor, wc_vectors=wc_vectors, positions=positions)

@@ -16,18 +16,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
+""" Crossovers are defined via a holiday-junction in DNA-Origami"""
+
 from dataclasses import dataclass
 from typing import List, Optional
 
 from .basepair import BasePair
 
-""" Crossover Classes represent holiday-junction in DNA-Origami
-"""
-
 
 @dataclass
-class Crossover(object):
-    Ps: List[Optional[BasePair]]
-    Ls: List[Optional[BasePair]]
-    typ: str  # [full, half, end]
+class Crossover:
+    """ crossover class
+        to define angles, each crossover arm is composed of
+            * positional base (part of the holiday junction)
+            * leg base (n bases away)
+        there are three types [full, half, end]
+    """
+    positionals: List[Optional[BasePair]]
+    legs: List[Optional[BasePair]]
+    typ: str
     is_scaf: bool

@@ -16,15 +16,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
-import logging
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, List, Optional
-
-from nanodesign.converters.converter import Converter
-from nanodesign.data.base import DnaBase
-from nanodesign.data.dna_structure import DnaStructure
-
 """ Design Class manageing cadnano design. The autodesk/nanodesign package is
     used to read the json file. Some modifications and additions are necessary
     to the nanodesign functionality.
@@ -34,9 +25,19 @@ from nanodesign.data.dna_structure import DnaStructure
     03.12.2020 anticipates singlescaffold structure with circular scaffold
 """
 
+import logging
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional
+
+from nanodesign.converters.converter import Converter
+from nanodesign.data.base import DnaBase
+from nanodesign.data.dna_structure import DnaStructure
+
 
 @dataclass
-class Design(object):
+class Design:
+    """ DNA Origami design class, based on nanodesign"""
     json: Path
     seq: Optional[Path]
     generated_with_mrdna: bool = True
@@ -88,14 +89,12 @@ class Design(object):
                 seq_file_name=seq,
                 seq_name=None,
             )
-            # TODO sequence file may not be working!!!
         else:
             self.logger.error(
-                f"Failed to initialize nanodesign due to missing files: {self.json} {self.seq}")
+                "Failed to initialize nanodesign due to missing files: %s %s", self.json, self.seq)
             raise FileNotFoundError
         converter.dna_structure.compute_aux_data()
-        dnaStructure = converter.dna_structure
-        return dnaStructure
+        return converter.dna_structure
 
     def _create_helix_order(self) -> Dict[int, int]:
         """ helices are not listed in the json in same order as they are listed
@@ -128,9 +127,9 @@ class Design(object):
                     for s in self.staples
                     ]
         Dhps_sorted = sorted(Dhps, key=lambda x: (x[0], x[1]))
-        order_ND = [
+        order_nanodesign = [
             Dhps.index(Dhps_sorted[i])
             for i, _ in enumerate(Dhps)
         ]
-        stapleorder = {nd: idx for (idx, nd) in enumerate(order_ND)}
+        stapleorder = {nd: idx for (idx, nd) in enumerate(order_nanodesign)}
         return stapleorder
