@@ -60,7 +60,7 @@ class Viewer(object):
                              generated_with_mrdna=self.is_mrdna)
         try:
             self.link: Linkage = self.linker.create_linkage()
-        except:
+        except Exception:
             self.logger.error(
                 "ERROR: The provided design is not compatible with the atomic.")
 

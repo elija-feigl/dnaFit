@@ -16,11 +16,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
+""" custom mrDNA setup
+"""
+
 import logging
 import os
 import sys
 from pathlib import Path
-from shutil import copyfile, copytree
+from shutil import copyfile
 
 import MDAnalysis as mda
 import numpy as np
@@ -31,46 +34,46 @@ from .utils import _exec, _get_executable
 logger = logging.getLogger(__name__)
 
 
-def run_mrDNA(cad_file: Path, seq_file: Path, prefix: str, directory="mrdna",
+def run_mrdna(cad_file: Path, seq_file: Path, prefix: str, directory="mrdna",
               gpu: int = 0, multidomain=False, bond_cutoff=300):
-    """ running a mrDNA simulation by executing mrDNA externally
-            all files are automatically written into a folder "mrDNA"
-            checks of completion of mrDNA run
+    """ running a mrdna simulation by executing mrdna externally
+            all files are automatically written into a folder "mrdna"
+            checks of completion of mrdna run
     """
-    mrDNA = _get_executable("mrdna")
+    mrdna = _get_executable("mrdna")
 
-    cmd = [str(mrDNA), "-o", str(prefix), "-d",
+    cmd = [str(mrdna), "-o", str(prefix), "-d",
            str(directory), "-g", str(gpu), "--run-enrg-md", "--enrg-md-steps", "1e5"]
     if multidomain:
         cmd += ["--coarse-steps", "5e7", "--crossover-to-intrahelical-cutoff",
                 "25", "--coarse-bond-cutoff", str(bond_cutoff)]
     export_idx = 4 if multidomain else 3
     cmd += ["--sequence-file", str(seq_file), str(cad_file)]
-    logger.info(f"starting mrDNA: creates folder ./{directory}.")
-    logfile = Path("mrDNA-interal.log")
+    logger.info("starting mrdna: creates folder ./%s.", directory)
+    logfile = Path("mrdna-interal.log")
     _exec(cmd, logfile)
 
-    logger.info("mrDNA: finished. Checking for final files.")
+    logger.info("mrdna: finished. Checking for final files.")
     is_ok = (os.path.isfile(f"./{directory}/{prefix}-{export_idx}.psf")
              and os.path.isfile(f"./{directory}/{prefix}-{export_idx}.pdb")
              and os.path.isfile(f"./{directory}/{prefix}-{export_idx}.exb"))
     if not is_ok:
         logger.error(
-            f"At least one of mrdna's *-{export_idx}. files was not created")
+            "At least one of mrdna's *-%s. files was not created", export_idx)
         sys.exit(1)
 
 
 def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path,
                           mrc_file: Path, directory="mrdna", multidomain=False):
     """ prep cascaded fitting:
-            prepares a new folder "prep" with files from a finished mrDNA run
-            in subfolder "mrDNA" and copies necessary files.
+            prepares a new folder "prep" with files from a finished mrdna run
+            in subfolder "mrdna" and copies necessary files.
     """
     home_directory = os.getcwd()
     try:
         Path("prep").mkdir(parents=True, exist_ok=True)
         os.chdir("prep")
-        logger.debug(f"changing directory to: {os.getcwd()}")
+        logger.debug("changing directory to: %s", os.getcwd())
 
         copyfile(cad_file, f"./{prefix}.json")
         copyfile(seq_file, f"./{prefix}.seq")
@@ -86,24 +89,26 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path,
             logger.error(
                 "erngMD stopped with error. no coor file generated. Abort!")
             sys.exit(1)
-        u = mda.Universe(f"./{prefix}.psf", coor)
+        universe = mda.Universe(f"./{prefix}.psf", coor)
 
         mrc_shift = recenter_mrc(mrc_file, apply=False)
-        translation = mrc_shift - u.atoms.center_of_geometry()
-        u.atoms.translate(translation)
-        u.atoms.write(f"./{prefix}.pdb")
+        translation = mrc_shift - universe.atoms.center_of_geometry()
+        universe.atoms.translate(translation)
+        universe.atoms.write(f"./{prefix}.pdb")
 
-    except Exception:
+    except Exception as exc:
         logger.exception(
-            f"mrDNA: failed to copy mrDNA files to working directory {os.getcwd()}")
-        raise Exception
+            "mrdna: failed to copy mrdna files to working directory %s", os.getcwd())
+        raise Exception from exc
     finally:
         os.chdir(home_directory)
-        logger.debug(f"changing directory to: {os.getcwd()}")
+        logger.debug("changing directory to: %s", os.getcwd())
 
 
 def recenter_conf(top: Path, conf: Path, to_position=np.array([0.0, 0.0, 0.0])) -> None:
-    u = mda.Universe(str(top), str(conf))
-    translation = to_position - u.atoms.center_of_geometry()
-    u.atoms.translate(translation)
-    u.atoms.write(str(conf))
+    """ recenter a set of atoms on a specific position by its center of geomerty.
+    """
+    universe = mda.Universe(str(top), str(conf))
+    translation = to_position - universe.atoms.center_of_geometry()
+    universe.atoms.translate(translation)
+    universe.atoms.write(str(conf))

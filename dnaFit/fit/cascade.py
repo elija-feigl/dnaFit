@@ -32,7 +32,7 @@ from .atomic_model_fit import AtomicModelFit
 
 warnings.filterwarnings('ignore')
 
-""" mrDNA driven cascade fitting simulation class.
+""" mrdna driven cascade fitting simulation class.
 """
 ###############################################################################
 # PRESET PARAMETERS
@@ -77,7 +77,7 @@ class Cascade(object):
 
     def _split_exb_file(self) -> None:
         self.logger.info(
-            "assuming annotated, sorted .exb files (mrDNA > march 2021)")
+            "assuming annotated, sorted .exb files (mrdna > march 2021)")
         # TODO: alternative splittings
         # TODO: include custom extrabonds
         # TODO: skip if exists
@@ -135,7 +135,7 @@ class Cascade(object):
             return (time_steps_last + ts)
 
         def _regular(step, folder):
-            namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-{step}.namd")
+            namd_file = Path(f"run/{prefix}_c-mrdna-MDff-{step}.namd")
             time_steps_last = create_namd_file(namd_file, ts=base_time_steps)
             self.logger.debug(
                 f"{step}: ts={base_time_steps}, mdff={gscale}, exb={enrgmd_file}, grid={grid_file}")
@@ -146,7 +146,7 @@ class Cascade(object):
 
         def _annealing_incr(step, folder, gscale=0.01):
             # increase T with smaller gscale
-            namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-{step}.namd")
+            namd_file = Path(f"run/{prefix}_c-mrdna-MDff-{step}.namd")
 
             time_steps_last = create_namd_file(
                 namd_file, ts=ts_relax, i_temp=300, f_temp=400)
@@ -159,7 +159,7 @@ class Cascade(object):
 
         def _annealing_decr(step, folder, gscale=0.01):
             # decrease T with smaller gscale
-            namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-{step}.namd")
+            namd_file = Path(f"run/{prefix}_c-mrdna-MDff-{step}.namd")
             time_steps_last = create_namd_file(
                 namd_file, ts=ts_relax, i_temp=400, f_temp=300)
             self.logger.debug(
@@ -196,6 +196,7 @@ class Cascade(object):
             self._vmd_prep(resolution=resolution, n_cascade=n_cascade)
         if not Path(f"run/{grid_pdb}").exists():
             self.logger.debug("Generate custom gridPdb that excludes ssDNA.")
+            # TODO: nanodesign sequence errors are not handled properly
             linker = Linker(conf=self.conf, top=self.top, json=self.json, seq=self.seq,
                             generated_with_mrdna=self.generated_with_mrdna)
             linker.write_custom_gridpdb(
@@ -209,7 +210,7 @@ class Cascade(object):
             folder = "enrgMD"
             grid_file = "none"
             enrgmd_file = "none"
-            namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-enrgMD.namd")
+            namd_file = Path(f"run/{prefix}_c-mrdna-MDff-enrgMD.namd")
             time_steps_last = create_namd_file(
                 namd_file, ts=ts_enrg, ms=ms_enrg, mdff="0")
             self.logger.debug(
@@ -258,7 +259,7 @@ class Cascade(object):
         # energy minimization with increased gscale to relax bonds
         gscale = 1.0
         folder = "final"
-        namd_file = Path(f"run/{prefix}_c-mrDNA-MDff-final.namd")
+        namd_file = Path(f"run/{prefix}_c-mrdna-MDff-final.namd")
 
         time_steps_last = create_namd_file(
             namd_file, ts=0, ms=base_time_steps)

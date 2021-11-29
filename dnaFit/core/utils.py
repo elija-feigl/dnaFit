@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
+""" utility module """
+
 import os
 import subprocess
 from pathlib import Path
@@ -115,7 +117,7 @@ def _dh_angle(p: list, as_rad=False):  # slow
 
 
 def _get_executable(name: str):
-    # TODO: use pathlib only
+    # TODO-low: use pathlib only
     for path in os.environ["PATH"].split(os.pathsep):
         exe = os.path.join(path.strip('"'), name)
         if os.path.isfile(exe) and os.access(exe, os.X_OK):

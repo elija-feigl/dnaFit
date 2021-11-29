@@ -16,6 +16,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
+""" cascaded mrDNA-driven MD flexible fitting script module:
+    dnaFit commands:
+        main pipeline:
+        1. mrdna:   mrDNA structure prediction with custom settings for cadnano file.
+                    (includes creation of prep folder for fitting)
+        2. vmd_info:    print info for rigid body docking with VMD
+        3. fit:     shrink wrap fitting if of rigid body docked mrDNA prediction
+                    includes mask, pdb2cif, and link
+
+        additional exposed commands:
+        * center_on_map:    write new PDB with COM of the configuration at .mrc center
+        * link:     create a linkage file for cadnano-design and atomic model
+                    (required by FitViewer)
+        * mask:     mask a .mrc map using an atomic model
+        * pdb2cif:  create .cif from .pdb file
+ """
+
 import logging
 import os
 
@@ -24,7 +41,7 @@ from shutil import copyfile, copytree
 
 import click
 from dnaFit import get_resource
-from dnaFit.core.mrDna import run_mrDNA, prep_cascaded_fitting, recenter_conf
+from dnaFit.core.mrdna import run_mrdna, prep_cascaded_fitting, recenter_conf
 from dnaFit.core.utils import _check_path
 from dnaFit.data.mrc import write_mrc_from_atoms, recenter_mrc
 from dnaFit.fit.atomic_model_fit import AtomicModelFit
@@ -33,12 +50,11 @@ from dnaFit.pdb.structure import Structure
 from dnaFit.version import get_version
 
 
-""" cascaded mrDNA-driven MD flexible fitting:
-"""
 logger = logging.getLogger(__name__)
 
 
-def print_version(ctx, param, value):
+def print_version(ctx, _, value):
+    """ click print version."""
     if not value or ctx.resilient_parsing:
         return
     click.echo(get_version())
@@ -49,63 +65,70 @@ def print_version(ctx, param, value):
 @click.option('--version', is_flag=True, callback=print_version,
               expose_value=False, is_eager=True)
 def cli():
-    pass
+    """Click Command Line Interface"""
 
 
 @cli.command()
-@click.argument('cadnano', type=click.Path(exists=True))
-@click.argument('sequence', type=click.Path(exists=True))
-@click.argument('mrc', type=click.Path(exists=True))
-@click.option('-g', '--gpu', type=int, default=0, help='GPU used for simulation', show_default=True)
+@click.argument('cadnano', type=click.Path(exists=True, path_type=Path))
+@click.argument('sequence', type=click.Path(exists=True, path_type=Path))
+@click.argument('mrc', type=click.Path(exists=True, path_type=Path))
+@click.option('-g', '--gpu', type=int, default=0, show_default=True,
+              help='NOT SUPPORTED. GPU used for simulation.')
 @click.option('-o', '--output-prefix', 'prefix', type=str, default=None,
               help="short design name, default to json name")
+@click.option('--bond_cutoff', 'bond_cutoff', type=int, default=300, show_default=True,
+              help='see "mrdna --help" --coarse_bond_cutoff')
 @click.option('--multidomain', is_flag=True,
-              help='multidomain structures require different settings for equilibration')
-@click.option('--bond_cutoff', 'bond_cutoff', type=int, default=300, help='mrdna coarse_bond_cutoff', show_default=True)
-def mrDna(cadnano, mrc, sequence, gpu, prefix, multidomain, bond_cutoff):
-    """ mrDNA simulation of CADNANO design file followed by prep of cascaded
-        includes centering of both map and model
-        Note: map and model are not rigid body docked -> manual in vmd
-        for mrDNA-driven MD flexible fitting to MRC cryo data run "dnaFit fit"
-
+              help='use multidomain structures settings.')
+@click.option('--no_prep', is_flag=True,
+              help='do not perform fitting prep.')
+def mrdna(cadnano, mrc, sequence, gpu, prefix, multidomain, bond_cutoff, no_prep):
+    """ mrDNA simulation of CADNANO design file with custom settings.
+            followed by preperation of files for "dnaFit fit"
+        Note1:  includes centering of model and masking of map
+        Note2:  map and model are not rigid body docked "dnaFit vmd_info"
 
         CADNANO is the name of the design file [.json]\n
         SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
         MRC is the name of the cryo EM volumetric data file [.mrc]\n
     """
-    # NOTE: click will drop python2 support soon and actually return a Path
-    cad_file = _check_path(cadnano, [".json"])
-    mrc_file = _check_path(mrc, [".mrc"])
-    seq_file = _check_path(sequence, [".txt", ".seq"])
+    file_types = {
+        cadnano: [".json"],
+        mrc: [".mrc"],
+        sequence: [".txt", ".seq"],
+    }
+    for file, types in file_types.items():
+        _check_path(file, types)
+    prefix = cadnano.stem if prefix is None else prefix
 
-    prefix = cad_file.stem if prefix is None else prefix
-
-    run_mrDNA(cad_file, seq_file, prefix, gpu=gpu,
+    run_mrdna(cadnano, sequence, prefix, gpu=gpu,
               multidomain=multidomain, bond_cutoff=bond_cutoff)
-    prep_cascaded_fitting(prefix, cad_file, seq_file,
-                          mrc_file, multidomain=multidomain)
+    if not no_prep:
+        prep_cascaded_fitting(prefix, cadnano, sequence,
+                              mrc, multidomain=multidomain)
 
     logger.info("Config file is moved to center of mass with mrc map but still \
         has to be rotated before fitting. execute vmd_info for additional info")
 
-# TODO: enrgMD only setup
-
 
 @cli.command()
-@click.argument('mrc', type=click.Path(exists=True))
-@click.argument('top', type=click.Path(exists=True))
-@click.argument('conf', type=click.Path(exists=True))
+@click.argument('mrc', type=click.Path(exists=True, path_type=Path))
+@click.argument('top', type=click.Path(exists=True, path_type=Path))
+@click.argument('conf', type=click.Path(exists=True, path_type=Path))
 def center_on_map(mrc, top, conf):
-    """ recenter atomic model on mrc cryo map
+    """ recenter atomic model center-of-mass on mrc cryo map center and write new .pdb.
 
         MRC is the name of the cryo EM volumetric data file [.mrc]\n
         TOP is the name of the namd topology file [.top]\n
-        CONF is the name of the namd configuration file, docked to map (VMD)  [.pdb, .coor]\n
+        CONF is the name of the namd configuration, docked to the map [.pdb, .coor]\n
     """
-    # NOTE: click will drop python2 support soon and actually return a Path
-    mrc = _check_path(mrc, [".mrc"])
-    top = _check_path(top, [".psf"])
-    conf = _check_path(conf, [".pdb", ".coor"])
+    file_types = {
+        mrc: [".mrc"],
+        top: [".psf"],
+        conf: [".pdb", ".coor"],
+    }
+    for file, types in file_types.items():
+        _check_path(file, types)
     conf_docked = conf.with_name(f"{conf.stem}-docked.pdb")
     copyfile(conf, conf_docked)
 
@@ -115,33 +138,38 @@ def center_on_map(mrc, top, conf):
 
 @ cli.command()
 def vmd_info():
-    """ Print VMD command for rotation of pdb around center of mass
+    """ print VMD command for rotation of pdb around center of mass.
+        Note:   The current pipeline does not include an automated rigid-body-docking step.
+                Docking of the model has to be performed manually. Using VMD is recommended.
     """
     logger.info(get_resource("vmd_rot.txt").read_text())
 
 
-@ cli.command()
-@ click.argument('cadnano', type=click.Path(exists=True))
-@ click.argument('sequence', type=click.Path(exists=True))
-@ click.argument('mrc', type=click.Path(exists=True))
-@ click.argument('top', type=click.Path(exists=True))
-@ click.argument('conf', type=click.Path(exists=True))
-@ click.argument('exb', type=click.Path(exists=True))
-@ click.option('-o', '--output-prefix', 'prefix', type=str, default=None,
-               help="short design name, default to json name")
-@ click.option('--timesteps', type=int, default=12000,  show_default=True,
-               help='timesteps per cascade (multiple of 12)')
-@ click.option('--resolution', type=float, default=10.0,  show_default=True,
-               help='mrc map resolution in Angstrom')
-@ click.option('--SR-fitting', is_flag=True,
-               help='retain Sr bonds troughout fitting cascade.')
-@ click.option('--include-ss', is_flag=True,
-               help='dont exclude single stranded DNA from flexible fitting.')
-@ click.option('--grid_pdb', type=click.Path(exists=True), default=None,
-               help='use custom grid.pdb for segment exclusion.')
-def fit(cadnano, sequence, mrc, top, conf, exb, prefix, timesteps, resolution, sr_fitting, include_ss, grid_pdb):
-    """Cascaded mrDNA-driven MD flexible fitting to MRC cryo data, creates dnaFit folder.
-       Usually run after mrdna.
+@cli.command()
+@click.argument('cadnano', type=click.Path(exists=True, path_type=Path))
+@click.argument('sequence', type=click.Path(exists=True, path_type=Path))
+@click.argument('mrc', type=click.Path(exists=True, path_type=Path))
+@click.argument('top', type=click.Path(exists=True, path_type=Path))
+@click.argument('conf', type=click.Path(exists=True, path_type=Path))
+@click.argument('exb', type=click.Path(exists=True, path_type=Path))
+@click.option('-o', '--output-prefix', 'prefix', type=str, default=None,
+              help="short design name, default to json name")
+@click.option('--timesteps', type=int, default=12000,  show_default=True,
+              help='timesteps per cascade (multiple of 12)')
+@click.option('--resolution', type=float, default=10.0,  show_default=True,
+              help='mrc map resolution in Angstrom')
+@click.option('--SR-fitting', 'sr_fitting', is_flag=True,
+              help='retain SR-elastic-network troughout fitting cascade.')
+@click.option('--include-ss', 'include_ss', is_flag=True,
+              help='dont exclude single stranded DNA from flexible fitting.')
+@click.option('--grid-pdb', 'grid_pdb', type=click.Path(exists=True), default=None,
+              help='use custom grid.pdb for segment exclusion.')
+def fit(cadnano, sequence, mrc, top, conf, exb,
+        prefix, timesteps, resolution, sr_fitting, include_ss, grid_pdb):
+    """ Cascaded mrDNA-driven MD flexible fitting (shrink wrap fitting) to MRC cryo data.
+            creates dnaFit folder. This folder will contain final results prefix-last.cif
+        Note1:  run after mrDNA ("dnaFit mrdna") and manual rigid-body-docking ("dnaFit vmd_info")
+        Note2:  SR-fitting (Short Range). Recommended for maps with resolution >> 10 Angstrom
 
         CADNANO is the name of the design file [.json]\n
         SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
@@ -150,88 +178,89 @@ def fit(cadnano, sequence, mrc, top, conf, exb, prefix, timesteps, resolution, s
         CONF is the name of the namd configuration file, docked to map (VMD)  [.pdb, .coor]\n
         EXB is the name of the enrgMD extrabond file (expect mrDNA > march 2021) [.exb]
     """
-    # NOTE: click will drop python2 support soon and actually return a Path
-    cad_file = _check_path(cadnano, [".json"])
-    seq_file = _check_path(sequence, [".txt", ".seq"])
-    mrc_file = _check_path(mrc, [".mrc"])
-    top = _check_path(top, [".psf"])
-    conf = _check_path(conf, [".pdb", ".coor"])
-    exb = _check_path(exb, [".exb"])
-    prefix = cad_file.stem if prefix is None else prefix
+    file_types = {
+        cadnano: [".json"],
+        sequence: [".seq", ".txt"],
+        mrc: [".mrc"],
+        top: [".psf"],
+        conf: [".pdb", ".coor"],
+        exb: [".exb"],
+    }
+    for file, types in file_types.items():
+        _check_path(file, types)
+    prefix = cadnano.stem if prefix is None else prefix
 
-    # TODO: gpu support
+    # TODO-low: gpu support
     logger.info("GPU currently not supported for fitting. using CPU only.")
 
     # create duplicates of input files in dnaFit folder
     Path("dnaFit").mkdir(parents=True, exist_ok=True)
-    copyfile(cadnano, f"./dnaFit/{prefix}.json")
-    copyfile(sequence, f"./dnaFit/{prefix}.seq")
-    copyfile(mrc, f"./dnaFit/{prefix}.mrc")
-    copyfile(conf, f"./dnaFit/{prefix}.pdb")
-    copyfile(top, f"./dnaFit/{prefix}.psf")
-    copyfile(exb, f"./dnaFit/{prefix}.exb")
+    for file, types in file_types.items():
+        copyfile(file, f"./dnaFit/{prefix}.{types[0]}")
 
     home_directory = os.getcwd()
     try:
         os.chdir("dnaFit")
-        logger.debug(f"changing directory to: {os.getcwd()}")
-        mrc_file = Path(f"./{prefix}.mrc").resolve()
-        cad_file = Path(f"./{prefix}.json").resolve()
-        seq_file = Path(f"./{prefix}.seq").resolve()
-        top_file = Path(f"./{prefix}.psf").resolve()
-        con_file = Path(f"./{prefix}.pdb").resolve()
-        exb_file = Path(f"./{prefix}.exb").resolve()
+        logger.debug("changing directory to: %s", os.getcwd())
+        # use duplicates instead of input
+        mrc = Path(f"./{prefix}.mrc").resolve()
+        cadnano = Path(f"./{prefix}.json").resolve()
+        sequence = Path(f"./{prefix}.seq").resolve()
+        top = Path(f"./{prefix}.psf").resolve()
+        conf = Path(f"./{prefix}.pdb").resolve()
+        exb = Path(f"./{prefix}.exb").resolve()
         if not Path("./charmm36.nbfix").exists():
             copytree(get_resource("charmm36.nbfix"), "./charmm36.nbfix")
 
-        cascade = Cascade(conf=con_file, top=top_file, mrc=mrc_file, exb=exb_file,
-                          json=cad_file, seq=seq_file, grid_pdb=grid_pdb)
-        dnaFit = cascade.run_cascaded_fitting(
+        cascade = Cascade(conf=conf, top=top, mrc=mrc, exb=exb,
+                          json=cadnano, seq=sequence, grid_pdb=grid_pdb)
+        model = cascade.run_cascaded_fitting(
             base_time_steps=timesteps, resolution=resolution,
-            is_SR=sr_fitting, include_ss=include_ss)
-        dnaFit.write_linkage(cad_file, seq_file)
-        dnaFit.write_output(dest=Path(home_directory),
-                            write_mmCif=True, crop_mrc=True)
+            is_SR=sr_fitting, include_ss=include_ss
+        )
+        model.write_linkage(cadnano, sequence)
+        model.write_output(dest=Path(home_directory),
+                           write_mmcif=True, crop_mrc=True)
     finally:
         os.chdir(home_directory)
-        logger.debug(f"changing directory to: {os.getcwd()}")
+        logger.debug("changing directory to: %s", os.getcwd())
 
 
 @cli.command()
-@click.argument('cadnano', type=click.Path(exists=True))
-@click.argument('sequence', type=click.Path(exists=True))
-@click.argument('mrc', type=click.Path(exists=True))
-@click.argument('top', type=click.Path(exists=True))
-@click.argument('conf', type=click.Path(exists=True))
-@click.option('--enrgmd_server', is_flag=True,
-              help='add if pdb generated with enrgMD')
-def link(cadnano, sequence, mrc, top, conf, enrgmd_server):
-    """ links structural information of the cadnano designfile[design.json] to
-         fitted atomic model[design.psf, design.dcd].
-        * linkage information ist stored in human readable csv format
+@click.argument('cadnano', type=click.Path(exists=True, path_type=Path))
+@click.argument('sequence', type=click.Path(exists=True, path_type=Path))
+@click.argument('top', type=click.Path(exists=True, path_type=Path))
+@click.argument('conf', type=click.Path(exists=True, path_type=Path))
+@click.option('--enrgmd-server', 'enrgmd_server', is_flag=True,
+              help='add if initial .pdb was generated with enrgMD web-server.')
+def link(cadnano, sequence, top, conf, enrgmd_server):
+    """ links structural information of the CADNANO designfile to
+            fitted atomic model files TOP, CONF.
+        Note: linkage information ist stored in human readable csv format
 
         CADNANO is the name of the design file [.json]\n
         SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
-        MRC is the name of the cryo EM volumetric data file [.mrc]\n
         TOP is the name of the namd topology file [.top]\n
         CONF is the name of the namd configuration file [.pdb, .coor]\n
     """
-    # NOTE: click will drop python2 support soon and actually return a Path
-    mrc = _check_path(mrc, [".mrc"])
-    top = _check_path(top, [".psf"])
-    conf = _check_path(conf, [".pdb", ".coor"])
-    cadnano = _check_path(cadnano, [".json"])
-    sequence = _check_path(sequence, [".txt", ".seq"])
+    file_types = {
+        cadnano: [".json"],
+        sequence: [".txt", ".seq"],
+        top: [".psf"],
+        conf: [".pdb", ".coor"],
+    }
+    for file, types in file_types.items():
+        _check_path(file, types)
 
-    dnaFit = AtomicModelFit(conf=conf, top=top, mrc=mrc,
-                            generated_with_mrdna=(not enrgmd_server))
-    dnaFit.write_linkage(json=cadnano, seq=sequence)
+    model = AtomicModelFit(conf=conf, top=top, mrc=None,
+                           generated_with_mrdna=(not enrgmd_server))
+    model.write_linkage(json=cadnano, seq=sequence)
 
 
 @cli.command()
-@click.argument('mrc', type=click.Path(exists=True))
-@click.argument('top', type=click.Path(exists=True))
-@click.argument('conf', type=click.Path(exists=True))
+@click.argument('mrc', type=click.Path(exists=True, path_type=Path))
+@click.argument('top', type=click.Path(exists=True, path_type=Path))
+@click.argument('conf', type=click.Path(exists=True, path_type=Path))
 @click.option('-e', '--enrgmd_server', 'enrgmd_server', is_flag=True,
               help='add if pdb has been generated with enrgMD server')
 def mask(mrc, top, conf, enrgmd_server):
@@ -243,33 +272,34 @@ def mask(mrc, top, conf, enrgmd_server):
         TOP is the name of the namd topology file [.top]\n
         CONF is the name of the namd configuration file [.pdb, .coor]\n
     """
-    # NOTE: click will drop python2 support soon and actually return a Path
-    mrc = _check_path(mrc, [".mrc"])
-    top = _check_path(top, [".psf"])
-    conf = _check_path(conf, [".pdb", ".coor"])
+    file_types = {
+        mrc: [".mrc"],
+        top: [".psf"],
+        conf: [".pdb", ".coor"],
+    }
+    for file, types in file_types.items():
+        _check_path(file, types)
 
-    dnaFit = AtomicModelFit(conf=conf, top=top, mrc=mrc,
-                            generated_with_mrdna=enrgmd_server)
-    u = dnaFit.get_universe()
+    model = AtomicModelFit(conf=conf, top=top, mrc=mrc,
+                           generated_with_mrdna=enrgmd_server)
+    universe = model.get_universe()
     mrc_masked = mrc.with_name(f"{mrc.stem}-masked.mrc")
-    write_mrc_from_atoms(path=mrc, atoms=u.atoms,
+    write_mrc_from_atoms(path=mrc, atoms=universe.atoms,
                          path_out=mrc_masked, context=40., cut_box=True, keep_data=True)
 
 
 @cli.command()
-@click.argument('pdb', type=click.Path(exists=True))
-@click.option('--remove-H', is_flag=True,
+@click.argument('pdb', type=click.Path(exists=True, path_type=Path))
+@click.option('--remove-H', 'remove_h', is_flag=True,
               help='remove hydrogen atoms')
-def pdb2CIF(pdb, remove_h):
-    """ generate mmCIF from namd pdb
+def pdb2cif(pdb, remove_h):
+    """ generate atomic model in mmCIF format from namd PDB
 
         PDB is the name of the namd configuration file [.pdb]\n
     """
-    # NOTE: click will drop python2 support soon and actually return a Path
-    pdb = _check_path(pdb, [".pdb"])
-
+    _check_path(pdb, [".pdb"])
     structure = Structure(path=pdb, remove_H=remove_h)
     structure.parse_pdb()
-    # TODO: -low- ask for additional info (name, author, etc)
+    # TODO-low: ask for additional info (name, author, etc)
     output_name = pdb.with_suffix(".cif")
     structure.write_cif(output_name)
