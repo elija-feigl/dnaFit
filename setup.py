@@ -45,8 +45,8 @@ setup(
         'click>=8.0.0',
         'mdanalysis>=1.0',
         'mrcfile>=1.3',
-        'mrdna>=1.0'
-        'nanodesign>=1.0'
+        #'mrdna>=1.0',
+        'nanodesign>=1.0',
     ),
     classifiers=[
         "Programming Language :: Python :: 3",
