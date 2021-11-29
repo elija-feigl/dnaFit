@@ -28,7 +28,7 @@ from shutil import copyfile
 import MDAnalysis as mda
 import numpy as np
 
-from ..data.mrc import recenter_mrc
+from ..data.mrc import recenter_mrc, write_mrc_from_atoms
 from .utils import _exec, _get_executable
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,6 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path,
 
         copyfile(cad_file, f"./{prefix}.json")
         copyfile(seq_file, f"./{prefix}.seq")
-        copyfile(mrc_file, f"./{prefix}.mrc")
         export_idx = 4 if multidomain else 3
         pre_mrdna = f"../{directory}/{prefix}-{export_idx}"
         copyfile(f"{pre_mrdna}.psf", f"./{prefix}.psf")
@@ -91,7 +90,13 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path,
             sys.exit(1)
         universe = mda.Universe(f"./{prefix}.psf", coor)
 
-        mrc_shift = recenter_mrc(mrc_file, apply=False)
+        logger.info("cropping mrc to minimal box to improve simulation efficiency")
+        mrc_boxed = mrc_file.with_name(f"{mrc_file.stem}-boxed.mrc")
+        write_mrc_from_atoms(path=mrc_file, atoms=universe.atoms,
+                             path_out=mrc_boxed, context=50., cut_box=True, keep_data=True)
+        copyfile(mrc_boxed, f"./{prefix}.mrc")
+
+        mrc_shift = recenter_mrc(mrc_boxed, apply=False)
         translation = mrc_shift - universe.atoms.center_of_geometry()
         universe.atoms.translate(translation)
         universe.atoms.write(f"./{prefix}.pdb")

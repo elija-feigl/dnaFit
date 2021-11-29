@@ -263,10 +263,15 @@ def link(cadnano, sequence, top, conf, enrgmd_server):
 @click.argument('conf', type=click.Path(exists=True, path_type=Path))
 @click.option('-e', '--enrgmd_server', 'enrgmd_server', is_flag=True,
               help='add if pdb has been generated with enrgMD server')
-def mask(mrc, top, conf, enrgmd_server):
-    """ links structural information of the cadnano designfile[design.json] to
-         fitted atomic model[design.psf, design.dcd].
-         used to mask mrc map to fit
+@click.option('--dont-cut-box', 'no_cut_box', is_flag=True,
+              help='retain all data within minimum box.')
+@click.option('--keep-full', 'keep_full', is_flag=True,
+              help='retain all data within minimum box.')
+def mask(mrc, top, conf, enrgmd_server, no_cut_box, keep_full):
+    """ mask mrc map to fitted atomic model.
+            Used to:
+                * make minimum box by keeping full data
+                * create mask for atomic model
 
         MRC is the name of the cryo EM volumetric data file [.mrc]\n
         TOP is the name of the namd topology file [.top]\n
@@ -285,7 +290,7 @@ def mask(mrc, top, conf, enrgmd_server):
     universe = model.get_universe()
     mrc_masked = mrc.with_name(f"{mrc.stem}-masked.mrc")
     write_mrc_from_atoms(path=mrc, atoms=universe.atoms,
-                         path_out=mrc_masked, context=40., cut_box=True, keep_data=True)
+                         path_out=mrc_masked, context=40., cut_box=no_cut_box, keep_data=keep_full)
 
 
 @cli.command()
