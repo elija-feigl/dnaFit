@@ -25,10 +25,11 @@
     (DNA origami), or oligo strands alone, bound together to form a designed
     geometric shape.
 
-    NOTE: requires ipywidget and which is not listed in dnaFit requirements
+    NOTE: requires ipywidget and which is not listed in dnaFit requirements but with the ViewerApp
 """
 
 import logging
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
@@ -47,6 +48,8 @@ from ..pdb.structure import Structure
 
 @dataclass
 class Viewer:
+    """ FitViewer main app class
+    """
     conf: Path
     top: Path
     mrc: Path
@@ -55,7 +58,8 @@ class Viewer:
     is_mrdna: bool = True
 
     def __post_init__(self):
-        self.logger = self._setup_logger()
+        self.logger = logging.getLogger(__name__)
+        warnings.filterwarnings('ignore')
         self.linker = Linker(conf=self.conf, top=self.top, json=self.json, seq=self.seq,
                              generated_with_mrdna=self.is_mrdna)
         try:
@@ -68,18 +72,9 @@ class Viewer:
         self.Hid2H = self.linker.design.design.structure_helices_map
         self.Hcoor2H = self.linker.design.design.structure_helices_coord_map
 
-    def _setup_logger(self):
-        logger = logging.getLogger(__name__)
-        logger.setLevel(logging.DEBUG)
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter(
-            '%(asctime)s | [%(name)s] %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        return logger
-
     def select_by_helixandbase(self, helices: List, bases: List):
-        def _DhpsFid(h, p, s) -> int:
+        """ select all atoms of the cadnano subset of helices and baseposition-range"""
+        def DhpsFid(h, p, s) -> int:
             return self.link.DidFid[
                 self.link.DhpsDid[(h, p, s)]
             ]
@@ -88,11 +83,14 @@ class Viewer:
         atoms = mda.AtomGroup([], u)
         for idx, bases in enumerate(stsc_bases):
             for base in bases:
-                Fid = _DhpsFid(base.h, base.p, bool(idx))
+                Fid = DhpsFid(base.h, base.p, bool(idx))
                 atoms += u.residues[Fid].atoms
         return atoms, self.link.Dcolor
 
-    def select_dsDNA(self, atoms=None):
+    def select_ds_dna(self, atoms=None):
+        """ select all atoms that are part of double stranded DNA
+                from provided atoms or the whole universe if None
+        """
         if atoms is None:
             residues = self.u.residues
         else:
@@ -105,6 +103,9 @@ class Viewer:
         return atoms_ds
 
     def select_scaffold(self, atoms=None):
+        """ select all scaffold atoms
+                from provided atoms or the whole universe if None
+        """
         if atoms is None:
             residues = self.u.residues
         else:
@@ -116,17 +117,22 @@ class Viewer:
                 atoms_sc += residue.atoms
         return atoms_sc
 
-    def select_withoutH(self, atoms=None):
+    def select_without_H(self, atoms=None):
+        """ select all scaffold not containing H (hydrogen) in their name
+                from provided atoms or the whole universe if None
+        """
         if atoms is None:
             atoms = self.u.atoms
 
-        atoms_noH = self.empty_atom_group()
+        atoms_no_hydrogen = self.empty_atom_group()
         for atom in atoms:
             if "H" not in atom.name:
-                atoms_noH += atom
-        return atoms_noH
+                atoms_no_hydrogen += atom
+        return atoms_no_hydrogen
 
     def write_custom_gridpdb(self, atoms_selected, name=None, destination=None):
+        """ create a custom grid.pdb file based on an goup of atoms
+        """
         self.u.add_TopologyAttr('tempfactor')
         self.u.add_TopologyAttr('occupancy')
 
@@ -152,6 +158,11 @@ class Viewer:
         return [staples, scaffold]
 
     def select_widget(self):
+        """ create selection widget
+                helix selection: click helices to activate
+                base_position: move sliders to specify base-position range
+                context: distance for zoning surrounding selected atoms [in Angstrom]
+        """
         def _button(r, c, lattice):
             h = self.Hcoor2H.get((r, c), None)
             h_id = "" if h is None else str(h.id)
@@ -176,19 +187,19 @@ class Viewer:
 
         lattice = ("square" if self.linker.design.design.lattice_type == 0
                    else "honeycomb")
-        helixButtons = [
+        helix_buttons = [
             [_button(r, c, lattice) for c in c_range] for r in r_range
         ]
 
-        buttonsBox = widgets.VBox([widgets.HBox(row) for row in helixButtons])
-        baseSlider = widgets.IntRangeSlider(
+        button_box = widgets.VBox([widgets.HBox(row) for row in helix_buttons])
+        base_slider = widgets.IntRangeSlider(
             value=[minb, maxb], min=minb, max=maxb, step=1,
             description='base:',
             disabled=False, continuous_update=True, orientation='horizontal',
             readout=True, readout_format='d',
             layout=widgets.Layout(width='900px', height='70px')
         )
-        contextSlider = widgets.IntSlider(
+        context_slider = widgets.IntSlider(
             value=4, min=1, max=10, step=1,
             description='context [Angstr.]:',
             disabled=False, continuous_update=True, orientation='vertical',
@@ -196,15 +207,17 @@ class Viewer:
             layout=widgets.Layout(width='100px')
         )
 
-        vBox = widgets.VBox([buttonsBox, baseSlider])
-        mainWidget = widgets.Box(
-            [vBox, contextSlider],
+        v_box = widgets.VBox([button_box, base_slider])
+        main_widget = widgets.Box(
+            [v_box, context_slider],
             layout=widgets.Layout(width='1000px', border='1px solid black')
         )
-        display(mainWidget)
-        return (helixButtons, baseSlider, contextSlider)
+        display(main_widget)
+        return (helix_buttons, base_slider, context_slider)
 
     def eval_sliders(self, helix_buttons, slider_b, slider_c):
+        """ evaluate selection widget
+        """
 
         selection_bases = range(slider_b.lower, slider_b.upper + 1)
 
@@ -219,15 +232,7 @@ class Viewer:
 
         return (selection_helices, selection_bases), context
 
-    def write_pdb(self, atoms,
-                  name=None, destination=None, singleframe=True, frame=-1, as_cif=True):
-        import warnings
-        warnings.filterwarnings('ignore')
-
-        if not atoms:
-            self.logger.warning("Empty atom selection. No file written.")
-            return
-
+    def _check_destination(self, destination) -> Path:
         if destination is None:
             self.logger.info(
                 "No target destination provided. Using configuration file folder.")
@@ -238,17 +243,28 @@ class Viewer:
             self.logger.info(
                 "Invalid target destination path. Using configuration file folder.")
             destination = self.conf.parent
+        return destination
+
+    def _check_name(self, name) -> str:
         if name is None:
             self.logger.info(
                 "No target name provided. Using configuration file name.")
             name = self.conf.name
+        return name
 
+    def write_pdb(self, atoms,
+                  name=None, destination=None, single_frame=True, frame=-1, as_cif=True):
+        """ write an atomic coordinate file for an atom group
+        """
+
+        name = self._check_name(name)
+        destination = self._check_destination(destination)
         path = destination / f"{name}.pdb"
 
         with mda.Writer(path, multiframe=True,
                         n_atoms=atoms.n_atoms) as mda_writer:
-            if singleframe:
-                self.link.u.trajectory[frame]
+            if single_frame:
+                _ = self.link.u.trajectory[frame]
                 mda_writer.write(atoms)
             else:
                 for _ in self.link.u.trajectory:
@@ -261,49 +277,27 @@ class Viewer:
             structure.write_cif(mmcif)
 
     def write_dcd(self, atoms, name=None, destination=None):
+        """ write an atomic trajectory file for an atom group [only if dcd supplied to viewer]
+        """
         if not atoms:
             self.logger.warning("Empty atom selection. No file written.")
             return
 
-        if destination is None:
-            self.logger.info(
-                "No target destination provided. Using configuration file folder.")
-            destination = self.conf.parent
-        elif isinstance(destination, str):
-            destination = Path(destination)
-        else:
-            self.logger.info(
-                "Invalid target destination path. Using configuration file folder.")
-            destination = self.conf.parent
-        if name is None:
-            self.logger.info(
-                "No target name provided. Using configuration file name.")
-            name = self.conf.name
-
+        name = self._check_name(name)
+        destination = self._check_destination(destination)
         path = destination / f"{name}.dcd"
 
-        with mda.Writer(path.as_posix(), n_atoms=atoms.n_atoms) as W:
+        with mda.Writer(path.as_posix(), n_atoms=atoms.n_atoms) as mda_writer:
             for _ in self.link.u.trajectory:
-                W.write(atoms)
+                mda_writer.write(atoms)
 
-    def writemrc(self, atomsXX, name=None, destination=None, context=4, cut_box=True):
-        if destination is None:
-            self.logger.info(
-                "No target destination provided. Using configuration file folder.")
-            destination = self.conf.parent
-        elif isinstance(destination, str):
-            destination = Path(destination)
-        else:
-            self.logger.info(
-                "Invalid target destination path. Using configuration file folder.")
-            destination = self.conf.parent
-        if name is None:
-            self.logger.info(
-                "No target name provided. Using configuration file name.")
-            name = self.conf.name
-
+    def write_mrc(self, atoms, name=None, destination=None, context=4, cut_box=True):
+        """ write an mrc file zoned for the area within context of an atom group
+        """
+        name = self._check_name(name)
+        destination = self._check_destination(destination)
         path = destination / f"{name}.mrc"
-        write_mrc_from_atoms(path=self.mrc, atoms=atomsXX,
+        write_mrc_from_atoms(path=self.mrc, atoms=atoms,
                              path_out=path, context=context, cut_box=cut_box)
 
     def empty_atom_group(self) -> AtomGroup:

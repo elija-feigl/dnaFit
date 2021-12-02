@@ -6,7 +6,7 @@ A Python3 package that contains a collection of scripts related to the fitting o
 ## Usage
  * `dnaFit`: create an atomic model for a cryo-EM perform mrDNA simulation followed by cascading mrDNA-driven flexibel fitting of a selected cadnano design
     design and model are linked to allow analysis of basepairs and comparison between map and design
- * `dnaLink`: link design to existing atomic model to allow analysis of basepairs and comparison between map and design
+ link design to existing atomic model to allow analysis of basepairs and comparison between map and design
 ...
 
 

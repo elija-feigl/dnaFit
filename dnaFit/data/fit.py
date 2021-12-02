@@ -40,6 +40,7 @@ class Fit:
     top: Path
 
     def __post_init__(self):
+        self.logger = logging.getLogger(__name__)
         self.u: mda.Universe = self._get_universe()
         self.scaffold, self.staples = self._split_strands()
         self.logger = logging.getLogger(__name__)
