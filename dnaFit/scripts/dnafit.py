@@ -1,20 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-# Copyright (C) 2021  Elija Feigl
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
+# Copyright (C) 2021-Present  Elija Feigl
+# Full GPL-3 License can be found in `LICENSE` at the project root.
 
 """ cascaded mrDNA-driven MD flexible fitting script module:
     dnaFit commands:
@@ -35,20 +22,17 @@
 
 import logging
 import os
-
 from pathlib import Path
 from shutil import copyfile, copytree
 
 import click
-from dnaFit import get_resource
-from dnaFit.core.mrdna import run_mrdna, prep_cascaded_fitting, recenter_conf
+from dnaFit import __version__, get_resource
+from dnaFit.core.mrDna import prep_cascaded_fitting, recenter_conf, run_mrdna
 from dnaFit.core.utils import _check_path
-from dnaFit.data.mrc import write_mrc_from_atoms, recenter_mrc
+from dnaFit.data.mrc import recenter_mrc, write_mrc_from_atoms
 from dnaFit.fit.atomic_model_fit import AtomicModelFit
 from dnaFit.fit.cascade import Cascade
 from dnaFit.pdb.structure import Structure
-from dnaFit.version import get_version
-
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +41,7 @@ def print_version(ctx, _, value):
     """ click print version."""
     if not value or ctx.resilient_parsing:
         return
-    click.echo(get_version())
+    click.echo(__version__)
     ctx.exit()
 
 

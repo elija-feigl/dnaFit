@@ -1,20 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-# Copyright (C) 2021  Elija Feigl
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
+# Copyright (C) 2021-Present  Elija Feigl
+# Full GPL-3 License can be found in `LICENSE` at the project root.
 
 """ custom mrDNA setup
 """
@@ -90,7 +77,8 @@ def prep_cascaded_fitting(prefix: str, cad_file: Path, seq_file: Path,
             sys.exit(1)
         universe = mda.Universe(f"./{prefix}.psf", coor)
 
-        logger.info("cropping mrc to minimal box to improve simulation efficiency")
+        logger.info(
+            "cropping mrc to minimal box to improve simulation efficiency")
         mrc_boxed = mrc_file.with_name(f"{mrc_file.stem}-boxed.mrc")
         write_mrc_from_atoms(path=mrc_file, atoms=universe.atoms,
                              path_out=mrc_boxed, context=50., cut_box=True, keep_data=True)

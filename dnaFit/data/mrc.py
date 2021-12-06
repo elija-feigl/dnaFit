@@ -1,20 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-# Copyright (C) 2021  Elija Feigl
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
+# Copyright (C) 2021-Present  Elija Feigl
+# Full GPL-3 License can be found in `LICENSE` at the project root.
 
 """ collection of scripts to allow manipulation of a cryo-EM map."""
 
@@ -24,11 +11,13 @@ from pathlib import Path
 import MDAnalysis as mda
 import mrcfile
 import numpy as np
+import numpy.typing as npt
 
 logger = logging.getLogger(__name__)
 
 
-def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0]), apply=True) -> np.ndarray:
+def recenter_mrc(path: Path, to_position=np.array([0.0, 0.0, 0.0]), apply=True
+                 ) -> npt.NDArray[np.float64]:
     """ recenter the mrc file to a specific position. returns required shift"""
     with mrcfile.open(path, mode='r+') as mrc:
         _cell = np.array(mrc.header["cella"])

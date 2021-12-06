@@ -1,20 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-# Copyright (C) 2021  Elija Feigl
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
+# Copyright (C) 2021-Present  Elija Feigl
+# Full GPL-3 License can be found in `LICENSE` at the project root.
 
 """ atomic coordinate file type"""
 
@@ -22,6 +9,7 @@ from dataclasses import dataclass
 from typing import List, Tuple, Union
 
 import numpy as np
+import numpy.typing as npt
 
 from .types import AtomName, ChainID, Number, ResName
 
@@ -29,7 +17,7 @@ from .types import AtomName, ChainID, Number, ResName
 @dataclass
 class Atom:
     """ pdb/cif atom class"""
-    i_atom_coor: Union[np.ndarray, List[str],
+    i_atom_coor: Union[npt.NDArray[np.float64], List[str],
                        Tuple[float, float, float]]
     i_atom_number: Union[int, str]
     i_atom_name: str
@@ -40,7 +28,7 @@ class Atom:
     i_temperature: Union[float, str] = 0.0
 
     def __post_init__(self):
-        self.atom_coor: np.ndarray = self._convert_coor_input(self.i_atom_coor)
+        self.atom_coor: npt.NDArray[np.float64] = self._convert_coor_input(self.i_atom_coor)
         self.atom_number: Number = Number(self.i_atom_number)
         self.atom_name: AtomName = AtomName(self.i_atom_name)
         self.res_name: ResName = ResName(self.i_res_name)
@@ -52,8 +40,8 @@ class Atom:
         self.element: str = self.atom_name.element_name()
 
     def _convert_coor_input(
-            self, inpt: Union[np.ndarray, List[Union[str, float]]]
-    ) -> np.ndarray:
+            self, inpt: Union[npt.NDArray[np.float64], List[Union[str, float]]]
+    ) -> npt.NDArray[np.float64]:
         if isinstance(inpt, np.ndarray):
             return inpt
         elif isinstance(inpt, list):

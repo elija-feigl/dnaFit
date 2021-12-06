@@ -1,23 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-# Copyright (C) 2021  Elija Feigl
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
+# Copyright (C) 2021-Present  Elija Feigl
+# Full GPL-3 License can be found in `LICENSE` at the project root.
 
 import logging
 from pathlib import Path
+from typing import NamedTuple, Literal, Optional
 
 
 def get_resource(resources: str) -> Path:
@@ -33,5 +21,28 @@ def _init_logging():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+
+ReleaseType = Optional[Literal["alpha", "beta", "candidate", "final", "dev"]]
+
+
+class VersionInfo(NamedTuple):
+    """Version class of dnaFit."""
+
+    major: int
+    minor: int
+    micro: int
+
+    release_level: ReleaseType = None
+    serial: int = 0
+
+    def __repr__(self) -> str:
+        return f"{self.major}.{self.minor}.{self.micro}" + (
+            f".{self.release_level}{self.serial}"
+            * (self.release_level is not None)
+        )
+
+
+version_info = VersionInfo(0, 7, 0, "dev")
+__version__ = repr(version_info)
 
 _init_logging()
