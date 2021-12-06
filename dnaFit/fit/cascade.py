@@ -17,7 +17,25 @@
 # along with this program.  If not, see https://www.gnu.org/licenses/gpl-3.0.html.
 
 """ mrdna driven cascade fitting simulation class.
-    TODO: document current setup
+    fitting pipeline 12.2021:
+        * prep files using VMD:
+            - apply N_CASCADE gaussian filters to map of range (0, RES_SPAN-map_resolution)
+            - [TODO: for >15A maps use binary maps instead]
+            - create grid.pdb [or read supplied grid.pdb]
+        * [TS_ENRG pure enrgMD if not mrDNA]
+        * N_REPEAT cascades
+            * N_CASCADE steps (n)
+                - 1. cascade and n > FIRST_STOP ends: cascade early
+                - 2. cascade: simulated annealing
+                - n > LR_STOP: only short range extrabonds
+        * [ single step swithcing to base pair extrabonds:]
+        * energy minimization with increased gscale
+        * processing files using VMD:
+            - merge step-trajectories
+            - create pdb file for last frame
+
+    film pipeline 01.2021:
+        - shorter timesteps, increased dcd output
 """
 
 import inspect
@@ -224,8 +242,6 @@ class Cascade:
             previous_folder = self._run_namd(
                 folder=folder, namd_file=namd_file)
             init = 0
-
-        # TODO: for >15A maps use binary maps instead?
 
         # cascades
         for cascade in range(n_repeat):
