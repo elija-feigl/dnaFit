@@ -163,15 +163,30 @@ class Viewer:
                 base_position: move sliders to specify base-position range
                 context: distance for zoning surrounding selected atoms [in Angstrom]
         """
-        def _button(r, c, lattice):
-            h = self.Hcoor2H.get((r, c), None)
+        def _button(row, clmn, lattice):
+            h = self.Hcoor2H.get((row, clmn), None)
             h_id = "" if h is None else str(h.id)
             if lattice in ["square", "honeycomb"]:
-                return widgets.ToggleButton(
-                    description=h_id,
+                description = h_id
+                button = widgets.ToggleButton(
+                    description=description,
                     layout=widgets.Layout(width='30px', height='30px'),
                     disabled=(h is None),
                 )
+                if lattice == "square":
+                    return button
+                else:
+                    spacer = widgets.ToggleButton(
+                        description="",
+                        layout=widgets.Layout(width='30px', height='15px'),
+                        disabled=True,
+                    )
+                    odd_clmn = not (clmn % 2)
+                    even_row = row % 2
+                    if (odd_clmn + even_row) % 2:
+                        return widgets.VBox([button, spacer])
+                    else:
+                        return widgets.VBox([spacer, button])
             else:
                 raise TypeError
 
@@ -182,13 +197,14 @@ class Viewer:
                 return min(alist), max(alist)
 
         minb, maxb = _minmax([base.p for base in self.linker.design.allbases])
-        r_range = _minmax([coor[0] for coor in self.Hcoor2H], True)
-        c_range = _minmax([coor[1] for coor in self.Hcoor2H], True)
+        row_range = _minmax([coor[0] for coor in self.Hcoor2H], True)
+        clmn_range = _minmax([coor[1] for coor in self.Hcoor2H], True)
 
         lattice = ("square" if self.linker.design.design.lattice_type == 0
                    else "honeycomb")
+
         helix_buttons = [
-            [_button(r, c, lattice) for c in c_range] for r in r_range
+            [_button(row, clmn, lattice) for clmn in clmn_range] for row in row_range
         ]
 
         button_box = widgets.VBox([widgets.HBox(row) for row in helix_buttons])
