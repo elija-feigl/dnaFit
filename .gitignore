@@ -19,6 +19,7 @@ eggs/
 .vscode/
 .mypy_cache/
 test/**
+.coverage
 
 # exclude legacy code
 dnaFit/legacy/**
