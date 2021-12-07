@@ -1,4 +1,6 @@
-# DNA_Fit: cascading mrDNA-driven flexibel fitting
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [![Python-version:](https://img.shields.io/badge/python-v3.8-green)]() | [Usage](#usage) | [Dependencies](#dependencies) | [Installation](#installation) | [References](#references)
+
+# dnaFit: cascading mrDNA-driven flexibel fitting
 
 A Python3 package that contains a collection of scripts related to the fitting of pseudoatomic models into cryo-EM maps of DNA-Origami structures.
 
@@ -13,6 +15,13 @@ A Python3 package that contains a collection of scripts related to the fitting o
 ## Dependencies
 
 * Python >= 3.7
+    * 
+    * numpy==1.21.0
+    * click==8.0.1
+    * mdanalysis==1.1.1
+    * mrcfile==1.3.0
+    * mrdna==1.0a0.dev51
+    * nanodesign==1.0 python3 fork)
   * numpy >= 1.20
   * click >= 8.0
   * mdanalysis >= 1.0
@@ -47,7 +56,7 @@ https://github.com/elija-feigl/nanodesign
     python setup.py install
 
 
-## Citation
+## References
 
 When using dnaFit Python Package in published work, please cite the following paper:
 
