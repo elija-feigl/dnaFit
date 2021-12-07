@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright (C) 2021-Present  Elija Feigl
 # Full GPL-3 License can be found in `LICENSE` at the project root.
-
 import logging
 from pathlib import Path
-from typing import NamedTuple, Literal, Optional
+from typing import Literal
+from typing import NamedTuple
+from typing import Optional
 
 
 def get_resource(resources: str) -> Path:
@@ -16,8 +16,7 @@ def _init_logging():
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     handler = logging.StreamHandler()
-    formatter = logging.Formatter(
-        '%(asctime)s | [%(name)s] %(levelname)s - %(message)s')
+    formatter = logging.Formatter("%(asctime)s | [%(name)s] %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
@@ -37,8 +36,7 @@ class VersionInfo(NamedTuple):
 
     def __repr__(self) -> str:
         return f"{self.major}.{self.minor}.{self.micro}" + (
-            f".{self.release_level}{self.serial}"
-            * (self.release_level is not None)
+            f".{self.release_level}{self.serial}" * (self.release_level is not None)
         )
 
 

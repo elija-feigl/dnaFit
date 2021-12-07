@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright (C) 2021-Present  Elija Feigl
 # Full GPL-3 License can be found in `LICENSE` at the project root.
-
+""" pdb conversion utility"""
 import string
+from typing import Any
 from typing import Dict
 
 
@@ -34,7 +34,7 @@ digits_lower_values = dict([pair for pair in zip(digits_lower, range(36))])
 
 
 def _decode(digits_values: Dict[str, int], inp_string: str) -> int:
-    """ decodes string using digits_values associations for each character"""
+    """decodes string using digits_values associations for each character"""
     result = 0
     n = len(digits_values)
     for c in inp_string:
@@ -43,8 +43,8 @@ def _decode(digits_values: Dict[str, int], inp_string: str) -> int:
     return result
 
 
-def h36_2_int(inp_string: str) -> int:
-    """ decodes hybrid36 string to integer"""
+def h36_2_int(inp_string: str) -> Any:
+    """decodes hybrid36 string to integer"""
     width = len(inp_string)
     n_baseDigits = 10 * 36 ** (width - 1)
     n_baseChar = 26 * 36 ** (width - 1)
@@ -58,13 +58,13 @@ def h36_2_int(inp_string: str) -> int:
         return _decode(digits_upper_values, inp_string=inp_string) + shift
 
     elif inp_string[0] in digits_lower_values:
-        shift += (n_baseChar - n_baseDigits)
+        shift += n_baseChar - n_baseDigits
         return _decode(digits_lower_values, inp_string=inp_string) + shift
     raise ValueError("invalid number literal.")
 
 
 def _encode(digits: str, value: int) -> str:
-    """ encodes value using the given digits"""
+    """encodes value using the given digits"""
     if value == 0:
         return digits[0]
     n = len(digits)
@@ -78,7 +78,7 @@ def _encode(digits: str, value: int) -> str:
 
 
 def int_2_h36(number: int, width: int) -> str:
-    """ integer to hybrid36 string with "width" digits"""
+    """integer to hybrid36 string with "width" digits"""
     n_baseDigits = 10 * 36 ** (width - 1)
     n_baseChar = 26 * 36 ** (width - 1)
     max_int = 10 ** width

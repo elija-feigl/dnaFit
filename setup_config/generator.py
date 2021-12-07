@@ -1,14 +1,12 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright (C) 2021-Present  Elija Feigl
 # Full GPL-3 License can be found in `LICENSE` at the project root.
-
 from dnaFit import __version__
 
 
 def get_dependencies(path: str) -> str:
     with open(path) as f:
-        return '\n\t'.join(f.read().strip().splitlines())
+        return "\n\t".join(f.read().strip().splitlines())
 
 
 def main():
@@ -24,13 +22,8 @@ def main():
     }
 
     with open("setup.cfg", "w") as f:
-        f.write(
-            base.format(
-                version=__version__,
-                **dependencies
-            )
-        )
+        f.write(base.format(version=__version__, **dependencies))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright (C) 2021-Present  Elija Feigl
 # Full GPL-3 License can be found in `LICENSE` at the project root.
-
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
+from typing import Tuple
 
 from .atom import Atom
-from .files import CIF, PDB
+from .files import CIF
+from .files import PDB
 
 
 @dataclass
@@ -23,8 +24,7 @@ class Structure:
         self.keep_resID: bool = True
         self.previous_atm: Tuple[str, int] = ("", 0)
         self.previous_res: Tuple[str, int] = ("", 0)
-        self.previous_chain: Tuple[str, int, bool] = (
-            "", 0, True)  # str, int, new
+        self.previous_chain: Tuple[str, int, bool] = ("", 0, True)  # str, int, new
 
     def add_atom(self, atom: Atom) -> None:
         self.atoms.append(atom)
@@ -44,7 +44,10 @@ class Structure:
         # TODO-low: collect extra data
         return
 
-    def _eval_atm_number(self, string: str, ) -> int:
+    def _eval_atm_number(
+        self,
+        string: str,
+    ) -> int:
         atm_number = self.previous_atm[1] + 1
         self.previous_atm = (string, atm_number)
         return atm_number
@@ -61,8 +64,7 @@ class Structure:
                 res_number = self.previous_res[1] + 1
 
         if res_number == 1 and self.previous_res[1] != 1:
-            self.previous_chain = (
-                self.previous_chain[0], self.previous_chain[1], True)
+            self.previous_chain = (self.previous_chain[0], self.previous_chain[1], True)
         self.previous_res = (s, res_number)
         return res_number
 
@@ -83,15 +85,16 @@ class Structure:
         chain_id = self._eval_chain_id(line[20:22])
 
         self.add_atom(
-            Atom(i_atom_coor=[line[30:38], line[38:46], line[46:54]],
-                 i_atom_number=atm_number,
-                 i_atom_name=atom_name,
-                 i_res_name=line[17:20],
-                 i_chain_id=chain_id,
-                 i_res_number=res_number,
-                 i_opacity=line[54:60].strip(),
-                 i_temperature=line[60:66].strip(),
-                 )
+            Atom(
+                i_atom_coor=[line[30:38], line[38:46], line[46:54]],
+                i_atom_number=atm_number,
+                i_atom_name=atom_name,
+                i_res_name=line[17:20],
+                i_chain_id=chain_id,
+                i_res_number=res_number,
+                i_opacity=line[54:60].strip(),
+                i_temperature=line[60:66].strip(),
+            )
         )
 
     def _parse_pdb_generate_info(self):
@@ -99,7 +102,7 @@ class Structure:
         raise NotImplementedError
 
     def parse_pdb(self) -> None:
-        with self.path.open(mode='r') as fi:
+        with self.path.open(mode="r") as fi:
             for line in fi.readlines():
                 lineType = line[0:6].strip()
                 if lineType == "ATOM":

@@ -1,8 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright (C) 2021-Present  Elija Feigl
 # Full GPL-3 License can be found in `LICENSE` at the project root.
-
 """ Design Class manageing cadnano design. The autodesk/nanodesign package is
     used to read the json file. Some modifications and additions are necessary
     to the nanodesign functionality.
@@ -11,11 +9,12 @@
     20.11.2020 A modified version of nanodesign is used (available on github)
     03.12.2020 anticipates singlescaffold structure with circular scaffold
 """
-
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
+from typing import List
+from typing import Optional
 
 from nanodesign.converters.converter import Converter
 from nanodesign.data.base import DnaBase
@@ -24,7 +23,8 @@ from nanodesign.data.dna_structure import DnaStructure
 
 @dataclass
 class Design:
-    """ DNA Origami design class, based on nanodesign"""
+    """DNA Origami design class, based on nanodesign"""
+
     json: Path
     seq: Optional[Path]
     generated_with_mrdna: bool = True
@@ -38,7 +38,7 @@ class Design:
         self.helixorder = self._create_helix_order()
         self.stapleorder = self._create_staple_order()
         self.allbases = [b for s in self.design.strands for b in s.tour]
-        self.Dhps_base: dict = self._init_hps_base()
+        self.Dhps_base = self._init_hps_base()
 
     def _init_hps_base(self):
         hps_base = dict()
@@ -57,7 +57,7 @@ class Design:
     def _scaffold(self) -> List[DnaBase]:
         # TODO: -low- multiscaffold
         try:
-            scaffold, = [s.tour for s in self.design.strands if s.is_scaffold]
+            scaffold = [s.tour for s in self.design.strands if s.is_scaffold]
         except ValueError:
             self.logger.exception("Design contains multiple scaffold strands")
         self._close_strand(strand=scaffold)
@@ -78,13 +78,16 @@ class Design:
             )
         else:
             self.logger.error(
-                "Failed to initialize nanodesign due to missing files: %s %s", self.json, self.seq)
+                "Failed to initialize nanodesign due to missing files: %s %s",
+                self.json,
+                self.seq,
+            )
             raise FileNotFoundError
         converter.dna_structure.compute_aux_data()
         return converter.dna_structure
 
     def _create_helix_order(self) -> Dict[int, int]:
-        """ helices are not listed in the json in same order as they are listed
+        """helices are not listed in the json in same order as they are listed
             by helix-index. NOTE: enrgMD is helix reorder sensitive.
         -------
             Returns
@@ -96,7 +99,7 @@ class Design:
         return helixorder
 
     def _create_staple_order(self) -> Dict[int, int]:
-        """ enrgMD and nanodesign number staples differently.
+        """enrgMD and nanodesign number staples differently.
             enrgMD: first occurrence of staple sorted by h, p
             nanodesign: 5' end of staple sorted by h, p
         -------
@@ -106,17 +109,10 @@ class Design:
                 nanodesign -> enrgMD
         """
         if self.generated_with_mrdna:
-            Dhps = [(s[0].h, s[0].p)
-                    for s in self.staples
-                    ]
+            Dhps = [(s[0].h, s[0].p) for s in self.staples]
         else:
-            Dhps = [(self.helixorder[s[0].h], s[0].p)
-                    for s in self.staples
-                    ]
+            Dhps = [(self.helixorder[s[0].h], s[0].p) for s in self.staples]
         Dhps_sorted = sorted(Dhps, key=lambda x: (x[0], x[1]))
-        order_nanodesign = [
-            Dhps.index(Dhps_sorted[i])
-            for i, _ in enumerate(Dhps)
-        ]
+        order_nanodesign = [Dhps.index(Dhps_sorted[i]) for i, _ in enumerate(Dhps)]
         stapleorder = {nd: idx for (idx, nd) in enumerate(order_nanodesign)}
         return stapleorder

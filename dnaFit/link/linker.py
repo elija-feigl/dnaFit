@@ -1,14 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright (C) 2021-Present  Elija Feigl
 # Full GPL-3 License can be found in `LICENSE` at the project root.
-
-"""linker module"""
-
+""" module for linking cadnano design files with atomic model"""
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
 
 import MDAnalysis as mda
 from MDAnalysis.core.groups import AtomGroup
@@ -24,14 +26,15 @@ from .linkage import Linkage
 
 @dataclass
 class Linker:
-    """ Linker class
+    """Linker class
 
-        COMMENTS:
-        Insertions will be assigned a negative position value to retain unique
-        keys. Multi-insertions (ins>1) receive an incremented positions.
-        If multiple multi-insertions are close to each other, their positions
-        might be ordered incorrectly.
+    COMMENTS:
+    Insertions will be assigned a negative position value to retain unique
+    keys. Multi-insertions (ins>1) receive an incremented positions.
+    If multiple multi-insertions are close to each other, their positions
+    might be ordered incorrectly.
     """
+
     conf: Path
     top: Path
     json: Path
@@ -55,27 +58,22 @@ class Linker:
     def __post_init__(self) -> None:
         self.fit: Fit = Fit(top=self.top, conf=self.conf)
         self.design: Design = Design(
-            json=self.json, seq=self.seq,
-            generated_with_mrdna=self.generated_with_mrdna)
+            json=self.json, seq=self.seq, generated_with_mrdna=self.generated_with_mrdna
+        )
         self.logger = logging.getLogger(__name__)
 
     def _eval_sequence(self, steps=5) -> None:
-        """ Affects
-            -------
-                self.FidSeq_local
-                self.FidSeq_global
+        """Affects
+        -------
+            self.FidSeq_local
+            self.FidSeq_global
 
         """
         for base in self.design.allbases:
             # local: scaffold 5'->3'
             sequence = ""
             for stp in range(steps + 1):
-                neighbor = self._get_n_strand(
-                    base=base,
-                    direct="down",
-                    steps=stp,
-                    local=True
-                )
+                neighbor = self._get_n_strand(base=base, direct="down", steps=stp, local=True)
                 if neighbor is None:
                     sequence += "N"
                 elif neighbor.h != base.h:
@@ -106,13 +104,15 @@ class Linker:
             self.FidSeq_global[resindex] = sequence
 
     def _eval_FidHelixneighbors(self, steps=5) -> None:
-        """ Affects
-            -------
-                self.FidHN
+        """Affects
+        -------
+            self.FidHN
         """
-        def is_occupied_helix(H: Optional[DnaStructureHelix],
-                              p: int,
-                              ) -> bool:
+
+        def is_occupied_helix(
+            H: Optional[DnaStructureHelix],
+            p: int,
+        ) -> bool:
             if H is None:
                 return False
             elif (H.id, p, True) in self.design.Dhps_base:
@@ -131,11 +131,12 @@ class Linker:
             nhelices = list()
             for stp in range(1, steps + 1):
                 number_nhelices = 0
-                for rc in [(h_row - stp, h_col),
-                           (h_row + stp, h_col),
-                           (h_row, h_col - stp),
-                           (h_row, h_col + stp)
-                           ]:
+                for rc in [
+                    (h_row - stp, h_col),
+                    (h_row + stp, h_col),
+                    (h_row, h_col - stp),
+                    (h_row, h_col + stp),
+                ]:
                     n_H = HrcH.get(rc, None)
                     is_nh_occupied = is_occupied_helix(H=n_H, p=base.p)
                     if is_nh_occupied:
@@ -145,11 +146,11 @@ class Linker:
             self.FidHN[resindex] = nhelices
 
     def create_linkage(self) -> Linkage:
-        """ invoke _link_scaffold, _link_staples, _link_bp to compute mapping
-            of every base design-id to fit-id as well as the basepair mapping.
-            basepairs are mapped from scaffold to staple, unique (invertable).
-            updates linker attributes corresponding to the respective mapping
-            and returns them.
+        """invoke _link_scaffold, _link_staples, _link_bp to compute mapping
+        of every base design-id to fit-id as well as the basepair mapping.
+        basepairs are mapped from scaffold to staple, unique (invertable).
+        updates linker attributes corresponding to the respective mapping
+        and returns them.
         """
         self._link()
         self._identify_bp()
@@ -171,7 +172,7 @@ class Linker:
         )
         return self.link
 
-    def _get_hp_list(self, strand: list, is_scaffold: bool) -> list:
+    def _get_hp_list(self, strand: List[DnaBase], is_scaffold: bool) -> List[Tuple[int, int, bool]]:
         Dhp = list()
         for base in strand:
             hps = (base.h, base.p, is_scaffold)
@@ -185,13 +186,14 @@ class Linker:
             Dhp.append(hps)
         return Dhp
 
-    def _link(self) -> Tuple[Dict[int, int],
-                             Dict[Tuple[int, int, bool], int],
-                             ]:
-        def link_scaffold() -> Tuple[Dict[int, int],
-                                     Dict[Tuple[int, int, bool], int],
-                                     ]:
-            """ collect position in scaffold (0-x) by comparing index in list
+    def _link(
+        self,
+    ) -> Tuple[Dict[int, int], Dict[Tuple[int, int, bool], int]]:
+        def link_scaffold() -> Tuple[
+            Dict[int, int],
+            Dict[Tuple[int, int, bool], int],
+        ]:
+            """collect position in scaffold (0-x) by comparing index in list
                 of scaffold_design positions
             -------
                 Returns
@@ -211,10 +213,11 @@ class Linker:
             DhpsDid = dict(zip(Dhp, Did))
             return (DidFid, DhpsDid)
 
-        def link_staples() -> Tuple[Dict[int, int],
-                                    Dict[Tuple[int, int, bool], int],
-                                    Dict[int, int],
-                                    ]:
+        def link_staples() -> Tuple[
+            Dict[int, int],
+            Dict[Tuple[int, int, bool], int],
+            Dict[int, int],
+        ]:
             """same procedure as scaffold for each
             -------
             Returns
@@ -226,7 +229,8 @@ class Linker:
                 dict color
                     fit-segment-id -> color
             """
-            def get_resid(segindex: int, resindex_local: int) -> int:
+
+            def get_resid(segindex: int, resindex_local: int) -> Any:
                 segment = self.fit.staples[segindex]
                 return segment.residues[resindex_local].resindex
 
@@ -240,7 +244,7 @@ class Linker:
                 Did = [base.id for base in staple]
                 Dhp = self._get_hp_list(strand=staple, is_scaffold=False)
 
-                Fid_local = [Did.index(base.id)for base in staple]
+                Fid_local = [Did.index(base.id) for base in staple]
                 Fid_global = [get_resid(seg_id, resid) for resid in Fid_local]
 
                 icolor = self.design.design.strands[staple[0].strand].icolor
@@ -258,8 +262,7 @@ class Linker:
             DidFid_sc, DhpsDid_sc = link_scaffold()
             DidFid_st, DhpsDid_st, self.Dcolor = link_staples()
         except IndexError:
-            self.logger.exception(
-                "Linker failed: Design and Atomic Model incompatible")
+            self.logger.exception("Linker failed: Design and Atomic Model incompatible")
             raise
 
         self.DidFid = {**DidFid_sc, **DidFid_st}
@@ -267,7 +270,7 @@ class Linker:
         return (self.DidFid, self.DhpsDid)
 
     def _identify_bp(self) -> Dict[int, int]:
-        """ link basepairs by mapping indices according to json (cadnano).
+        """link basepairs by mapping indices according to json (cadnano).
             basepairs are mapped from scaffold to staple, unique (invertable).
         -------
          Returns
@@ -282,8 +285,7 @@ class Linker:
         }
         return self.Fbp
 
-    def _get_n_strand(self, base: DnaBase, direct: str, steps=1, local=True
-                      ) -> Optional[DnaBase]:
+    def _get_n_strand(self, base: DnaBase, direct: str, steps=1, local=True) -> Optional[DnaBase]:
         """direct = ["up","down"]"""
         if steps == 0:
             return base
@@ -293,13 +295,12 @@ class Linker:
             direct = "up" if direct == "down" else "down"
 
         for _ in range(abs(steps)):
-            base = (base.up if direct == "up" else base.down)
+            base = base.up if direct == "up" else base.down
             if base is None:
                 return None
         return base
 
-    def _get_n_helix(self, base: DnaBase, direct: int, steps=1
-                     ) -> Optional[DnaBase]:
+    def _get_n_helix(self, base: DnaBase, direct: int, steps=1) -> Optional[DnaBase]:
         """direct = [1,-1]"""
         if steps == 0:
             return base
@@ -309,13 +310,13 @@ class Linker:
             direct = -direct
         # first check the number of skips passed
         n_skips = 0
-        for n in range(direct, direct * (steps + 1), direct):
-            n_position = position + n
+        for n_steps in range(direct, direct * (steps + 1), direct):
+            n_position = position + n_steps
             if (helix, n_position, True) not in self.DhpsDid:
                 n_skips += 1
         # move one position further if on skip
         n_position = position + direct * (steps + n_skips)
-        if (helix, n_position) not in self.DhpsDid:
+        if (helix, n_position, True) not in self.DhpsDid:
             n_position += direct
         return self.design.Dhps_base.get((helix, n_position, is_scaf), None)
 
@@ -335,36 +336,37 @@ class Linker:
             return BasePair(scaffold=sc, staple=st, hp=hp)
 
     def is_co(self, base: DnaBase, neighbor: Optional[DnaBase]) -> bool:
-        """ determine if a base is part of a crossover. """
+        """determine if a base is part of a crossover."""
         if neighbor is None:
             return False
         else:
-            return neighbor.h != base.h
+            return bool(neighbor.h != base.h)
 
     def _identify_crossover(self) -> None:
-        """ Affects
-            -------
-                self.Fco
+        """Affects
+        -------
+            self.Fco
         """
-        def get_co_leg(base: Optional[DnaBase], direct: int
-                       ) -> Optional[DnaBase]:
+
+        def get_crossover_leg(base: Optional[DnaBase], direct: int) -> Optional[DnaBase]:
             if base is None:
                 return None
             else:
                 return self._get_n_helix(base=base, direct=direct, steps=2)
 
-        def get_co(bA: DnaBase,
-                   bC: DnaBase,
-                   bB: Optional[DnaBase],
-                   bD: Optional[DnaBase],
-                   direct: int,
-                   typ: str,
-                   ) -> Tuple[str, Crossover]:
+        def get_crossover(
+            bA: DnaBase,
+            bC: DnaBase,
+            bB: Optional[DnaBase],
+            bD: Optional[DnaBase],
+            direct: int,
+            typ: str,
+        ) -> Tuple[str, Crossover]:
 
-            bA_ = get_co_leg(base=bA, direct=(-1 * direct))
-            bB_ = get_co_leg(base=bB, direct=direct)
-            bC_ = get_co_leg(base=bC, direct=(-1 * direct))
-            bD_ = get_co_leg(base=bD, direct=direct)
+            bA_ = get_crossover_leg(base=bA, direct=(-1 * direct))
+            bB_ = get_crossover_leg(base=bB, direct=direct)
+            bC_ = get_crossover_leg(base=bC, direct=(-1 * direct))
+            bD_ = get_crossover_leg(base=bD, direct=direct)
 
             positionals, legs = list(), list()
             co_pos = list()
@@ -407,19 +409,19 @@ class Linker:
             else:
                 typ = "end"
 
-            key, co = get_co(bA=bA, bB=bB, bC=bC, bD=bD,
-                             direct=direct_int, typ=typ)
-            self.Fco[key] = co
+            key, crossover = get_crossover(bA=bA, bB=bB, bC=bC, bD=bD, direct=direct_int, typ=typ)
+            self.Fco[key] = crossover
 
     def _identify_nicks(self) -> None:
-        """ Affects
-            -------
-                self.Fnicks
+        """Affects
+        -------
+            self.Fnicks
         """
+
         def is_nick(candidate: DnaBase, base: DnaBase) -> bool:
-            is_onhelix = (candidate.h == base.h)
-            is_neighbor = (abs(base.p - candidate.p) <= 2)  # skip = 2
-            is_base = (candidate is base)
+            is_onhelix = candidate.h == base.h
+            is_neighbor = abs(base.p - candidate.p) <= 2  # skip = 2
+            is_base = candidate is base
             b_Fid = self.DidFid[base.id]
             c_Fid = self.DidFid[candidate.id]
             is_ds = all([(x in self.Fbp.values()) for x in [b_Fid, c_Fid]])
@@ -438,15 +440,16 @@ class Linker:
             if is_nick(candidate=candi, base=start)
         }
 
-    def write_custom_gridpdb(self, dest: Path,
-                             exclude_ss=True, exclude_id=None, exclude_resid=None):
-        """ write custom grid.pdb file for a given set of indices"""
+    def write_custom_gridpdb(
+        self, dest: Path, exclude_ss=True, exclude_id=None, exclude_resid=None
+    ):
+        """write custom grid.pdb file for a given set of indices"""
         if not hasattr(self, "link"):
             self.logger.debug("Creating Linkage")
             _ = self.create_linkage()  # initializes and returns link
         u: mda.Universe = self.link.u
-        u.add_TopologyAttr('tempfactor')  # init as 0.
-        u.add_TopologyAttr('occupancy')  # init as 0.
+        u.add_TopologyAttr("tempfactor")  # init as 0.
+        u.add_TopologyAttr("occupancy")  # init as 0.
 
         atoms_exclude = AtomGroup([], u)
         if exclude_ss:
@@ -468,5 +471,5 @@ class Linker:
             is_excluded = atom in atoms_exclude
             if not is_H and not is_excluded:
                 atom.tempfactor = atom.mass
-                atom.occupancy = 1.
+                atom.occupancy = 1.0
         u.atoms.write(str(dest), bonds=None)

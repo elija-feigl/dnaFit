@@ -1,17 +1,19 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright (C) 2021-Present  Elija Feigl
 # Full GPL-3 License can be found in `LICENSE` at the project root.
-
 from dataclasses import dataclass
 from typing import Union
 
-from .utils import h36_2_int, int_2_chimeraSegID, int_2_cifSegID, int_2_h36
+from .utils import h36_2_int
+from .utils import int_2_chimeraSegID
+from .utils import int_2_cifSegID
+from .utils import int_2_h36
 
 
 @dataclass
 class Number:
-    """ read from hybrid36 string string or int """
+    """read from hybrid36 string string or int"""
+
     _input: Union[int, str]
 
     def __post_init__(self):
@@ -41,11 +43,16 @@ class Number:
 
 @dataclass
 class AtomName:
-    """ use cif standart """
+    """use cif standart"""
+
     _input: str
 
     def __post_init__(self):
-        self.NAMD = {"O1P": "OP1", "O2P": "OP2", "C5M": "C7", }
+        self.NAMD = {
+            "O1P": "OP1",
+            "O2P": "OP2",
+            "C5M": "C7",
+        }
         self.name: str = self._convert_input(ipt=self._input)
 
     def _convert_input(self, ipt: str) -> str:
@@ -57,7 +64,7 @@ class AtomName:
             return self.name
         else:
             # TODO: review double-letter elements
-            return ''.join(filter(str.isalpha, self.name[:2]))[0]
+            return "".join(filter(str.isalpha, self.name[:2]))[0]
 
     def as_pdb4namd(self, width: int) -> str:
         opt = self.name
@@ -72,7 +79,7 @@ class AtomName:
 
     def as_cif(self) -> str:
         if "'" in self.name:
-            return f"\"{self.name}\""
+            return f'"{self.name}"'
         return self.name
 
     def as_str(self) -> str:
@@ -82,10 +89,16 @@ class AtomName:
 @dataclass
 class ResName:
     """resname [DA, DC, DG, DT]"""
+
     _input: str
 
     def __post_init__(self):
-        self.NAMD = {"CYT": "DC", "GUA": "DG", "THY": "DT", "ADE": "DA", }
+        self.NAMD = {
+            "CYT": "DC",
+            "GUA": "DG",
+            "THY": "DT",
+            "ADE": "DA",
+        }
         self.name: str = self._convert_input(inpt=self._input)
 
     def _convert_input(self, inpt: str) -> str:
@@ -97,7 +110,7 @@ class ResName:
         return self.NAMD[inpt] if inpt in self.NAMD.keys() else inpt
 
     def as_pdb4namd(self, width: int) -> str:
-        """returns resname [ADE, CYT, GUA, THY], len=3 """
+        """returns resname [ADE, CYT, GUA, THY], len=3"""
         DMNA = {v: k for k, v in iter(self.NAMD.items())}
         return DMNA[self.name].rjust(width, " ")
 

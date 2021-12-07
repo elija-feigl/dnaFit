@@ -1,19 +1,18 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright (C) 2021-Present  Elija Feigl
 # Full GPL-3 License can be found in `LICENSE` at the project root.
-
 """ files module
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, TextIO, Tuple
+from typing import TextIO
+from typing import TYPE_CHECKING
 
 from .. import get_resource
-from .types import ChainID, ResName
+from .types import ChainID
+from .types import ResName
 
 if TYPE_CHECKING:
     from .structure import Structure
@@ -21,40 +20,41 @@ if TYPE_CHECKING:
 
 @dataclass
 class PDB:
-    """ atomic format PDB"""
+    """atomic format PDB"""
+
     struct: Structure
 
     def __post_init__(self):
         # TODO-low: get box from struct
         self.box = "1000.000 1000.000 1000.000"
 
-    def _header(self) -> List[str]:
+    def _header(self) -> list[str]:
         return ["HEADER   "]
 
-    def _authors(self) -> List[str]:
+    def _authors(self) -> list[str]:
         return ["AUTHOR   "]
 
-    def _remarks(self) -> List[str]:
+    def _remarks(self) -> list[str]:
         return ["REMARK   "]
 
-    def _box(self) -> List[str]:
+    def _box(self) -> list[str]:
         angles = "90.00  90.00  90.00"
         space_group = "P 1"
         z_value = "1"
         return [f"CRYST1 {self.box}  {angles} {space_group}           {z_value}"]
 
-    def _atoms(self) -> List[str]:
+    def _atoms(self) -> list[str]:
         return [atom.as_pdb() for atom in self.struct.atoms]
 
     def write(self, outfile: Path) -> None:
-        """ write pdb file"""
+        """write pdb file"""
         with open(outfile, mode="w+") as out_file:
             for part in [
-                    self._header(),
-                    self._authors(),
-                    self._remarks(),
-                    self._box(),
-                    self._atoms(),
+                self._header(),
+                self._authors(),
+                self._remarks(),
+                self._box(),
+                self._atoms(),
             ]:
                 out_file.writelines(part)
 
@@ -64,17 +64,16 @@ class CIF:
     struct: Structure
 
     def __post_init__(self):
-        self.atoms: List[str] = self._set_atoms()
+        self.atoms: list[str] = self._set_atoms()
         self.chains, self.seqs = self._get_chains_seqs()
 
-    def _set_atoms(self) -> List[str]:
+    def _set_atoms(self) -> list[str]:
         return [atom.as_cif() for atom in self.struct.atoms]
 
-    def _get_chains_seqs(self) -> Tuple[
-            Dict[int, int], Dict[int, List[ResName]]]:
-        chains: Dict[int, int] = dict()
-        seqs: Dict[int, List[ResName]] = dict()
-        C3ps = [a for a in self.struct.atoms if a.atom_name.as_str() == "C3\'"]
+    def _get_chains_seqs(self) -> tuple[dict[int, int], dict[int, list[ResName]]]:
+        chains: dict[int, int] = dict()
+        seqs: dict[int, list[ResName]] = dict()
+        C3ps = [a for a in self.struct.atoms if a.atom_name.as_str() == "C3'"]
         for a in C3ps:
             chain_id = a.chain_id.n
             res_number = a.res_number.n
@@ -110,22 +109,21 @@ class CIF:
         entity = get_resource("cif_templates/entity.txt").read_text()
         file_out.write(entity)
         for chain_id, length in self.chains.items():
-            is_staple = (length < 500)
+            is_staple = length < 500
             n = str(chain_id).ljust(4)
             src = "syn" if is_staple else "?  "
-            typ = "\'STAPLE STRAND\'  " if is_staple else "\'SCAFFOLD STRAND\'"
+            typ = "'STAPLE STRAND'  " if is_staple else "'SCAFFOLD STRAND'"
             file_out.write(f"{n} polymer {src} {typ} ?   1 ? ? ? ?\n")
 
     def _write_entity_src(self, file_out: TextIO) -> None:
         entity_src = get_resource("cif_templates/entity_src.txt").read_text()
         file_out.write(entity_src)
         for chain_id, length in self.chains.items():
-            is_staple = (length < 500)
+            is_staple = length < 500
             n = str(chain_id).ljust(4)
-            typ = "\'synthetic construct\'" if is_staple else "?".ljust(21)
+            typ = "'synthetic construct'" if is_staple else "?".ljust(21)
             tax = "32630" if is_staple else "?".ljust(5)
-            file_out.write(
-                f"{n}   1 sample 1 {str(length).ljust(5)} {typ} ? {tax} ?\n")
+            file_out.write(f"{n}   1 sample 1 {str(length).ljust(5)} {typ} ? {tax} ?\n")
 
     def _write_entity_poly(self, file_out: TextIO) -> None:
         entity_poly = get_resource("cif_templates/entity_poly.txt").read_text()
@@ -135,8 +133,7 @@ class CIF:
             cid = ChainID(chain_id).as_chimera()
             seq1 = "".join([f"({s.as_str()})" for s in seq])
             seq2 = "".join([s.as_X() for s in seq])
-            file_out.write(
-                f"{n} polydeoxyribonucleotide no no\n;{seq1}\n;\n{seq2} {cid} ?\n")
+            file_out.write(f"{n} polydeoxyribonucleotide no no\n;{seq1}\n;\n{seq2} {cid} ?\n")
 
     def write(self, outfile: Path) -> None:
         with open(outfile, mode="w+") as file_out:
