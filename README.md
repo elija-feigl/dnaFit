@@ -14,22 +14,15 @@ A Python3 package that contains a collection of scripts related to the fitting o
 
 ## Dependencies
 
-* Python >= 3.7
-    * 
-    * numpy==1.21.0
-    * click==8.0.1
-    * mdanalysis==1.1.1
-    * mrcfile==1.3.0
-    * mrdna==1.0a0.dev51
-    * nanodesign==1.0 python3 fork)
+* Python >= 3.8
   * numpy >= 1.20
   * click >= 8.0
   * mdanalysis >= 1.0
   * mrcfile >= 1.3
-  * mrdna > 1.0 (march 2021)
+  * mrdna >= 1.0a0.dev51
   * nanodesign >= 1.0 (python3 fork)
 
-### without  mrDNA:
+### without mrDNA:
 
 * Operating system independet
 
