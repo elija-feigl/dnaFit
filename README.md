@@ -26,7 +26,7 @@ A Python3 package that contains a collection of scripts related to the fitting o
 
 * Operating system independet
 * [NAMD](https://www.ks.uiuc.edu/Research/namd/) molecular dynamics
-
+* [VMD](https://www.ks.uiuc.edu/Research/vmd/) visual molecular dynamics
 ### with mrDNA:
 
 * Linux operating system
@@ -34,7 +34,7 @@ A Python3 package that contains a collection of scripts related to the fitting o
 * [CUDA toolkit](https://developer.nvidia.com/cuda-toolkit) >= 6
 * [ARBD](http://bionano.physics.illinois.edu/arbd) simulation engine
 * [NAMD](https://www.ks.uiuc.edu/Research/namd/) molecular dynamics
-
+* [VMD](https://www.ks.uiuc.edu/Research/vmd/) visual molecular dynamics
 ## Installation
 
 install all required Python Packages. the following are not available via the PyPI
