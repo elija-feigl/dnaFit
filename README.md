@@ -25,6 +25,7 @@ A Python3 package that contains a collection of scripts related to the fitting o
 ### without mrDNA:
 
 * Operating system independet
+* [NAMD](https://www.ks.uiuc.edu/Research/namd/) molecular dynamics
 
 ### with mrDNA:
 
@@ -32,13 +33,15 @@ A Python3 package that contains a collection of scripts related to the fitting o
 * g++ >= 4.8
 * [CUDA toolkit](https://developer.nvidia.com/cuda-toolkit) >= 6
 * [ARBD](http://bionano.physics.illinois.edu/arbd) simulation engine
-
+* [NAMD](https://www.ks.uiuc.edu/Research/namd/) molecular dynamics
 
 ## Installation
 
 install all required Python Packages. the following are not available via the PyPI
 ### mrDNA install
 link: https://gitlab.engr.illinois.edu/tbgl/tools/mrdna
+NOTE: requires install from git repository (git clone ...) to verify version number
+
 ### nanodesign3
 python3 fork of autodesk/nanodesign
 https://github.com/elija-feigl/nanodesign

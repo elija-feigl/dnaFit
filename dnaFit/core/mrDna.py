@@ -33,7 +33,11 @@ def run_mrdna(
     all files are automatically written into a folder "mrdna"
     checks of completion of mrdna run
     """
-    mrdna = _get_executable("mrdna")
+    try:
+        mrdna = _get_executable("mrdna")
+    except OSError as exc:
+        logger.exception("Abort. %s", exc)
+        sys.exit(1)
 
     cmd = [
         str(mrdna),

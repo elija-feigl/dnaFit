@@ -2,7 +2,7 @@
 # Copyright (C) 2021-Present  Elija Feigl
 # Full GPL-3 License can be found in `LICENSE` at the project root.
 """ utility module """
-import os
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict
@@ -83,12 +83,10 @@ def _norm(vector):
 
 
 def _get_executable(name: str):
-    # TODO-low: use pathlib only
-    for path in os.environ["PATH"].split(os.pathsep):
-        exe = os.path.join(path.strip('"'), name)
-        if os.path.isfile(exe) and os.access(exe, os.X_OK):
-            return exe
-    raise Exception(f"{name} was not found")
+    exe = shutil.which(name)
+    if exe is not None:
+        return exe
+    raise OSError(f"{name} was not found")
 
 
 def _exec(cmd, logfile: Path):

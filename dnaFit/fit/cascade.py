@@ -78,9 +78,13 @@ class Cascade:
             copyfile(self.grid_pdb, "run/grid.pdb")
 
         self._split_exb_file()
-        self.charmrun = _get_executable("charmrun")
-        self.namd2 = _get_executable("namd2")
-        self.vmd = _get_executable("vmd")
+        try:
+            self.charmrun = _get_executable("charmrun")
+            self.namd2 = _get_executable("namd2")
+            self.vmd = _get_executable("vmd")
+        except OSError as exc:
+            self.logger.exception("Abort. %s", exc)
+            sys.exit(1)
 
     def _split_exb_file(self) -> None:
         self.logger.info("assuming annotated, sorted .exb files (mrdna > march 2021)")

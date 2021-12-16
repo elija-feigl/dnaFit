@@ -26,9 +26,9 @@ from shutil import copytree
 import click
 from dnaFit import __version__
 from dnaFit import get_resource
-from dnaFit.core.mrDna import prep_cascaded_fitting
-from dnaFit.core.mrDna import recenter_conf
-from dnaFit.core.mrDna import run_mrdna
+from dnaFit.core.mrdna import prep_cascaded_fitting
+from dnaFit.core.mrdna import recenter_conf
+from dnaFit.core.mrdna import run_mrdna
 from dnaFit.core.utils import _check_path
 from dnaFit.data.mrc import recenter_mrc
 from dnaFit.data.mrc import write_mrc_from_atoms
