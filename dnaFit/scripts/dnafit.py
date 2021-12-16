@@ -26,9 +26,9 @@ from shutil import copytree
 import click
 from dnaFit import __version__
 from dnaFit import get_resource
-from dnaFit.core.mrdna import prep_cascaded_fitting
-from dnaFit.core.mrdna import recenter_conf
-from dnaFit.core.mrdna import run_mrdna
+from dnaFit.core.predict import prep_cascaded_fitting
+from dnaFit.core.predict import recenter_conf
+from dnaFit.core.predict import run_mrdna
 from dnaFit.core.utils import _check_path
 from dnaFit.data.mrc import recenter_mrc
 from dnaFit.data.mrc import write_mrc_from_atoms
@@ -70,9 +70,9 @@ def cli():
 
 
 @cli.command()
-@click.argument("cadnano", type=click.Path(exists=True, path_type=Path))
-@click.argument("sequence", type=click.Path(exists=True, path_type=Path))
-@click.argument("mrc", type=click.Path(exists=True, path_type=Path))
+@click.argument("cadnano", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("sequence", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("mrc", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @click.option(
     "-g",
     "--gpu",
@@ -129,9 +129,9 @@ def mrdna(cadnano, mrc, sequence, gpu, prefix, multidomain, bond_cutoff, no_prep
 
 
 @cli.command()
-@click.argument("mrc", type=click.Path(exists=True, path_type=Path))
-@click.argument("top", type=click.Path(exists=True, path_type=Path))
-@click.argument("conf", type=click.Path(exists=True, path_type=Path))
+@click.argument("mrc", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("top", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("conf", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 def center_on_map(mrc, top, conf):
     """recenter atomic model center-of-mass on mrc cryo map center and write new .pdb.
 
@@ -163,12 +163,12 @@ def vmd_info():
 
 
 @cli.command()
-@click.argument("cadnano", type=click.Path(exists=True, path_type=Path))
-@click.argument("sequence", type=click.Path(exists=True, path_type=Path))
-@click.argument("mrc", type=click.Path(exists=True, path_type=Path))
-@click.argument("top", type=click.Path(exists=True, path_type=Path))
-@click.argument("conf", type=click.Path(exists=True, path_type=Path))
-@click.argument("exb", type=click.Path(exists=True, path_type=Path))
+@click.argument("cadnano", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("sequence", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("mrc", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("top", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("conf", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("exb", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @click.option(
     "-o",
     "--output-prefix",
@@ -256,10 +256,10 @@ def fit(
     for file, types in file_types.items():
         copyfile(file, f"./dnaFit/{prefix}.{types[0]}")
 
-    home_directory = os.getcwd()
+    home_directory = Path.cwd()
     try:
         os.chdir("dnaFit")
-        logger.debug("changing directory to: %s", os.getcwd())
+        logger.debug("changing directory to: %s", Path.cwd())
         # use duplicates instead of input
         mrc = Path(f"./{prefix}.mrc").resolve()
         cadnano = Path(f"./{prefix}.json").resolve()
@@ -283,14 +283,14 @@ def fit(
         model.write_output(dest=Path(home_directory), write_mmcif=True, mask_mrc=True)
     finally:
         os.chdir(home_directory)
-        logger.debug("changing directory to: %s", os.getcwd())
+        logger.debug("changing directory to: %s", Path.cwd())
 
 
 @cli.command()
-@click.argument("cadnano", type=click.Path(exists=True, path_type=Path))
-@click.argument("sequence", type=click.Path(exists=True, path_type=Path))
-@click.argument("top", type=click.Path(exists=True, path_type=Path))
-@click.argument("conf", type=click.Path(exists=True, path_type=Path))
+@click.argument("cadnano", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("sequence", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("top", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("conf", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @click.option(
     "--enrgmd-server",
     "enrgmd_server",
@@ -321,9 +321,9 @@ def link(cadnano, sequence, top, conf, enrgmd_server):
 
 
 @cli.command()
-@click.argument("mrc", type=click.Path(exists=True, path_type=Path))
-@click.argument("top", type=click.Path(exists=True, path_type=Path))
-@click.argument("conf", type=click.Path(exists=True, path_type=Path))
+@click.argument("mrc", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("top", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("conf", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @click.option(
     "-e",
     "--enrgmd_server",
@@ -367,7 +367,7 @@ def mask(mrc, top, conf, enrgmd_server, no_cut_box, keep_full):
 
 
 @cli.command()
-@click.argument("pdb", type=click.Path(exists=True, path_type=Path))
+@click.argument("pdb", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @click.option("--remove-H", "remove_h", is_flag=True, help="remove hydrogen atoms")
 def pdb2cif(pdb, remove_h):
     """generate atomic model in mmCIF format from namd PDB

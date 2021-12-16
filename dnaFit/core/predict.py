@@ -68,9 +68,9 @@ def run_mrdna(
 
     logger.info("mrdna: finished. Checking for final files.")
     is_ok = (
-        os.path.isfile(f"./{directory}/{prefix}-{export_idx}.psf")
-        and os.path.isfile(f"./{directory}/{prefix}-{export_idx}.pdb")
-        and os.path.isfile(f"./{directory}/{prefix}-{export_idx}.exb")
+        Path(f"./{directory}/{prefix}-{export_idx}.psf").is_file()
+        and Path(f"./{directory}/{prefix}-{export_idx}.pdb").is_file()
+        and Path(f"./{directory}/{prefix}-{export_idx}.exb").is_file()
     )
     if not is_ok:
         logger.error("At least one of mrdna's *-%s. files was not created", export_idx)
@@ -89,11 +89,11 @@ def prep_cascaded_fitting(
     prepares a new folder "prep" with files from a finished mrdna run
     in subfolder "mrdna" and copies necessary files.
     """
-    home_directory = os.getcwd()
+    home_directory = Path.cwd()
     try:
         Path("prep").mkdir(parents=True, exist_ok=True)
         os.chdir("prep")
-        logger.debug("changing directory to: %s", os.getcwd())
+        logger.debug("changing directory to: %s", Path.cwd())
 
         copyfile(cad_file, f"./{prefix}.json")
         copyfile(seq_file, f"./{prefix}.seq")
@@ -126,12 +126,12 @@ def prep_cascaded_fitting(
         universe.atoms.translate(translation)
         universe.atoms.write(f"./{prefix}.pdb")
 
-    except Exception as exc:
-        logger.exception("mrdna: failed to copy mrdna files to working directory %s", os.getcwd())
-        raise Exception from exc
+    except FileNotFoundError as exc:
+        logger.error("mrdna: failed to copy mrdna files to working directory %s", Path.cwd())
+        logger.exception(exc)
     finally:
         os.chdir(home_directory)
-        logger.debug("changing directory to: %s", os.getcwd())
+        logger.debug("changing directory to: %s", Path.cwd())
 
 
 def recenter_conf(top: Path, conf: Path, to_position=np.array([0.0, 0.0, 0.0])) -> None:
