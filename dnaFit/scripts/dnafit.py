@@ -332,13 +332,13 @@ def link(cadnano, sequence, top, conf, enrgmd_server):
     help="add if pdb has been generated with enrgMD server",
 )
 @click.option(
-    "--dont-cut-box", "no_cut_box", is_flag=True, help="retain all data within minimum box."
+    "--dont-cut-box", "no_cut_box", is_flag=True, help="do not reduce grid to minimum box."
 )
 @click.option("--keep-full", "keep_full", is_flag=True, help="retain all data within minimum box.")
 def mask(mrc, top, conf, enrgmd_server, no_cut_box, keep_full):
     """mask mrc map to fitted atomic model.\n
         Used to:\n
-            * make minimum box by keeping full data\n
+            * make minimum box by keeping full data (for manual fit prep)\n
             * create mask for atomic model
 
     MRC is the name of the cryo EM volumetric data file [.mrc]\n
