@@ -110,7 +110,14 @@ def prep_cascaded_fitting(
         universe = mda.Universe(f"./{prefix}.psf", coor)
 
         logger.info("cropping mrc to minimal box to improve simulation efficiency")
+        # determine shift
         mrc_boxed = mrc_file.with_name(f"{mrc_file.stem}-boxed.mrc")
+        mrc_shift = recenter_mrc(mrc_boxed, apply=False)
+        # shift atoms and write pdb
+        translation = mrc_shift - universe.atoms.center_of_geometry()
+        universe.atoms.translate(translation)
+        universe.atoms.write(f"./{prefix}.pdb")
+        # create and write boxed mrc
         write_mrc_from_atoms(
             path=mrc_file,
             atoms=universe.atoms,
@@ -120,11 +127,6 @@ def prep_cascaded_fitting(
             keep_data=True,
         )
         copyfile(mrc_boxed, f"./{prefix}.mrc")
-
-        mrc_shift = recenter_mrc(mrc_boxed, apply=False)
-        translation = mrc_shift - universe.atoms.center_of_geometry()
-        universe.atoms.translate(translation)
-        universe.atoms.write(f"./{prefix}.pdb")
 
     except FileNotFoundError as exc:
         logger.error("mrdna: failed to copy mrdna files to working directory %s", Path.cwd())
