@@ -10,6 +10,7 @@
     03.12.2020 anticipates singlescaffold structure with circular scaffold
 """
 import logging
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict
@@ -47,20 +48,21 @@ class Design:
             hps_base[position] = base
         return hps_base
 
-    def _close_strand(self, strand):
-        start = strand[0]
-        end = strand[-1]
+    def _close_strand(self, tour: List[DnaBase]):
+        start = tour[0]
+        end = tour[-1]
         start.up, end.down = end, start
         self.design.strands[start.strand].is_circular = True
-        return strand
+        return tour
 
     def _scaffold(self) -> List[DnaBase]:
         # TODO: -low- multiscaffold
-        try:
-            scaffold = [s.tour for s in self.design.strands if s.is_scaffold]
-        except ValueError:
-            self.logger.exception("Design contains multiple scaffold strands")
-        self._close_strand(strand=scaffold)
+        scaffolds = [s.tour for s in self.design.strands if s.is_scaffold]
+        if len(scaffolds) > 1:
+            self.logger.error("Design contains multiple scaffold strands")
+            sys.exit(1)
+        scaffold: List[DnaBase] = scaffolds.pop()
+        self._close_strand(tour=scaffold)
         return scaffold
 
     def _staple(self) -> List[List[DnaBase]]:
