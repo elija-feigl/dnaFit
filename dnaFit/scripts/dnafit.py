@@ -136,7 +136,7 @@ def center_on_map(mrc, top, conf):
     """recenter atomic model center-of-mass on mrc cryo map center and write new .pdb.
 
     MRC is the name of the cryo EM volumetric data file [.mrc]\n
-    TOP is the name of the namd topology file [.top]\n
+    TOP is the name of the namd topology file [.psf]\n
     CONF is the name of the namd configuration, docked to the map [.pdb, .coor]\n
     """
     file_types = {
@@ -232,7 +232,7 @@ def fit(
     CADNANO is the name of the design file [.json]\n
     SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
     MRC is the name of the cryo EM volumetric data file [.mrc]\n
-    TOP is the name of the namd topology file [.top]\n
+    TOP is the name of the namd topology file [.psf]\n
     CONF is the name of the namd configuration file, docked to map (VMD)  [.pdb, .coor]\n
     EXB is the name of the enrgMD extrabond file (expect mrDNA > march 2021) [.exb]
     """
@@ -304,7 +304,7 @@ def link(cadnano, sequence, top, conf, enrgmd_server):
 
     CADNANO is the name of the design file [.json]\n
     SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
-    TOP is the name of the namd topology file [.top]\n
+    TOP is the name of the namd topology file [.psf]\n
     CONF is the name of the namd configuration file [.pdb, .coor]\n
     """
     file_types = {
