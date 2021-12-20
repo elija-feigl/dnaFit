@@ -24,6 +24,7 @@
 """
 import inspect
 import logging
+import multiprocessing
 import sys
 import warnings
 from dataclasses import dataclass
@@ -79,7 +80,6 @@ class Cascade:
 
         self._split_exb_file()
         try:
-            self.charmrun = _get_executable("charmrun")
             self.namd2 = _get_executable("namd2")
             self.vmd = _get_executable("vmd")
         except OSError as exc:
@@ -290,11 +290,14 @@ class Cascade:
 
         return AtomicModelFit(conf=final_conf, top=self.top, mrc=self.mrc)
 
-    def _run_namd(self, namd_file, folder):
+    def _run_namd(self, namd_file, folder, num_procs=None):
         exec_folder = Path(f"run/{folder}")
         if not exec_folder.is_dir():
             exec_folder.mkdir()
-            cmd = f"{self.charmrun} +p32 {self.namd2} +netpoll {namd_file}".split()
+            if num_procs is None:
+                num_procs = max(1, multiprocessing.cpu_count() - 1)
+
+            cmd = f"{self.namd2} +p{num_procs} {namd_file}".split()
             self.logger.info(f"cascade: step {folder} with {cmd}")
             logfile = Path(f"run/{folder}/namd-out.log")
             _exec(cmd, logfile)
