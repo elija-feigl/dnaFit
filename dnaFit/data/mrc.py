@@ -4,6 +4,7 @@
 """ collection of scripts to allow manipulation of a cryo-EM map."""
 import logging
 from pathlib import Path
+from typing import List
 
 import MDAnalysis as mda
 import mrcfile
@@ -31,6 +32,17 @@ def recenter_mrc(
         return -shift
 
 
+def get_mrc_box(path: Path) -> List[float]:
+    """returns box dimensions of mrc file.
+    todo-low: include box angles
+    """
+    with mrcfile.open(path, mode="r+") as mrc:
+        _cell = np.array(mrc.header["cella"])
+        box: npt.NDArray[np.float64] = np.array([_cell["x"], _cell["y"], _cell["z"]])
+        box_dimensions: List[float] = box.tolist()
+        return box_dimensions
+
+
 def write_mrc_from_atoms(
     path: Path,
     atoms: mda.AtomGroup,
@@ -54,7 +66,7 @@ def write_mrc_from_atoms(
 
     with mrcfile.new(path_out, overwrite=True) as mrc_out:
         mrc_out.set_data(data.transpose())
-        mrc_out._set_voxel_size(*voxel)
+        mrc_out.voxel_size = voxel
         mrc_out.header["origin"] = tuple(origin)
 
 

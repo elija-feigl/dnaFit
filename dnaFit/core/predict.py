@@ -12,6 +12,7 @@ from shutil import copyfile
 import MDAnalysis as mda
 import numpy as np
 
+from ..data.mrc import get_mrc_box
 from ..data.mrc import recenter_mrc
 from ..data.mrc import write_mrc_from_atoms
 from .utils import _exec
@@ -117,7 +118,6 @@ def prep_cascaded_fitting(
         # shift atoms and write pdb
         translation = mrc_shift - universe.atoms.center_of_geometry()
         universe.atoms.translate(translation)
-        universe.atoms.write(f"./{prefix}.pdb")
         # create and write boxed mrc
         write_mrc_from_atoms(
             path=mrc_file,
@@ -128,6 +128,8 @@ def prep_cascaded_fitting(
             keep_data=True,
         )
         copyfile(mrc_boxed, f"./{prefix}.mrc")
+        universe.dimensions = get_mrc_box(mrc_boxed) + [90.0, 90.0, 90.0]
+        universe.atoms.write(f"./{prefix}.pdb")
 
     except FileNotFoundError as exc:
         logger.error("mrdna: failed to copy mrdna files to working directory %s", Path.cwd())
