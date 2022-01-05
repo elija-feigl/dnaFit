@@ -90,16 +90,24 @@ def cli():
     help="short design name, default to json name",
 )
 @click.option(
+    "--coarse_steps",
+    "coarse_steps",
+    type=float,
+    default=5e7,
+    show_default=True,
+    help='multidomain only. see "mrdna --help" --coarse_steps',
+)
+@click.option(
     "--bond_cutoff",
     "bond_cutoff",
     type=int,
     default=300,
     show_default=True,
-    help='see "mrdna --help" --coarse_bond_cutoff',
+    help='multidomain only. see "mrdna --help" --coarse_bond_cutoff',
 )
 @click.option("--multidomain", is_flag=True, help="use multidomain structures settings.")
 @click.option("--no_prep", is_flag=True, help="do not perform fitting prep.")
-def mrdna(cadnano, mrc, sequence, gpu, prefix, multidomain, bond_cutoff, no_prep):
+def mrdna(cadnano, mrc, sequence, gpu, prefix, multidomain, coarse_steps, bond_cutoff, no_prep):
     """mrDNA simulation of CADNANO design file with custom settings.\n
         followed by preperation of files for "dnaFit fit"\n
     Note1:  includes centering of model and masking of map\n
@@ -118,7 +126,15 @@ def mrdna(cadnano, mrc, sequence, gpu, prefix, multidomain, bond_cutoff, no_prep
         _check_path(file, types)
     prefix = cadnano.stem if prefix is None else prefix
 
-    run_mrdna(cadnano, sequence, prefix, gpu=gpu, multidomain=multidomain, bond_cutoff=bond_cutoff)
+    run_mrdna(
+        cad_file=cadnano,
+        seq_file=sequence,
+        prefix=prefix,
+        gpu=gpu,
+        multidomain=multidomain,
+        coarse_steps=coarse_steps,
+        bond_cutoff=bond_cutoff,
+    )
     if not no_prep:
         prep_cascaded_fitting(prefix, cadnano, sequence, mrc, multidomain=multidomain)
 

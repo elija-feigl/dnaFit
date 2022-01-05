@@ -26,8 +26,9 @@ def run_mrdna(
     prefix: str,
     directory="mrdna",
     gpu: int = 0,
-    multidomain=False,
-    bond_cutoff=300,
+    multidomain: bool = False,
+    coarse_steps: float = 5e7,
+    bond_cutoff: int = 300,
 ):
     """running a mrdna simulation by executing mrdna externally
     all files are automatically written into a folder "mrdna"
@@ -54,7 +55,7 @@ def run_mrdna(
     if multidomain:
         cmd += [
             "--coarse-steps",
-            "5e7",
+            str(coarse_steps),
             "--crossover-to-intrahelical-cutoff",
             "25",
             "--coarse-bond-cutoff",
