@@ -270,7 +270,7 @@ def fit(
     # create duplicates of input files in dnaFit folder
     Path("dnaFit").mkdir(parents=True, exist_ok=True)
     for file, types in file_types.items():
-        copyfile(file, f"./dnaFit/{prefix}.{types[0]}")
+        copyfile(file, f"./dnaFit/{prefix}{types[0]}")
 
     home_directory = Path.cwd()
     try:
