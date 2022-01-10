@@ -83,6 +83,8 @@ def write_mrc_from_atoms(
 
 
 def _create_voxel_mask(atoms: mda.AtomGroup, grid, origin, voxel_size, context, symmetric=False):
+    """note1: only for symetric voxelsize"""
+
     def _occupy_voxels(x, y, z, span):
         x_low, x_high = x - span, x + span
         y_low, y_high = y - span, y + span
@@ -90,7 +92,7 @@ def _create_voxel_mask(atoms: mda.AtomGroup, grid, origin, voxel_size, context, 
         data_mask[x_low:x_high, y_low:y_high, z_low:z_high] = 1.0
 
     data_mask = np.zeros(grid, dtype=np.float32)
-    v_context: int = int(context // voxel_size) + 1
+    v_context: int = int(context / voxel_size.tolist().pop()) + 1
     grid_positions = np.rint((atoms.positions - origin) / voxel_size).astype(int)
     for pos in grid_positions:
         x_pos, y_pos, z_pos = pos[0], pos[1], pos[2]  # fast to slow axis
