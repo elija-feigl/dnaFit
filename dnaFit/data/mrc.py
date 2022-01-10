@@ -90,7 +90,7 @@ def _create_voxel_mask(atoms: mda.AtomGroup, grid, origin, voxel_size, context, 
         data_mask[x_low:x_high, y_low:y_high, z_low:z_high] = 1.0
 
     data_mask = np.zeros(grid, dtype=np.float32)
-    v_context: int = context // voxel_size + 1
+    v_context: int = int(context // voxel_size) + 1
     grid_positions = np.rint((atoms.positions - origin) / voxel_size).astype(int)
     for pos in grid_positions:
         x_pos, y_pos, z_pos = pos[0], pos[1], pos[2]  # fast to slow axis
