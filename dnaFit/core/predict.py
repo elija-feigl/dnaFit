@@ -122,7 +122,7 @@ def prep_cascaded_fitting(
             cut_box=True,
             keep_data=True,
         )
-        copyfile(mrc_boxed, f"./{prefix}.mrc")
+        mrc_boxed.replace(f"./{prefix}.mrc")
 
         # determine shift
         mrc_shift = recenter_mrc(mrc_boxed, apply=False)
@@ -131,7 +131,7 @@ def prep_cascaded_fitting(
         universe.atoms.translate(translation)
         # determine pdb box size from mrc
         universe.dimensions = get_mrc_box(mrc_boxed) + [90.0, 90.0, 90.0]
-        universe.atoms.write(f"./{prefix}.pdb")
+        universe.atoms.write(f"./{prefix}-undocked.pdb")
 
     except FileNotFoundError as exc:
         logger.error("mrdna: failed to copy mrdna files to working directory %s", Path.cwd())
