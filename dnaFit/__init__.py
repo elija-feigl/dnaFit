@@ -32,7 +32,7 @@ class VersionInfo(NamedTuple):
     micro: int
 
     release_level: ReleaseType = None
-    serial: int = 0
+    serial: int = 1
 
     def __repr__(self) -> str:
         return f"{self.major}.{self.minor}.{self.micro}" + (

@@ -128,10 +128,11 @@ def prep_cascaded_fitting(
             cut_box=True,
             keep_data=True,
         )
-        mrc_boxed.replace(f"./{prefix}.mrc")
+        mrc_file_new = Path(f"./{prefix}.mrc")
+        mrc_boxed.replace(mrc_file_new)
 
         # determine pdb box size from mrc and write pdb
-        universe.dimensions = get_mrc_box(mrc_boxed) + [90.0, 90.0, 90.0]
+        universe.dimensions = get_mrc_box(mrc_file_new) + [90.0, 90.0, 90.0]
         universe.atoms.write(f"./{prefix}-undocked.pdb")
 
     except FileNotFoundError as exc:
