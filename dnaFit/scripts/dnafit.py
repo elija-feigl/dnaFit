@@ -62,6 +62,8 @@ def cli():
 
         additional exposed commands:\n
         * center_on_map:    write new PDB with COM of the configuration at .mrc center\n
+        * prep:     prepare mrDNA results for fitting "dnaFit fit"\n
+
         * link:     create a linkage file for cadnano-design and atomic model\n
                     (required by FitViewer)\n
         * mask:     mask a .mrc map using an atomic model\n
@@ -142,6 +144,41 @@ def mrdna(cadnano, mrc, sequence, gpu, prefix, multidomain, coarse_steps, bond_c
         "Config file is moved to center of mass with mrc map but still \
         has to be rotated before fitting. execute vmd_info for additional info"
     )
+
+
+@cli.command()
+@click.argument("cadnano", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("sequence", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.argument("mrc", type=click.Path(exists=True, resolve_path=True, path_type=Path))
+@click.option(
+    "-o",
+    "--output-prefix",
+    "prefix",
+    type=str,
+    default=None,
+    help="short design name, default to json name",
+)
+@click.option(
+    "--multidomain", is_flag=True, help="set true multidomain structures settings used for mrDNA."
+)
+def prep(cadnano, mrc, sequence, prefix, multidomain):
+    """prepare mrDNA results for fitting "dnaFit fit".\n
+    Note1:  includes centering of model and masking of map\n
+    Note2:  map and model are not rigid body docked "dnaFit vmd_info"
+
+    CADNANO is the name of the design file [.json]\n
+    SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
+    MRC is the name of the cryo EM volumetric data file [.mrc]\n
+    """
+    file_types = {
+        cadnano: [".json"],
+        mrc: [".mrc"],
+        sequence: [".txt", ".seq"],
+    }
+    for file, types in file_types.items():
+        _check_path(file, types)
+    prefix = cadnano.stem if prefix is None else prefix
+    prep_cascaded_fitting(prefix, cadnano, sequence, mrc, multidomain=multidomain)
 
 
 @cli.command()
