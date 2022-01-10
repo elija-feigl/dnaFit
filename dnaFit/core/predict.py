@@ -124,7 +124,7 @@ def prep_cascaded_fitting(
             path=mrc_file,
             atoms=universe.atoms,
             path_out=mrc_boxed,
-            context=50.0,
+            context=100.0,
             cut_box=True,
             keep_data=True,
         )

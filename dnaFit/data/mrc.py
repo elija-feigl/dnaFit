@@ -71,7 +71,7 @@ def write_mrc_from_atoms(
     with mrcfile.open(path) as mrc:
         voxel, grid, origin, full_data = _get_mrc_properties(mrc)
 
-    data_mask = _create_voxel_mask(atoms, grid, origin, voxel, context)
+    data_mask = _create_voxel_mask(atoms, grid, origin, voxel, context, symmetric=keep_data)
     data = full_data * data_mask
     if cut_box:
         data, origin, voxel = _mrc_cutbox(data, full_data, origin, voxel, keep_full=keep_data)
@@ -82,17 +82,24 @@ def write_mrc_from_atoms(
         mrc_out.header["origin"] = tuple(origin)
 
 
-def _create_voxel_mask(atoms, grid, origin, voxel_size, context):
+def _create_voxel_mask(atoms: mda.AtomGroup, grid, origin, voxel_size, context, symmetric=False):
+    def _occupy_voxels(x, y, z, span):
+        x_low, x_high = x - span, x + span
+        y_low, y_high = y - span, y + span
+        z_low, z_high = z - span, z + span
+        data_mask[x_low:x_high, y_low:y_high, z_low:z_high] = 1.0
+
     data_mask = np.zeros(grid, dtype=np.float32)
-    v_context: npt.NDArray[np.float64] = np.full(3, context / voxel_size).astype(int) + 1
-    v_context_x, v_context_y, v_context_z = v_context
+    v_context: int = context // voxel_size + 1
     grid_positions = np.rint((atoms.positions - origin) / voxel_size).astype(int)
     for pos in grid_positions:
         x_pos, y_pos, z_pos = pos[0], pos[1], pos[2]  # fast to slow axis
-        x_low, x_high = x_pos - v_context_x, x_pos + v_context_x
-        y_low, y_high = y_pos - v_context_y, y_pos + v_context_y
-        z_low, z_high = z_pos - v_context_z, z_pos + v_context_z
-        data_mask[x_low:x_high, y_low:y_high, z_low:z_high] = 1.0
+        _occupy_voxels(x_pos, y_pos, z_pos, v_context)
+        if symmetric:
+            x_pos, y_pos, z_pos = pos[1], pos[2], pos[0]  # sym1
+            _occupy_voxels(x_pos, y_pos, z_pos, v_context)
+            x_pos, y_pos, z_pos = pos[2], pos[0], pos[1]  # sym2
+            _occupy_voxels(x_pos, y_pos, z_pos, v_context)
     return data_mask
 
 
