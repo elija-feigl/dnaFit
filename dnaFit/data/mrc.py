@@ -66,7 +66,7 @@ def write_mrc_from_atoms(
 
     with mrcfile.new(path_out, overwrite=True) as mrc_out:
         mrc_out.set_data(data.transpose())
-        mrc_out.voxel_size = voxel
+        mrc_out.voxel_size = tuple(voxel.tolist())
         mrc_out.header["origin"] = tuple(origin)
 
 
