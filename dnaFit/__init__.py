@@ -32,7 +32,7 @@ class VersionInfo(NamedTuple):
     micro: int
 
     release_level: ReleaseType = None
-    serial: int = 1
+    serial: int = 0
 
     def __repr__(self) -> str:
         return f"{self.major}.{self.minor}.{self.micro}" + (
@@ -40,7 +40,7 @@ class VersionInfo(NamedTuple):
         )
 
 
-version_info = VersionInfo(0, 8, 5, "dev")
+version_info = VersionInfo(0, 8, 5, "dev", serial=2)
 __version__ = repr(version_info)
 
 _init_logging()

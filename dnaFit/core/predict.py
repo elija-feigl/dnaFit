@@ -112,14 +112,14 @@ def prep_cascaded_fitting(
         universe = mda.Universe(f"./{prefix}.psf", coor)
 
         logger.info("cropping mrc to minimal box to improve simulation efficiency")
-        mrc_boxed = mrc_file.with_name(f"{mrc_file.stem}-boxed.mrc")
 
         # determine shift
-        mrc_shift = get_mrc_center(mrc_boxed)
+        mrc_shift = get_mrc_center(mrc_file)
         translation = mrc_shift - universe.atoms.center_of_geometry()
         universe.atoms.translate(translation)
 
         # create and write boxed mrc
+        mrc_boxed = Path(f"./{prefix}.mrc")
         write_mrc_from_atoms(
             path=mrc_file,
             atoms=universe.atoms,
@@ -128,11 +128,9 @@ def prep_cascaded_fitting(
             cut_box=True,
             keep_data=True,
         )
-        mrc_file_new = Path(f"./{prefix}.mrc")
-        mrc_boxed.replace(mrc_file_new)
 
         # determine pdb box size from mrc and write pdb
-        universe.dimensions = get_mrc_box(mrc_file_new) + [90.0, 90.0, 90.0]
+        universe.dimensions = get_mrc_box(mrc_boxed) + [90.0, 90.0, 90.0]
         universe.atoms.write(f"./{prefix}-undocked.pdb")
 
     except FileNotFoundError as exc:
