@@ -32,6 +32,18 @@ def recenter_mrc(
         return -shift
 
 
+def get_mrc_center(path: Path) -> npt.NDArray[np.float64]:
+    """return position of the center of an mrc file"""
+    with mrcfile.open(path, mode="r+") as mrc:
+        _cell = np.array(mrc.header["cella"])
+        half_box: npt.NDArray[np.float64] = 0.5 * np.array([_cell["x"], _cell["y"], _cell["z"]])
+
+        _origin = np.array(mrc.header["origin"])
+        origin = np.array([_origin["x"], _origin["y"], _origin["z"]])
+
+        return origin + half_box
+
+
 def get_mrc_box(path: Path) -> List[float]:
     """returns box dimensions of mrc file.
     todo-low: include box angles

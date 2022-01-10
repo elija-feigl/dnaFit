@@ -30,7 +30,7 @@ from dnaFit.core.predict import prep_cascaded_fitting
 from dnaFit.core.predict import recenter_conf
 from dnaFit.core.predict import run_mrdna
 from dnaFit.core.utils import _check_path
-from dnaFit.data.mrc import recenter_mrc
+from dnaFit.data.mrc import get_mrc_center
 from dnaFit.data.mrc import write_mrc_from_atoms
 from dnaFit.fit.atomic_model_fit import AtomicModelFit
 from dnaFit.fit.cascade import Cascade
@@ -202,7 +202,7 @@ def center_on_map(mrc, top, conf):
     conf_docked = conf.with_name(f"{conf.stem}-docked.pdb")
     copyfile(conf, conf_docked)
 
-    mrc_shift = recenter_mrc(mrc, apply=False)
+    mrc_shift = get_mrc_center(mrc)
     recenter_conf(top=top, conf=conf_docked, to_position=mrc_shift)
 
 

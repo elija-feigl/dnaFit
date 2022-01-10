@@ -13,7 +13,7 @@ import MDAnalysis as mda
 import numpy as np
 
 from ..data.mrc import get_mrc_box
-from ..data.mrc import recenter_mrc
+from ..data.mrc import get_mrc_center
 from ..data.mrc import write_mrc_from_atoms
 from .utils import _exec
 from .utils import _get_executable
@@ -113,6 +113,12 @@ def prep_cascaded_fitting(
 
         logger.info("cropping mrc to minimal box to improve simulation efficiency")
         mrc_boxed = mrc_file.with_name(f"{mrc_file.stem}-boxed.mrc")
+
+        # determine shift
+        mrc_shift = get_mrc_center(mrc_boxed)
+        translation = mrc_shift - universe.atoms.center_of_geometry()
+        universe.atoms.translate(translation)
+
         # create and write boxed mrc
         write_mrc_from_atoms(
             path=mrc_file,
@@ -124,12 +130,7 @@ def prep_cascaded_fitting(
         )
         mrc_boxed.replace(f"./{prefix}.mrc")
 
-        # determine shift
-        mrc_shift = recenter_mrc(mrc_boxed, apply=False)
-        # shift atoms and write pdb
-        translation = mrc_shift - universe.atoms.center_of_geometry()
-        universe.atoms.translate(translation)
-        # determine pdb box size from mrc
+        # determine pdb box size from mrc and write pdb
         universe.dimensions = get_mrc_box(mrc_boxed) + [90.0, 90.0, 90.0]
         universe.atoms.write(f"./{prefix}-undocked.pdb")
 
