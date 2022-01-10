@@ -92,23 +92,23 @@ def cli():
     help="short design name, default to json name",
 )
 @click.option(
-    "--coarse_steps",
+    "--coarse-steps",
     "coarse_steps",
     type=float,
     default=5e7,
     show_default=True,
-    help='multidomain only. see "mrdna --help" --coarse_steps',
+    help='multidomain only. see "mrdna --help" --coarse-steps',
 )
 @click.option(
-    "--bond_cutoff",
+    "--bond-cutoff",
     "bond_cutoff",
     type=int,
     default=300,
     show_default=True,
-    help='multidomain only. see "mrdna --help" --coarse_bond_cutoff',
+    help='multidomain only. see "mrdna --help" --coarse-bond-cutoff',
 )
 @click.option("--multidomain", is_flag=True, help="use multidomain structures settings.")
-@click.option("--no_prep", is_flag=True, help="do not perform fitting prep.")
+@click.option("--no-prep", is_flag=True, help="do not perform fitting prep.")
 def mrdna(cadnano, mrc, sequence, gpu, prefix, multidomain, coarse_steps, bond_cutoff, no_prep):
     """mrDNA simulation of CADNANO design file with custom settings.\n
         followed by preperation of files for "dnaFit fit"\n
@@ -379,7 +379,7 @@ def link(cadnano, sequence, top, conf, enrgmd_server):
 @click.argument("conf", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @click.option(
     "-e",
-    "--enrgmd_server",
+    "--enrgmd-server",
     "enrgmd_server",
     is_flag=True,
     help="add if pdb has been generated with enrgMD server",
