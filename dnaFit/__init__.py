@@ -40,7 +40,7 @@ class VersionInfo(NamedTuple):
         )
 
 
-version_info = VersionInfo(0, 8, 6, "dev", serial=2)
+version_info = VersionInfo(0, 8, 7, "dev", serial=2)
 __version__ = repr(version_info)
 
 _init_logging()

@@ -11,7 +11,7 @@ def get_dependencies(path: str) -> str:
 
 def main():
     with open("VERSION", "w") as f:
-        f.write(__version__)
+        f.write(f"{__version__}\n")
 
     with open("./setup_config/base.cfg") as f:
         base = f.read()

@@ -16,6 +16,9 @@ from .files import PDB
 class Structure:
     path: Path
     remove_H: bool = True
+    is_snupi: bool = False
+    flip_fields: bool = False
+
     atoms: List[Atom] = field(default_factory=list)
     # TODO: default and other attributes: sequences etc
 
@@ -53,19 +56,25 @@ class Structure:
         return atm_number
 
     def _eval_res_number(self, string: str) -> int:
-        s = string.strip()
-        if s.isdigit() and self.keep_resID:
-            res_number = int(s)
+        string = string.strip()
+        if self.is_snupi:
+            res_number = int(string)
+            if res_number < self.previous_res[1]:
+                res_number = 1
+            elif res_number != self.previous_res[1]:
+                res_number = self.previous_res[1] + 1
+        elif string.isdigit() and self.keep_resID:
+            res_number = int(string)
         else:
             self.keep_resID = False
-            if s == self.previous_res[0]:
+            if string == self.previous_res[0]:
                 res_number = self.previous_res[1]
             else:
                 res_number = self.previous_res[1] + 1
 
         if res_number == 1 and self.previous_res[1] != 1:
             self.previous_chain = (self.previous_chain[0], self.previous_chain[1], True)
-        self.previous_res = (s, res_number)
+        self.previous_res = (string, res_number)
         return res_number
 
     def _eval_chain_id(self, string: str) -> int:
@@ -84,6 +93,11 @@ class Structure:
         res_number = self._eval_res_number(line[22:26])
         chain_id = self._eval_chain_id(line[20:22])
 
+        oppacity = line[54:60].strip()
+        temperature = line[60:66].strip()
+        if self.flip_fields:
+            oppacity, temperature = temperature, oppacity
+
         self.add_atom(
             Atom(
                 i_atom_coor=[line[30:38], line[38:46], line[46:54]],
@@ -92,8 +106,8 @@ class Structure:
                 i_res_name=line[17:20],
                 i_chain_id=chain_id,
                 i_res_number=res_number,
-                i_opacity=line[54:60].strip(),
-                i_temperature=line[60:66].strip(),
+                i_opacity=oppacity,
+                i_temperature=temperature,
             )
         )
 
