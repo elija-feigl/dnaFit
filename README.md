@@ -15,12 +15,7 @@ A Python3 package that contains a collection of scripts related to the fitting o
 ## Dependencies
 
 * Python >= 3.8
-  * numpy >= 1.20
-  * click >= 8.0
-  * mdanalysis >= 1.0
-  * mrcfile >= 1.3
-  * mrdna >= 1.0a0.dev51
-  * nanodesign >= 1.0 (python3 fork)
+  see requiremets.txt
 
 ### without mrDNA:
 
