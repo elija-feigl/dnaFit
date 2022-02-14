@@ -90,7 +90,7 @@ class Structure:
         if "H" in atom_name and self.remove_H:
             return
         atm_number = self._eval_atm_number(line[6:11])
-        res_number = self._eval_res_number(line[22:26])
+        res_number = self._eval_res_number(line[22:28])
         chain_id = self._eval_chain_id(line[20:22])
 
         oppacity = line[54:60].strip()
