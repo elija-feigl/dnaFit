@@ -6,16 +6,37 @@ A Python3 package that contains a collection of scripts related to the fitting o
 
 
 ## Usage
- * `dnaFit`: create an atomic model for a cryo-EM perform mrDNA simulation followed by cascading mrDNA-driven flexibel fitting of a selected cadnano design
-    design and model are linked to allow analysis of basepairs and comparison between map and design
- link design to existing atomic model to allow analysis of basepairs and comparison between map and design
-...
+```
+Usage: dnaFit [OPTIONS] COMMAND [ARGS]...
 
+  Cascaded mrDNA-driven MD flexible fitting script module:
+
+  dnaFit commands:
+      main pipeline:
+      1. mrdna:   mrDNA structure prediction with custom settings for cadnano file.
+                  (includes creation of prep folder for fitting)
+      2. vmd_info:    print info for rigid body docking with VMD
+      3. fit:     shrink wrap fitting if of rigid body docked mrDNA prediction
+                  includes mask, pdb2cif, and link
+
+Options:
+  -v, --version  Show __version__ and exit.
+  -h, --help     Show this message and exit.
+
+Commands:
+  center-on-map  Recenter atomic model center-of-mass on mrc cryo map...
+  fit            Cascaded mrDNA-driven MD flexible fitting (shrink wrap...
+  link           Links structural information of the CADNANO designfile...
+  mask           Mask mrc map to fitted atomic model.
+  mrdna          MrDNA simulation of CADNANO design file with custom...
+  pdb2cif        Generate atomic model in mmCIF format from namd PDB...
+  prep           Prepare mrDNA results for fitting "dnaFit fit".
+  vmd-info       Print VMD command for rotation of pdb around center of...
+```
 
 ## Dependencies
 
-* Python >= 3.8
-  see requiremets.txt
+* see setup.cfg
 
 ### without mrDNA:
 
@@ -31,20 +52,15 @@ A Python3 package that contains a collection of scripts related to the fitting o
 * [NAMD](https://www.ks.uiuc.edu/Research/namd/) molecular dynamics
 * [VMD](https://www.ks.uiuc.edu/Research/vmd/) visual molecular dynamics
 ## Installation
-
-install all required Python Packages. the following are not available via the PyPI
-### mrDNA install
-link: https://gitlab.engr.illinois.edu/tbgl/tools/mrdna
-NOTE: requires install from git repository (git clone ...) to verify version number
-
-### nanodesign3
-python3 fork of autodesk/nanodesign
-https://github.com/elija-feigl/nanodesign
-
-
+  ```
+    pip install git+https://github.com/elija-feigl/DNA_Fit#egg=dnaFit
+  ```
+or
+  ```
     git clone https://github.com/elija-feigl/DNA_Fit
     cd dnaFit
-    python setup.py install
+    pip install .
+  ```
 
 
 ## References

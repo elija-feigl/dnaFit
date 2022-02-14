@@ -24,8 +24,8 @@ from shutil import copyfile
 from shutil import copytree
 
 import click
-from dnaFit import __version__
 from dnaFit import get_resource
+from dnaFit import get_version
 from dnaFit.core.predict import prep_cascaded_fitting
 from dnaFit.core.predict import recenter_conf
 from dnaFit.core.predict import run_mrdna
@@ -43,31 +43,31 @@ def print_version(ctx, _, value):
     """click print version."""
     if not value or ctx.resilient_parsing:
         return
-    click.echo(__version__)
+    click.echo(get_version())
     ctx.exit()
 
 
-@click.group()
-@click.option("--version", is_flag=True, callback=print_version, expose_value=False, is_eager=True)
+@click.group(context_settings=dict(help_option_names=["-h", "--help"]))
+@click.option(
+    "-v",
+    "--version",
+    is_flag=True,
+    help="Show __version__ and exit.",
+    callback=print_version,
+    expose_value=False,
+    is_eager=True,
+)
 def cli():
-    """
-    cascaded mrDNA-driven MD flexible fitting script module:\n
-    dnaFit commands:\n
-        main pipeline:\n
-        1. mrdna:   mrDNA structure prediction with custom settings for cadnano file.\n
-                    (includes creation of prep folder for fitting)\n
-        2. vmd_info:    print info for rigid body docking with VMD\n
-        3. fit:     shrink wrap fitting if of rigid body docked mrDNA prediction\n
-                    includes mask, pdb2cif, and link\n
+    """Cascaded mrDNA-driven MD flexible fitting script module:
 
-        additional exposed commands:\n
-        * center_on_map:    write new PDB with COM of the configuration at .mrc center\n
-        * prep:     prepare mrDNA results for fitting "dnaFit fit"\n
-
-        * link:     create a linkage file for cadnano-design and atomic model\n
-                    (required by FitViewer)\n
-        * mask:     mask a .mrc map using an atomic model\n
-        * pdb2cif:  create .cif from .pdb file
+    \b
+    dnaFit commands:
+        main pipeline:
+        1. mrdna:   mrDNA structure prediction with custom settings for cadnano file.
+                    (includes creation of prep folder for fitting)
+        2. vmd_info:    print info for rigid body docking with VMD
+        3. fit:     shrink wrap fitting if of rigid body docked mrDNA prediction
+                    includes mask, pdb2cif, and link
     """
 
 
@@ -110,14 +110,16 @@ def cli():
 @click.option("--multidomain", is_flag=True, help="use multidomain structures settings.")
 @click.option("--no-prep", is_flag=True, help="do not perform fitting prep.")
 def mrdna(cadnano, mrc, sequence, gpu, prefix, multidomain, coarse_steps, bond_cutoff, no_prep):
-    """mrDNA simulation of CADNANO design file with custom settings.\n
-        followed by preperation of files for "dnaFit fit"\n
-    Note1:  includes centering of model and masking of map\n
+    """\b
+    MrDNA simulation of CADNANO design file with custom settings.
+        followed by preperation of files for "dnaFit fit"
+    \b
+    Note1:  includes centering of model and masking of map
     Note2:  map and model are not rigid body docked "dnaFit vmd_info"
-
-    CADNANO is the name of the design file [.json]\n
-    SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
-    MRC is the name of the cryo EM volumetric data file [.mrc]\n
+    \b
+    CADNANO is the name of the design file [.json]
+    SEQUENCE is the scaffold strand sequence file [.txt, .seq]
+    MRC is the name of the cryo EM volumetric data file [.mrc]
     """
     file_types = {
         cadnano: [".json"],
@@ -162,13 +164,15 @@ def mrdna(cadnano, mrc, sequence, gpu, prefix, multidomain, coarse_steps, bond_c
     "--multidomain", is_flag=True, help="set true multidomain structures settings used for mrDNA."
 )
 def prep(cadnano, mrc, sequence, prefix, multidomain):
-    """prepare mrDNA results for fitting "dnaFit fit".\n
-    Note1:  includes centering of model and masking of map\n
+    """\b
+    Prepare mrDNA results for fitting "dnaFit fit".
+    \b
+    Note1:  includes centering of model and masking of map
     Note2:  map and model are not rigid body docked "dnaFit vmd_info"
-
-    CADNANO is the name of the design file [.json]\n
-    SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
-    MRC is the name of the cryo EM volumetric data file [.mrc]\n
+    \b
+    CADNANO is the name of the design file [.json]
+    SEQUENCE is the scaffold strand sequence file [.txt, .seq]
+    MRC is the name of the cryo EM volumetric data file [.mrc]
     """
     file_types = {
         cadnano: [".json"],
@@ -186,11 +190,12 @@ def prep(cadnano, mrc, sequence, prefix, multidomain):
 @click.argument("top", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @click.argument("conf", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 def center_on_map(mrc, top, conf):
-    """recenter atomic model center-of-mass on mrc cryo map center and write new .pdb.
-
-    MRC is the name of the cryo EM volumetric data file [.mrc]\n
-    TOP is the name of the namd topology file [.psf]\n
-    CONF is the name of the namd configuration, docked to the map [.pdb, .coor]\n
+    """\b
+    Recenter atomic model center-of-mass on mrc cryo map center and write new .pdb.
+    \b
+    MRC is the name of the cryo EM volumetric data file [.mrc]
+    TOP is the name of the namd topology file [.psf]
+    CONF is the name of the namd configuration, docked to the map [.pdb, .coor]
     """
     file_types = {
         mrc: [".mrc"],
@@ -208,7 +213,9 @@ def center_on_map(mrc, top, conf):
 
 @cli.command()
 def vmd_info():
-    """print VMD command for rotation of pdb around center of mass.\n
+    """\b
+    Print VMD command for rotation of pdb around center of mass.
+    \b
     Note:   The current pipeline does not include an automated rigid-body-docking step.
             Docking of the model has to be performed manually. Using VMD is recommended.
     """
@@ -277,16 +284,18 @@ def fit(
     include_ss,
     grid_pdb,
 ):
-    """Cascaded mrDNA-driven MD flexible fitting (shrink wrap fitting) to MRC cryo data.\n
-        creates dnaFit folder. This folder will contain final results prefix-last.cif\n
-    Note1:  run after mrDNA ("dnaFit mrdna") and manual rigid-body-docking ("dnaFit vmd_info")\n
+    """\b
+    Cascaded mrDNA-driven MD flexible fitting (shrink wrap fitting) to MRC cryo data.
+        creates dnaFit folder. This folder will contain final results prefix-last.cif
+    \b
+    Note1:  run after mrDNA ("dnaFit mrdna") and manual rigid-body-docking ("dnaFit vmd_info")
     Note2:  SR-fitting (Short Range). Recommended for maps with resolution >> 10 Angstrom
-
-    CADNANO is the name of the design file [.json]\n
-    SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
-    MRC is the name of the cryo EM volumetric data file [.mrc]\n
-    TOP is the name of the namd topology file [.psf]\n
-    CONF is the name of the namd configuration file, docked to map (VMD)  [.pdb, .coor]\n
+    \b
+    CADNANO is the name of the design file [.json]
+    SEQUENCE is the scaffold strand sequence file [.txt, .seq]
+    MRC is the name of the cryo EM volumetric data file [.mrc]
+    TOP is the name of the namd topology file [.psf]
+    CONF is the name of the namd configuration file, docked to map (VMD)  [.pdb, .coor]
     EXB is the name of the enrgMD extrabond file (expect mrDNA > march 2021) [.exb]
     """
     file_types = {
@@ -351,14 +360,16 @@ def fit(
     help="add if initial .pdb was generated with enrgMD web-server.",
 )
 def link(cadnano, sequence, top, conf, enrgmd_server):
-    """links structural information of the CADNANO designfile to
-        fitted atomic model files TOP, CONF.\n
+    """\b
+    Links structural information of the CADNANO designfile to
+        fitted atomic model files TOP, CONF.
+    \b
     Note: linkage information ist stored in human readable csv format
-
-    CADNANO is the name of the design file [.json]\n
-    SEQUENCE is the scaffold strand sequence file [.txt, .seq]\n
-    TOP is the name of the namd topology file [.psf]\n
-    CONF is the name of the namd configuration file [.pdb, .coor]\n
+    \b
+    CADNANO is the name of the design file [.json]
+    SEQUENCE is the scaffold strand sequence file [.txt, .seq]
+    TOP is the name of the namd topology file [.psf]
+    CONF is the name of the namd configuration file [.pdb, .coor]
     """
     file_types = {
         cadnano: [".json"],
@@ -389,14 +400,15 @@ def link(cadnano, sequence, top, conf, enrgmd_server):
 )
 @click.option("--keep-full", "keep_full", is_flag=True, help="retain all data within minimum box.")
 def mask(mrc, top, conf, enrgmd_server, no_cut_box, keep_full):
-    """mask mrc map to fitted atomic model.\n
-        Used to:\n
-            * make minimum box by keeping full data (for manual fit prep)\n
+    """\b
+    Mask mrc map to fitted atomic model.
+        Used to:
+            * make minimum box by keeping full data (for manual fit prep)
             * create mask for atomic model
-
-    MRC is the name of the cryo EM volumetric data file [.mrc]\n
-    TOP is the name of the namd topology file [.top]\n
-    CONF is the name of the namd configuration file [.pdb, .coor]\n
+    \b
+    MRC is the name of the cryo EM volumetric data file [.mrc]
+    TOP is the name of the namd topology file [.top]
+    CONF is the name of the namd configuration file [.pdb, .coor]
     """
     file_types = {
         mrc: [".mrc"],
@@ -430,9 +442,10 @@ def mask(mrc, top, conf, enrgmd_server, no_cut_box, keep_full):
     help="flip the values of occupancy and temperature",
 )
 def pdb2cif(pdb, remove_h, is_snupi, flip_fields):
-    """generate atomic model in mmCIF format from namd PDB
-
-    PDB is the name of the namd configuration file [.pdb]\n
+    """\b
+    Generate atomic model in mmCIF format from namd PDB
+    \b
+    PDB is the name of the namd configuration file [.pdb]
     """
     _check_path(pdb, [".pdb"])
     structure = Structure(path=pdb, remove_H=remove_h, is_snupi=is_snupi, flip_fields=flip_fields)

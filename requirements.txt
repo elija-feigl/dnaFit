@@ -1,7 +1,0 @@
-numpy>=1.21.0
-click>=8.0.1
-mdanalysis>=1.1.1
-mrcfile>=1.3.0
-
-nanodesign @ git+https://github.com/elija-feigl/nanodesign
-mrdna @ git+https://gitlab.engr.illinois.edu/tbgl/tools/mrdna

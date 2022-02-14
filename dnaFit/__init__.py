@@ -3,9 +3,10 @@
 # Full GPL-3 License can be found in `LICENSE` at the project root.
 import logging
 from pathlib import Path
-from typing import Literal
-from typing import NamedTuple
-from typing import Optional
+
+
+def get_version() -> str:
+    return __version__
 
 
 def get_resource(resources: str) -> Path:
@@ -21,26 +22,9 @@ def _init_logging():
     logger.addHandler(handler)
 
 
-ReleaseType = Optional[Literal["alpha", "beta", "candidate", "final", "dev"]]
-
-
-class VersionInfo(NamedTuple):
-    """Version class of dnaFit."""
-
-    major: int
-    minor: int
-    micro: int
-
-    release_level: ReleaseType = None
-    serial: int = 0
-
-    def __repr__(self) -> str:
-        return f"{self.major}.{self.minor}.{self.micro}" + (
-            f".{self.release_level}{self.serial}" * (self.release_level is not None)
-        )
-
-
-version_info = VersionInfo(0, 8, 7, "dev", serial=2)
-__version__ = repr(version_info)
-
 _init_logging()
+
+version_info = [0, 8, 8, "dev0"]
+
+__version__ = ".".join([str(sub) for sub in version_info])
+__all__ = ["__version__"]

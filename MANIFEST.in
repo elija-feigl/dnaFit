@@ -1,4 +1,7 @@
-include dnaFit/README.md
-include dnaFit/LICENSE
-include dnaFit/VERSION
+include README.md
+include CONTRIBUTIONS.md
+include LICENSE
+include setup.cfg
+include pyproject.toml
+include MANIFEST.in
 recursive-include dnaFit/resources *
