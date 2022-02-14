@@ -12,11 +12,11 @@ from shutil import copyfile
 from typing import Optional
 
 import MDAnalysis as mda
+from pdb2cif.pdb.structure import Structure
 
 from ..data.mrc import write_mrc_from_atoms
 from ..link.linkage import Linkage
 from ..link.linker import Linker
-from ..pdb.structure import Structure
 
 
 @dataclass

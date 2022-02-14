@@ -34,7 +34,7 @@ from dnaFit.data.mrc import get_mrc_center
 from dnaFit.data.mrc import write_mrc_from_atoms
 from dnaFit.fit.atomic_model_fit import AtomicModelFit
 from dnaFit.fit.cascade import Cascade
-from dnaFit.pdb.structure import Structure
+from pdb2cif.pdb.structure import Structure
 
 logger = logging.getLogger(__name__)
 
@@ -456,6 +456,5 @@ def pdb2cif(pdb, remove_h, is_snupi, flip_fields):
     _check_path(pdb, [".pdb"])
     structure = Structure(path=pdb, remove_H=remove_h, is_snupi=is_snupi, flip_fields=flip_fields)
     structure.parse_pdb()
-    # TODO-low: ask for additional info (name, author, etc)
     output_name = pdb.with_suffix(".cif")
     structure.write_cif(output_name)

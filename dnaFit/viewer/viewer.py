@@ -24,11 +24,11 @@ import MDAnalysis as mda
 import mrcfile
 from IPython.display import display
 from MDAnalysis.core.groups import AtomGroup
+from pdb2cif.pdb.structure import Structure
 
 from ..data.mrc import write_mrc_from_atoms
 from ..link.linkage import Linkage
 from ..link.linker import Linker
-from ..pdb.structure import Structure
 
 
 @dataclass
