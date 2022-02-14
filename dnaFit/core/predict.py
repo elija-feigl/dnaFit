@@ -57,8 +57,6 @@ def run_mrdna(
         cmd += [
             "--coarse-steps",
             str(coarse_steps),
-            "--crossover-to-intrahelical-cutoff",
-            "25",
             "--coarse-bond-cutoff",
             str(bond_cutoff),
         ]

@@ -258,10 +258,10 @@ def vmd_info():
     help="retain SR-elastic-network troughout fitting cascade.",
 )
 @click.option(
-    "--include-ss",
-    "include_ss",
-    is_flag=True,
-    help="dont exclude single stranded DNA from flexible fitting.",
+    "--exclude-ss",
+    "exclude_ss",
+    is_flag=False,
+    help="dont include single stranded DNA from flexible fitting.",
 )
 @click.option(
     "--grid-pdb",
@@ -281,7 +281,7 @@ def fit(
     timesteps,
     resolution,
     sr_fitting,
-    include_ss,
+    exclude_ss,
     grid_pdb,
 ):
     """\b
@@ -333,13 +333,19 @@ def fit(
             copytree(get_resource("charmm36.nbfix"), "./charmm36.nbfix")
 
         cascade = Cascade(
-            conf=conf, top=top, mrc=mrc, exb=exb, json=cadnano, seq=sequence, grid_pdb=grid_pdb
+            conf=conf,
+            top=top,
+            mrc=mrc,
+            exb=exb,
+            json=cadnano,
+            seq=sequence,
+            custom_grid_pdb=grid_pdb,
         )
         model = cascade.run_cascaded_fitting(
-            base_time_steps=timesteps,
+            time_steps=timesteps,
             resolution=resolution,
             is_sr=sr_fitting,
-            include_ss=include_ss,
+            exclude_ss=exclude_ss,
         )
         model.write_linkage(cadnano, sequence)
         model.write_output(dest=Path(home_directory), write_mmcif=True, mask_mrc=True)
