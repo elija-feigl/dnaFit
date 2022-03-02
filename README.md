@@ -1,6 +1,6 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [![Python-version:](https://img.shields.io/badge/python-v3.8-green)]() | [Usage](#usage) | [Dependencies](#dependencies) | [Installation](#installation) | [References](#references)
 
-# dnaFit: cascading mrDNA-driven flexibel fitting
+# dnaFit: cascading mrDNA-driven flexible fitting
 
 A Python3 package that contains a collection of scripts related to the fitting of pseudoatomic models into cryo-EM maps of DNA-Origami structures.
 
@@ -26,7 +26,7 @@ Options:
 Commands:
   center-on-map  Recenter atomic model center-of-mass on mrc cryo map...
   fit            Cascaded mrDNA-driven MD flexible fitting (shrink wrap...
-  link           Links structural information of the CADNANO designfile...
+  link           Links structural information of the CADNANO design file...
   mask           Mask mrc map to fitted atomic model.
   mrdna          MrDNA simulation of CADNANO design file with custom...
   pdb2cif        Generate atomic model in mmCIF format from namd PDB...
@@ -40,17 +40,19 @@ Commands:
 
 ### without mrDNA:
 
-* Operating system independet
+* Operating system independent
 * [NAMD](https://www.ks.uiuc.edu/Research/namd/) molecular dynamics
 * [VMD](https://www.ks.uiuc.edu/Research/vmd/) visual molecular dynamics
 ### with mrDNA:
 
 * Linux operating system
 * g++ >= 4.8
+* [mrDNA](https://gitlab.engr.illinois.edu/tbgl/tools/mrdna) Multi-Resolution DNA simulations
 * [CUDA toolkit](https://developer.nvidia.com/cuda-toolkit) >= 6
 * [ARBD](http://bionano.physics.illinois.edu/arbd) simulation engine
 * [NAMD](https://www.ks.uiuc.edu/Research/namd/) molecular dynamics
 * [VMD](https://www.ks.uiuc.edu/Research/vmd/) visual molecular dynamics
+
 ## Installation
   ```
     pip install git+https://github.com/elija-feigl/DNA_Fit#egg=dnaFit
@@ -61,6 +63,8 @@ or
     cd dnaFit
     pip install .
   ```
+
+The simulation frameworks mrDNA + ARBD, NAMD + VMD have to be installed separately.
 
 
 ## References
