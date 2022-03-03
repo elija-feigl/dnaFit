@@ -39,9 +39,10 @@ class Cascade:
 
     def __post_init__(self) -> None:
         self.logger = logging.getLogger(__name__)
-        self.data = CascadeData()
 
         self.prefix: str = self.top.stem
+        self.data = CascadeData(self.prefix)
+
         run_folder = Path("run")
         if run_folder.exists():
             self.logger.info("Re-using existing folder 'run' for cascade data.")
@@ -195,7 +196,7 @@ class Cascade:
         self.data.step_counter += 1
 
     def _emin(self, grid_file: str, exb_file: str):
-        """energy minimisation step"""
+        """energy minimization step"""
         namd_filepath = Path(f"run/{self.prefix}_c-mrdna-MDff-final.namd")
         self.data.create_namd_file(
             namd_path=namd_filepath,
@@ -227,7 +228,7 @@ class Cascade:
             self.data.set_folder("relax")
             self._relax(exb_file=f"{exb}.exb")
 
-        # PART 2: fittig cascade
+        # PART 2: fitting cascade
         for cascade in range(self.data.n_repeat):
             for step in range(self.data.n_cascade):
                 # PART 2.1: short & coarse 1st cascade for rough alignment
@@ -316,7 +317,7 @@ class Cascade:
         lines.append(f"mol new {self.top}")
         name = self.top.stem
 
-        # full concatentated dcd
+        # full concatenated dcd
         if Path("./run/enrgMD").is_dir():
             lines.append(f"mol addfile ./run/relax/{name}.dcd start 0 step 1 waitfor all")
         for step in range(n_steps):

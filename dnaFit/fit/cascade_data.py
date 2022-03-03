@@ -13,7 +13,7 @@
                 - 1. cascade and n > FIRST_STOP ends: cascade early
                 - 2. cascade: simulated annealing
                 - n > LR_STOP: only short range extrabonds
-        * [ single step swithcing to base pair extrabonds:]
+        * [ single step switching to base pair extrabonds:]
         * energy minimization with increased gscale
         * processing files using VMD:
             - merge step-trajectories
@@ -42,19 +42,21 @@ MAPTHRES = 0.0  # threshold for cropping mrc data (voxel smaller than)
 
 @dataclass
 class CascadeData:
+    prefix: str
+
     n_cascade = N_CASCADE
     n_repeat = N_REPEAT
     first_stop = FIRST_STOP
     longrange_stop = LR_STOP
 
     gscale = 0.3  # scaling factor for map potential
-    gscale_min = 1.0  # scaling factor for map potential for energy minimisation
+    gscale_min = 1.0  # scaling factor for map potential for energy minimization
     gscale_anneal = 0.01
     temperature = 300
-    dielectr_constant = 1  # dielectric constant (enrgMD==1)
+    dielectric_constant = 1  # dielectric constant (enrgMD==1)
     ts = 12000  # number of time steps (default)
     ts_relax = 12000  # steps for relax enrgMD and anneling
-    ms_relax = 12000  # minimisation steps for relax enrgMD and anneling
+    ms_relax = 12000  # minimization steps for relax enrgMD and anneling
     namd_resource = "namd.txt"
 
     is_initialized: bool = False
@@ -64,10 +66,6 @@ class CascadeData:
     folder: str = "none"
     previous_folder: str = "none"
     grid_pdb: str = "grid.pdb"
-    prefix: str = "none"
-
-    def set_prefix(self, prefix: str) -> None:
-        self.prefix = prefix
 
     def set_folder(self, new_folder: str) -> None:
         self.previous_folder = self.folder
@@ -103,7 +101,7 @@ class CascadeData:
                 set TS {ts}
                 set MS {ms}
                 set GRIDON {mdff}
-                set DIEL {self.dielectr_constant}
+                set DIEL {self.dielectric_constant}
                 set GSCALE {gscale}
                 set GRIDFILE {grid_file}
                 set GRIDPDB {self.grid_pdb}
