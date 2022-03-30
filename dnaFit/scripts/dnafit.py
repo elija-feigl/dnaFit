@@ -268,7 +268,7 @@ def vmd_info():
 @click.option(
     "--grid-pdb",
     "grid_pdb",
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, resolve_path=True, path_type=Path),
     default=None,
     help="Use custom grid.pdb for segment exclusion.",
 )
@@ -341,7 +341,7 @@ def fit(
             exb=exb,
             json=cadnano,
             seq=sequence,
-            custom_grid_pdb=grid_pdb.resolve(),
+            custom_grid_pdb=grid_pdb,
         )
         model = cascade.run_cascaded_fitting(
             time_steps=timesteps,
