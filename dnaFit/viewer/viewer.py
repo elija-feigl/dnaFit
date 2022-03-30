@@ -10,7 +10,7 @@
     (DNA origami), or oligo strands alone, bound together to form a designed
     geometric shape.
 
-    NOTE: requires ipywidget and which is not listed in dnaFit requirements but with the ViewerApp
+    NOTE: requires ipywidgets and which is not listed in dnaFit requirements but with the ViewerApp
 """
 import logging
 import warnings
@@ -120,7 +120,7 @@ class Viewer:
         return atoms_no_hydrogen
 
     def write_custom_gridpdb(self, atoms_selected, name=None, destination=None):
-        """create a custom grid.pdb file based on an goup of atoms"""
+        """create a custom grid.pdb file based on an group of atoms"""
         self.u.add_TopologyAttr("tempfactor")
         self.u.add_TopologyAttr("occupancy")
 
@@ -131,7 +131,6 @@ class Viewer:
         if name is None:
             name = self.conf.name + "_grid"
         self.write_pdb(atoms=self.u.atoms, name=name, destination=destination, as_cif=False)
-        self.u.atoms.write("/Users/elija/Desktop/grid_s.pdb", bonds=None)
         return
 
     def _parse_selection(self, base_pos: List[int], helix_ids: List[int]) -> List[Any]:
@@ -140,7 +139,7 @@ class Viewer:
         staples = [b for h in helices for b in h.staple_bases if b.p in base_pos]
         return [staples, scaffold]
 
-    def select_widget(self):
+    def select_widget(self, lattice=None):
         """create selection widget
         helix selection: click helices to activate
         base_position: move sliders to specify base-position range
@@ -184,7 +183,10 @@ class Viewer:
         row_range = _minmax([coor[0] for coor in self.Hcoor2H], True)
         clmn_range = _minmax([coor[1] for coor in self.Hcoor2H], True)
 
-        lattice = "square" if self.linker.design.design.lattice_type == 0 else "honeycomb"
+        if lattice is None or lattice not in ["square", "honeycomb"]:
+            lattice = "honeycomb" if self.linker.design.design.lattice_type == 0 else "square"
+            self.logger.debug("Using %s-lattice from design file.", lattice)
+        self.logger.info("Using %s-lattice widget.", lattice)
 
         helix_buttons = [[_button(row, clmn, lattice) for clmn in clmn_range] for row in row_range]
 
@@ -224,13 +226,21 @@ class Viewer:
         display(main_widget)
         return (helix_buttons, base_slider, context_slider)
 
-    def eval_sliders(self, helix_buttons, slider_b, slider_c):
+    def eval_sliders(self, helix_selection, slider_b, slider_c):
         """evaluate selection widget"""
 
         selection_bases = range(slider_b.lower, slider_b.upper + 1)
 
-        flat_list = [item for sublist in helix_buttons for item in sublist]
-        selection_helices = [int(b.description) for b in flat_list if (not b.disabled and b.value)]
+        selection_helices = []
+        for helix in helix_selection:
+            for button in helix:
+                if isinstance(button, widgets.VBox):
+                    try:
+                        button = next(b for b in button.children if (not b.disabled))
+                    except StopIteration:
+                        continue
+                if not button.disabled and button.value:
+                    selection_helices.append(int(button.description))
 
         with mrcfile.open(self.mrc, mode="r+") as mrc:
             voxel_size = mrc.voxel_size.x
@@ -281,7 +291,7 @@ class Viewer:
         if as_cif:
             structure = Structure(path=path, remove_H=False)
             structure.parse_pdb()
-            mmcif = self.conf.with_suffix(".cif")
+            mmcif = path.with_suffix(".cif")
             structure.write_cif(mmcif)
 
     def write_dcd(self, atoms, name=None, destination=None):
