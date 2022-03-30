@@ -64,8 +64,8 @@ class Cascade:
         self.logger.info("assuming annotated, sorted .exb files (mrdna > march 2021)")
         # TODO-IMPROVEMENT: include custom extrabonds
 
-        exb_bp = Path(f"run/{self.prefix}-BP.exb")
-        exb_sr = Path(f"run/{self.prefix}-SR.exb")
+        exb_bp = Path(f"{self.prefix}-BP.exb")
+        exb_sr = Path(f"{self.prefix}-SR.exb")
         if exb_bp.exists() and exb_sr.exists():
             self.logger.info("Split .exb file exist. Skip recalculation.")
             return

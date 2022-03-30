@@ -97,7 +97,7 @@ def cli():
     type=float,
     default=5e7,
     show_default=True,
-    help='multidomain only. see "mrdna --help" --coarse-steps',
+    help='Applies to multidomain only. see "mrdna --help" --coarse-steps.',
 )
 @click.option(
     "--bond-cutoff",
@@ -105,7 +105,7 @@ def cli():
     type=int,
     default=300,
     show_default=True,
-    help='multidomain only. see "mrdna --help" --coarse-bond-cutoff',
+    help='Applies to multidomain only. see "mrdna --help" --coarse-bond-cutoff.',
 )
 @click.option("--multidomain", is_flag=True, help="use multidomain structures settings.")
 @click.option("--no-prep", is_flag=True, help="do not perform fitting prep.")
@@ -158,10 +158,12 @@ def mrdna(cadnano, mrc, sequence, gpu, prefix, multidomain, coarse_steps, bond_c
     "prefix",
     type=str,
     default=None,
-    help="short design name, default to json name",
+    help="Short design name, default to json name.",
 )
 @click.option(
-    "--multidomain", is_flag=True, help="set true multidomain structures settings used for mrDNA."
+    "--multidomain",
+    is_flag=True,
+    help="Set true if multidomain structures settings should be used for mrDNA.",
 )
 def prep(cadnano, mrc, sequence, prefix, multidomain):
     """\b
@@ -242,14 +244,14 @@ def vmd_info():
     type=int,
     default=12000,
     show_default=True,
-    help="timesteps per cascade (multiple of 12)",
+    help="Timesteps per cascade (requires multiple of 12).",
 )
 @click.option(
     "--resolution",
     type=float,
     default=10.0,
     show_default=True,
-    help="mrc map resolution in Angstrom",
+    help="Electron density data resolution in Angstrom.",
 )
 @click.option(
     "--SR-fitting",
@@ -261,14 +263,14 @@ def vmd_info():
     "--exclude-ss",
     "exclude_ss",
     is_flag=False,
-    help="dont include single stranded DNA from flexible fitting.",
+    help="Don't include single stranded DNA from flexible fitting.",
 )
 @click.option(
     "--grid-pdb",
     "grid_pdb",
     type=click.Path(exists=True),
     default=None,
-    help="use custom grid.pdb for segment exclusion.",
+    help="Use custom grid.pdb for segment exclusion.",
 )
 def fit(
     cadnano,
@@ -351,7 +353,7 @@ def fit(
         model.write_output(dest=Path(home_directory), write_mmcif=True, mask_mrc=True)
     finally:
         os.chdir(home_directory)
-        logger.debug("changing directory to: %s", Path.cwd())
+        logger.debug("Changing directory to: %s", Path.cwd())
 
 
 @cli.command()
@@ -363,7 +365,7 @@ def fit(
     "--enrgmd-server",
     "enrgmd_server",
     is_flag=True,
-    help="add if initial .pdb was generated with enrgMD web-server.",
+    help="Add if initial .pdb was generated with enrgMD web-server.",
 )
 def link(cadnano, sequence, top, conf, enrgmd_server):
     """\b
@@ -399,12 +401,10 @@ def link(cadnano, sequence, top, conf, enrgmd_server):
     "--enrgmd-server",
     "enrgmd_server",
     is_flag=True,
-    help="add if pdb has been generated with enrgMD server",
+    help="Add if pdb has been generated with enrgMD server.",
 )
-@click.option(
-    "--dont-cut-box", "no_cut_box", is_flag=True, help="do not reduce grid to minimum box."
-)
-@click.option("--keep-full", "keep_full", is_flag=True, help="retain all data within minimum box.")
+@click.option("--no-cut-box", "no_cut_box", is_flag=True, help="Do not reduce grid to minimum box.")
+@click.option("--keep-full", "keep_full", is_flag=True, help="Retain all data within minimum box.")
 def mask(mrc, top, conf, enrgmd_server, no_cut_box, keep_full):
     """\b
     Mask mrc map to fitted atomic model.
@@ -439,13 +439,13 @@ def mask(mrc, top, conf, enrgmd_server, no_cut_box, keep_full):
 
 @cli.command()
 @click.argument("pdb", type=click.Path(exists=True, resolve_path=True, path_type=Path))
-@click.option("--remove-H", "remove_h", is_flag=True, help="remove hydrogen atoms")
-@click.option("--snupi", "is_snupi", is_flag=True, help="convert from SNUPI pdb")
+@click.option("--remove-H", "remove_h", is_flag=True, help="Remove hydrogen atoms.")
+@click.option("--snupi", "is_snupi", is_flag=True, help="Convert from SNUPI pdb.")
 @click.option(
     "--flip-fields",
     "flip_fields",
     is_flag=True,
-    help="flip the values of occupancy and temperature",
+    help="Flip the values of occupancy and temperature",
 )
 def pdb2cif(pdb, remove_h, is_snupi, flip_fields):
     """\b
