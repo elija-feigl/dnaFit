@@ -341,7 +341,7 @@ def fit(
             exb=exb,
             json=cadnano,
             seq=sequence,
-            custom_grid_pdb=grid_pdb,
+            custom_grid_pdb=grid_pdb.resolve(),
         )
         model = cascade.run_cascaded_fitting(
             time_steps=timesteps,
