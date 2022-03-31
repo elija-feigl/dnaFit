@@ -82,8 +82,32 @@ def write_mrc_from_atoms(
         mrc_out.header["origin"] = tuple(origin)
 
 
+def write_binary_mrc_from_atoms(
+    path: Path,
+    atoms: mda.AtomGroup,
+    path_out: Path,
+    context: float = 4.0,
+    keep_data=False,
+):
+    """mask a binary  mrc mask using an group of atoms"""
+    if not atoms:
+        logger.warning("Cannot crop empty atom selection. No file written")
+        return
+
+    with mrcfile.open(path) as mrc:
+        voxel, grid, origin, _ = _get_mrc_properties(mrc)
+
+    data_mask = _create_voxel_mask(atoms, grid, origin, voxel, context, symmetric=keep_data)
+    data = np.ones(grid, dtype=np.float32) * data_mask
+
+    with mrcfile.new(path_out, overwrite=True) as mrc_out:
+        mrc_out.set_data(data.transpose())
+        mrc_out.voxel_size = tuple(voxel.tolist())
+        mrc_out.header["origin"] = tuple(origin)
+
+
 def _create_voxel_mask(atoms: mda.AtomGroup, grid, origin, voxel_size, context, symmetric=False):
-    """note1: only for symetric voxelsize"""
+    """note1: only for symmetric voxel size"""
 
     def _occupy_voxels(x, y, z, span):
         x_low, x_high = x - span, x + span

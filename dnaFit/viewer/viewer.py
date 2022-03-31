@@ -26,6 +26,7 @@ from IPython.display import display
 from MDAnalysis.core.groups import AtomGroup
 from pdb2cif.pdb.structure import Structure
 
+from ..data.mrc import write_binary_mrc_from_atoms
 from ..data.mrc import write_mrc_from_atoms
 from ..link.linkage import Linkage
 from ..link.linker import Linker
@@ -119,20 +120,6 @@ class Viewer:
                 atoms_no_hydrogen += atom
         return atoms_no_hydrogen
 
-    def write_custom_gridpdb(self, atoms_selected, name=None, destination=None):
-        """create a custom grid.pdb file based on an group of atoms"""
-        self.u.add_TopologyAttr("tempfactor")
-        self.u.add_TopologyAttr("occupancy")
-
-        for atom in self.link.u.atoms:
-            if "H" not in atom.name and atom in atoms_selected:
-                atom.tempfactor = atom.mass
-                atom.occupancy = 1.0
-        if name is None:
-            name = self.conf.name + "_grid"
-        self.write_pdb(atoms=self.u.atoms, name=name, destination=destination, as_cif=False)
-        return
-
     def _parse_selection(self, base_pos: List[int], helix_ids: List[int]) -> List[Any]:
         helices = [self.Hid2H[idx] for idx in helix_ids]
         scaffold = [b for h in helices for b in h.scaffold_bases if b.p in base_pos]
@@ -209,7 +196,7 @@ class Viewer:
             min=1,
             max=10,
             step=1,
-            description="context [Angstr.]:",
+            description="context [Angstrom]:",
             disabled=False,
             continuous_update=True,
             orientation="vertical",
@@ -294,6 +281,19 @@ class Viewer:
             mmcif = path.with_suffix(".cif")
             structure.write_cif(mmcif)
 
+    def write_custom_gridpdb(self, atoms_selected, name=None, destination=None):
+        """create a custom grid.pdb file based on an group of atoms"""
+        self.u.add_TopologyAttr("tempfactor")
+        self.u.add_TopologyAttr("occupancy")
+
+        for atom in self.link.u.atoms:
+            if "H" not in atom.name and atom in atoms_selected:
+                atom.tempfactor = atom.mass
+                atom.occupancy = 1.0
+        if name is None:
+            name = self.conf.name + "_grid"
+        self.write_pdb(atoms=self.u.atoms, name=name, destination=destination, as_cif=False)
+
     def write_dcd(self, atoms, name=None, destination=None):
         """write an atomic trajectory file for an atom group [only if dcd supplied to viewer]"""
         if not atoms:
@@ -317,6 +317,13 @@ class Viewer:
             path=self.mrc, atoms=atoms, path_out=path, context=context, cut_box=cut_box
         )
 
+    def write_binary_mask(self, atoms, name=None, destination=None, context=4):
+        """write a binary mrc mask file for the area within context of an atom group"""
+        name = self._check_name(name)
+        destination = self._check_destination(destination)
+        path = destination / f"{name}.mrc"
+        write_binary_mrc_from_atoms(path=self.mrc, atoms=atoms, path_out=path, context=context)
+
     def empty_atom_group(self) -> AtomGroup:
-        """return an empty mdanalysis atom group"""
+        """return an empty MDanalysis atom group"""
         return AtomGroup([], self.u)
