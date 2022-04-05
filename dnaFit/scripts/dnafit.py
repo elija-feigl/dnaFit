@@ -260,10 +260,10 @@ def vmd_info():
     help="retain SR-elastic-network troughout fitting cascade.",
 )
 @click.option(
-    "--exclude-ss",
-    "exclude_ss",
-    is_flag=False,
-    help="Don't include single stranded DNA from flexible fitting.",
+    "--include-ss",
+    "include_ss",
+    is_flag=True,
+    help="Include single stranded DNA to flexible fitting.",
 )
 @click.option(
     "--grid-pdb",
@@ -283,7 +283,7 @@ def fit(
     timesteps,
     resolution,
     sr_fitting,
-    exclude_ss,
+    include_ss,
     grid_pdb,
 ):
     """\b
@@ -347,7 +347,7 @@ def fit(
             time_steps=timesteps,
             resolution=resolution,
             is_sr=sr_fitting,
-            exclude_ss=exclude_ss,
+            exclude_ss=not include_ss,
         )
         model.write_linkage(cadnano, sequence)
         model.write_output(dest=Path(home_directory), write_mmcif=True, mask_mrc=True)
