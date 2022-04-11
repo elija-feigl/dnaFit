@@ -440,6 +440,7 @@ def mask(mrc, top, conf, enrgmd_server, no_cut_box, keep_full):
 @cli.command()
 @click.argument("pdb", type=click.Path(exists=True, resolve_path=True, path_type=Path))
 @click.option("--remove-H", "remove_h", is_flag=True, help="Remove hydrogen atoms.")
+@click.option("--alt-chain", "alt_chain_id", is_flag=True, help="Use alternative chain identifier.")
 @click.option("--snupi", "is_snupi", is_flag=True, help="Convert from SNUPI pdb.")
 @click.option(
     "--flip-fields",
@@ -447,14 +448,20 @@ def mask(mrc, top, conf, enrgmd_server, no_cut_box, keep_full):
     is_flag=True,
     help="Flip the values of occupancy and temperature",
 )
-def pdb2cif(pdb, remove_h, is_snupi, flip_fields):
+def pdb2cif(pdb, remove_h, is_snupi, flip_fields, alt_chain_id):
     """\b
     Generate atomic model in mmCIF format from namd PDB
     \b
     PDB is the name of the namd configuration file [.pdb]
     """
     _check_path(pdb, [".pdb"])
-    structure = Structure(path=pdb, remove_H=remove_h, is_snupi=is_snupi, flip_fields=flip_fields)
+    structure = Structure(
+        path=pdb,
+        remove_H=remove_h,
+        is_snupi=is_snupi,
+        flip_fields=flip_fields,
+        alt_chain_id=alt_chain_id,
+    )
     structure.parse_pdb()
     output_name = pdb.with_suffix(".cif")
     structure.write_cif(output_name)

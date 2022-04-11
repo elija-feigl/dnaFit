@@ -276,7 +276,7 @@ class Viewer:
                     mda_writer.write(atoms)
 
         if as_cif:
-            structure = Structure(path=path, remove_H=False)
+            structure = Structure(path=path, remove_H=False, alt_chain_id=True)
             structure.parse_pdb()
             mmcif = path.with_suffix(".cif")
             structure.write_cif(mmcif)
