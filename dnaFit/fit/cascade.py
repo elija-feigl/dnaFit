@@ -297,7 +297,7 @@ class Cascade:
         # create grid_file for cascade
         n_layers = n_cascade - 1
         for step in range(n_cascade):
-            gfilter = (step * (resolution - RES_SPAN)) / n_layers + RES_SPAN - resolution
+            gfilter = (step * (resolution - RES_SPAN)) / (n_layers + 1) + RES_SPAN - resolution
             lines.append(f"volutil -smooth {gfilter} run/base.dx -o run/{step}.dx")
             # TODO-IMPROVEMENT: binary maps for resolution > 15A ?
             lines.append(f"mdff griddx -i run/{step}.dx -o run/grid-{step}.dx")
@@ -310,6 +310,14 @@ class Cascade:
         self.logger.info("vmd prep: with %s", cmd)
         logfile = Path("run/vmd_prep-out.log")
         _exec(cmd, logfile)
+
+        for step in range(n_cascade):
+            grid_file = Path("run/grid-{step}.dx")
+            if not grid_file.exists():
+                self.logger.critical(
+                    "Cascaded prep incomplete. %s not generated. Abort.", grid_file
+                )
+                sys.exit(1)
 
     def _vmd_post(self, n_steps: int) -> None:
         vmd_post_path = Path("run/mdff-post.vmd")
