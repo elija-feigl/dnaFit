@@ -17,6 +17,7 @@ import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from typing import Dict
 from typing import List
 
 import ipywidgets as widgets
@@ -26,6 +27,7 @@ from IPython.display import display
 from MDAnalysis.core.groups import AtomGroup
 from pdb2cif.pdb.structure import Structure
 
+from ..data.mrc import extract_localres_mrc
 from ..data.mrc import write_binary_mrc_from_atoms
 from ..data.mrc import write_mrc_from_atoms
 from ..link.linkage import Linkage
@@ -56,7 +58,7 @@ class Viewer:
         try:
             self.link: Linkage = self.linker.create_linkage()
         except Exception:
-            self.logger.error("ERROR: The provided design is not compatible with the atomic.")
+            self.logger.error("ERROR: The provided design is not compatible with the atomic model.")
 
         self.u = self.linker.fit.u
         self.Hid2H = self.linker.design.design.structure_helices_map
@@ -283,6 +285,7 @@ class Viewer:
 
     def write_custom_gridpdb(self, atoms_selected, name=None, destination=None):
         """create a custom grid.pdb file based on an group of atoms"""
+        # TODO: use linker.write_internal_gridpdb?
         self.u.add_TopologyAttr("tempfactor")
         self.u.add_TopologyAttr("occupancy")
 
@@ -292,6 +295,36 @@ class Viewer:
                 atom.occupancy = 1.0
         if name is None:
             name = self.conf.name + "_grid"
+        self.write_pdb(atoms=self.u.atoms, name=name, destination=destination, as_cif=False)
+
+    def write_localres_pdb(
+        self, atoms_selected, path_localres: Path, name=None, destination=None
+    ) -> Dict[int, float]:
+        """create a custom .pdb file colored by local resolution estimate based on an group of atoms."""
+        self.u.add_TopologyAttr("tempfactor")
+        # self.u.add_TopologyAttr("occupancy")
+        localres = extract_localres_mrc(path=path_localres, atoms=atoms_selected)
+
+        for atom in self.link.u.atoms:
+            atom.tempfactor = localres[atom.resindex] if atom in atoms_selected else 0.0
+            # atom.occupancy = 1.0 if atom in atoms_selected else -1.0 # TODO: use for something else!
+
+        if name is None:
+            name = self.conf.name + "_localres"
+        self.write_pdb(atoms=self.u.atoms, name=name, destination=destination, as_cif=False)
+        return localres
+
+    def write_property_pdb(
+        self, atoms_selected, property: Dict[int, float], name=None, destination=None
+    ):
+        """create a custom .pdb file colored by property (resindex to property value) based on an group of atoms."""
+        self.u.add_TopologyAttr("tempfactor")
+
+        for atom in self.link.u.atoms:
+            atom.tempfactor = property[atom.resindex] if atom in atoms_selected else 0.0
+
+        if name is None:
+            name = self.conf.name + "_property"
         self.write_pdb(atoms=self.u.atoms, name=name, destination=destination, as_cif=False)
 
     def write_dcd(self, atoms, name=None, destination=None):

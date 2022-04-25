@@ -108,7 +108,7 @@ class Cascade:
                 seq=self.seq,
                 generated_with_mrdna=self.generated_with_mrdna,
             )
-            linker.write_custom_gridpdb(dest=Path(f"run/{grid_pdb}"), exclude_ss=exclude_ss)
+            linker.write_internal_gridpdb(dest=Path(f"run/{grid_pdb}"), exclude_ss=exclude_ss)
         return grid_pdb
 
     def _run_namd(self, namd_file, num_procs=None):

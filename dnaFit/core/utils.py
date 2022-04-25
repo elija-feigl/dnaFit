@@ -11,6 +11,8 @@ from typing import Tuple
 from typing import Union
 
 import numpy as np
+import numpy.typing as npt
+
 
 C1P_BASEDIST: float = 10.7
 TOL: float = 10e-6
@@ -77,9 +79,58 @@ PUR_ATOMS: List[str] = ["N9", "C4"]
 WC_PROPERTIES: List[str] = ["rise", "slide", "shift", "twist", "tilt", "roll"]
 
 
-def _norm(vector):
+def _norm(vector: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """return versor"""
     return vector / np.linalg.norm(vector)
+
+
+def _proj(u: npt.NDArray[np.float64], v: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """unit vector angle product"""
+    return np.inner(u, v) / (np.linalg.norm(u) * np.linalg.norm(v))
+
+
+def _v_proj(u: npt.NDArray[np.float64], v: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """vector v projected on vector"""
+    return np.inner(u, v) / (np.linalg.norm(v) * np.linalg.norm(v)) * v
+
+
+def _proj2plane(
+    vect: List[npt.NDArray[np.float64]], n0: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    pro = []
+    for x in vect:
+        d = np.inner(x, n0)
+        p = [d * n0[i] for i in range(len(n0))]
+        pro.append([x[i] - p[i] for i in range(len(x))])
+    return pro
+
+
+def _save_arccos_deg(projection: float) -> float:
+    if 1.0 < abs(projection) < 1.0 + TOL:
+        projection = np.sign(projection)
+    if projection > 0:
+        phi = np.arccos(projection)
+    else:
+        phi = -np.arccos(abs(projection))
+    return np.rad2deg(phi)  # type: ignore
+
+
+# def _dh_angle(p: List[], as_rad=False):  # slow
+#     """dihedral angle."""
+
+#     v1 = p[1] - p[0]
+#     v2 = p[2] - p[1]
+#     v3 = p[3] - p[2]
+
+#     n1 = _norm(np.cross(v1, v2))
+#     n2 = _norm(np.cross(v2, v3))
+#     m1 = np.cross(n1, _norm(v2))
+
+#     x = np.dot(n1, n2)
+#     y = np.dot(m1, n2)
+
+#     angle = -np.arctan2(y, x)
+#     return angle if as_rad else np.rad2deg(angle)
 
 
 def _get_executable(name: str):

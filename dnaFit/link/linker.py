@@ -17,7 +17,6 @@ from MDAnalysis.core.groups import AtomGroup
 from nanodesign.data.base import DnaBase
 from nanodesign.data.dna_structure_helix import DnaStructureHelix
 
-from ..data.basepair import BasePair
 from ..data.crossover import Crossover
 from ..data.design import Design
 from ..data.fit import Fit
@@ -320,21 +319,6 @@ class Linker:
             n_position += direct
         return self.design.Dhps_base.get((helix, n_position, is_scaf), None)
 
-    def _get_bp(self, base: DnaBase) -> Optional[BasePair]:
-        if base is None:
-            return None
-        else:
-            resindex = self.DidFid[base.id]
-            Fbp_all = {**self.Fbp, **{v: k for k, v in iter(self.Fbp.items())}}
-            wcindex = Fbp_all.get(resindex, None)
-            sc_index = resindex if base.is_scaf else wcindex
-            st_index = wcindex if base.is_scaf else resindex
-
-            sc = None if sc_index is None else self.fit.u.residues[sc_index]
-            st = None if st_index is None else self.fit.u.residues[st_index]
-            hp = (base.h, base.p)
-            return BasePair(scaffold=sc, staple=st, hp=hp)
-
     def is_co(self, base: DnaBase, neighbor: Optional[DnaBase]) -> bool:
         """determine if a base is part of a crossover."""
         if neighbor is None:
@@ -368,15 +352,17 @@ class Linker:
             bC_ = get_crossover_leg(base=bC, direct=(-1 * direct))
             bD_ = get_crossover_leg(base=bD, direct=direct)
 
-            positionals, legs = list(), list()
-            co_pos = list()
+            positional, legs = [], []
+            co_pos = []
             for bP, bL in zip([bA, bB, bC, bD], [bA_, bB_, bC_, bD_]):
-                positionals.append(self._get_bp(base=bP))
+                hp = None if bP is None else (bP.h, bP.p)
+                positional.append(hp)
                 if bP is not None:
                     co_pos.append((bP.h, bP.p))
-                legs.append(self._get_bp(base=bL))
+                hp = None if bL is None else (bL.h, bL.p)
+                legs.append(bL)
             co = Crossover(
-                positionals=positionals,
+                positional=positional,
                 legs=legs,
                 typ=typ,
                 is_scaf=bA.is_scaf,
@@ -440,7 +426,7 @@ class Linker:
             if is_nick(candidate=candi, base=start)
         }
 
-    def write_custom_gridpdb(
+    def write_internal_gridpdb(
         self, dest: Path, exclude_ss=True, exclude_id=None, exclude_resid=None
     ):
         """write custom grid.pdb file for a given set of indices"""

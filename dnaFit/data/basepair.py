@@ -3,11 +3,10 @@
 # Full GPL-3 License can be found in `LICENSE` at the project root.
 """ BasePair Class represents a watson-crick baspair of two nanodesign base
     object. Important Attributes are their position in the design-file and
-    their spatial orientation in real space (BasePlane and BasePairPlane class)
-"""
+    their spatial orientation in real space.
+    Olson et al. (2001). A standard reference frame for the description of nucleic acid base-pair geometry.
+    """
 from dataclasses import dataclass
-from typing import Any
-from typing import Dict
 from typing import Optional
 from typing import Tuple
 
@@ -19,24 +18,21 @@ from ..core.utils import _norm
 
 
 @dataclass(frozen=True)
-class BasePairPlane:
-    """plane_versor: plane-normal vector. always pointing in scaffold 5'->3' direction
-    wc_vector: vector pointing from scaffold to staple
+class Plane:
+    """position: base or basepair center point
+    normal: plane-normal vector. always pointing in scaffold 5'->3' direction
+    direction: vector pointing away from C1' or from scaffold to staple
     """
 
-    __slots__ = ["positions", "wc_vectors", "plane_versor"]
-    positions: Dict[str, Any]
-    wc_vectors: Dict[str, Any]
-    plane_versor: npt.NDArray[np.float64]
+    __slots__ = ["origin", "direction", "normal"]
+    origin: npt.NDArray[np.float64]
+    direction: npt.NDArray[np.float64]  # y-vector in  Olson et al. (2001), norm = C1'-C1'
+    normal: npt.NDArray[np.float64]  # z-versor in  Olson et al. (2001)
 
-
-@dataclass(frozen=True)
-class BasePlane:
-    """plane_versor: plane-normal vector. always pointing in scaffold 5'->3' direction"""
-
-    __slots__ = ["positions", "plane_versor"]
-    positions: Dict[str, Any]
-    plane_versor: npt.NDArray[np.float64]
+    @property
+    def vector3(self) -> npt.NDArray[np.float64]:
+        """x-versor in Olson et al. (2001)"""
+        return _norm(np.cross(self.normal, self.direction))
 
 
 @dataclass
@@ -47,9 +43,10 @@ class BasePair:
     staple: Residue
     hp: Tuple[int, int]
 
-    sc_plane: Optional[BasePlane] = None
-    st_plane: Optional[BasePlane] = None
-    plane: Optional[BasePairPlane] = None
+    # only computed if needed
+    sc_plane: Optional[Plane] = None
+    st_plane: Optional[Plane] = None
+    plane: Optional[Plane] = None
 
     def __post_init__(self):
         if self.scaffold is None or self.staple is None:
@@ -69,37 +66,45 @@ class BasePair:
             if self.staple is not None
             else None
         )
-        self.plane = (
-            self._get_bp_plane(scaffold=self.sc_plane, staple=self.st_plane) if self.is_ds else None
-        )
+        self.plane = self._get_bp_plane() if self.is_ds else None
 
-    def _get_base_plane(self, res: Residue, is_scaf: bool) -> BasePlane:
-        positions = dict()
-        atom = []
-        for atom_name in ["C2", "C4", "C6"]:
-            (atom_select,) = res.atoms.select_atoms("name " + atom_name)
-            atom.append(atom_select.position)
+    @staticmethod
+    def _atom_position(res: Residue, name: str) -> npt.NDArray[np.float64]:
+        return res.atoms.select_atoms(f"name {name}")[0].position
 
-        plane_versor = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[0])))
-        if res.resname in ["ADE", "GUA"] and is_scaf:
-            plane_versor = -plane_versor
-        elif res.resname in ["THY", "CYT"] and not is_scaf:
-            plane_versor = -plane_versor
+    def _get_base_plane(self, res: Residue, is_scaf: bool) -> Plane:
+        """definition in  Olson et al. (2001) unclear."""
+        atom = [self._atom_position(res, name) for name in ["C2", "C4", "C6"]]
+        normal = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[0])))
 
-        positions["diazine"] = sum(atom) / 3.0
+        is_purine = res.resname in ["ADE", "GUA"]
+        if (is_purine and is_scaf) or (not is_purine and not is_scaf):
+            normal = -normal
+
+        origin = sum(atom) / 3.0
 
         c6c8 = "C8" if res.resname in ["ADE", "GUA"] else "C6"
-        positions["C6C8"] = res.atoms.select_atoms("name " + c6c8)[0].position
+        direction = self._atom_position(res, c6c8) - self._atom_position(res, "C1'")
+        return Plane(origin=origin, direction=direction, normal=normal)
 
-        positions["C1'"] = res.atoms.select_atoms("name C1'")[0].position
+    def _get_bp_plane(self) -> Plane:
+        def c6c8_position(res: Residue) -> npt.NDArray[np.float64]:
+            atom_name = "C8" if res.atoms.resname in ["ADE", "GUA"] else "C6"
+            return self._atom_position(res=res, name=atom_name)
 
-        return BasePlane(plane_versor=plane_versor, positions=positions)
+        st_c1p = self._atom_position(self.staple, "C1'")
+        sc_c1p = self._atom_position(self.scaffold, "C1'")
+        direction = sc_c1p - st_c1p
+        dyad_point = (sc_c1p + st_c1p) * 0.5
 
-    def _get_bp_plane(self, scaffold, staple) -> BasePairPlane:
-        wc_vectors, positions = dict(), dict()
-        plane_versor = (scaffold.plane_versor + staple.plane_versor) * 0.5
-        for pos in scaffold.positions:
-            positions[pos] = (scaffold.positions[pos] + staple.positions[pos]) * 0.5
-            wc_vectors[pos] = staple.positions[pos] - scaffold.positions[pos]
+        sc_c6c8 = c6c8_position(self.scaffold)
+        origin_direction = sc_c6c8 - c6c8_position(self.staple)
 
-        return BasePairPlane(plane_versor=plane_versor, wc_vectors=wc_vectors, positions=positions)
+        # intersect c6-c8 line with pseudo-dyad plane of C1'-C1'
+        projection_on_dyad_plane = direction.dot(origin_direction)
+        w = dyad_point - sc_c6c8
+        si = direction.dot(w) / projection_on_dyad_plane
+        origin = dyad_point - w + si * direction
+
+        normal = origin - dyad_point
+        return Plane(origin=origin, direction=direction, normal=normal)

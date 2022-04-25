@@ -5,8 +5,7 @@
 from dataclasses import dataclass
 from typing import List
 from typing import Optional
-
-from .basepair import BasePair
+from typing import Tuple
 
 
 @dataclass
@@ -18,7 +17,7 @@ class Crossover:
     there are three types [full, half, end]
     """
 
-    positionals: List[Optional[BasePair]]
-    legs: List[Optional[BasePair]]
+    positional: List[Optional[Tuple[int, int]]]
+    legs: List[Optional[Tuple[int, int]]]
     typ: str
     is_scaf: bool

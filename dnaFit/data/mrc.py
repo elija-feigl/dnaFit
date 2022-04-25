@@ -4,6 +4,7 @@
 """ collection of scripts to allow manipulation of a cryo-EM map."""
 import logging
 from pathlib import Path
+from typing import Dict
 from typing import List
 
 import MDAnalysis as mda
@@ -178,3 +179,19 @@ def _mrc_cutbox(data, full_data, m_origin, m_spacing, keep_full=False):
     cell = grid * m_spacing
     spacing = cell / grid
     return data_small, origin, spacing
+
+
+def extract_localres_mrc(path: Path, atoms: mda.AtomGroup) -> Dict[int, float]:
+    def get_localres(res: mda.AtomGroup) -> float:
+        locres = 0.0
+        for atom in res.atoms:
+            atom_voxel = np.rint((atom.position - origin) / voxel)
+            locres += data[tuple(atom_voxel.astype(int))]
+        locres /= len(atoms)
+        return locres
+
+    with mrcfile.open(path) as mrc_localres:
+        voxel, _, origin, data = _get_mrc_properties(mrc_localres)
+
+    dict_localres = {res.resindex: get_localres(res) for res in atoms.residues}
+    return dict_localres
