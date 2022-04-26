@@ -357,6 +357,9 @@ class Viewer:
         path = destination / f"{name}.mrc"
         write_binary_mrc_from_atoms(path=self.mrc, atoms=atoms, path_out=path, context=context)
 
+    def get_bdna(self):
+        return self.linker.compute_bdna()
+
     def empty_atom_group(self) -> AtomGroup:
         """return an empty MDanalysis atom group"""
         return AtomGroup([], self.u)

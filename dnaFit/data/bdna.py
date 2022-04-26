@@ -459,3 +459,5 @@ class BDna:
     #             "center-co": co_data["center-co"],
     #             "resindices": co_data["resindices"],
     #         }
+
+    # TODO: selection from atomgroup

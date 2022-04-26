@@ -17,6 +17,7 @@ from MDAnalysis.core.groups import AtomGroup
 from nanodesign.data.base import DnaBase
 from nanodesign.data.dna_structure_helix import DnaStructureHelix
 
+from ..data.bdna import BDna
 from ..data.crossover import Crossover
 from ..data.design import Design
 from ..data.fit import Fit
@@ -459,3 +460,6 @@ class Linker:
                 atom.tempfactor = atom.mass
                 atom.occupancy = 1.0
         u.atoms.write(str(dest), bonds=None)
+
+    def compute_bdna(self) -> BDna:
+        return BDna(self.link)
