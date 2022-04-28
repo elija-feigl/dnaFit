@@ -84,14 +84,14 @@ def _norm(vector: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     return vector / np.linalg.norm(vector)
 
 
-def _proj(u: npt.NDArray[np.float64], v: npt.NDArray[np.float64]) -> np.float64:
+def _proj(u: npt.NDArray[np.float64], v: npt.NDArray[np.float64]) -> float:
     """vector projection"""
     return np.inner(u, v) / np.linalg.norm(v)  # type: ignore
 
 
-def _norm_proj(u: npt.NDArray[np.float64], v: npt.NDArray[np.float64]) -> np.float64:
+def _norm_proj(u: npt.NDArray[np.float64], v: npt.NDArray[np.float64]) -> float:
     """norm vector projection, cos(phi)"""
-    return np.inner(u, v) / (np.linalg.norm(u) * np.linalg.norm(v))
+    return np.inner(u, v) / (np.linalg.norm(u) * np.linalg.norm(v))  # type: ignore
 
 
 def _v_proj(u: npt.NDArray[np.float64], v: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:

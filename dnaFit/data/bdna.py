@@ -6,6 +6,7 @@
     cryo em reconstruction of specific bases
     Olson et al. (2001). A standard reference frame for the description of nucleic acid base-pair geometry.
 """
+import logging
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
@@ -17,6 +18,7 @@ from typing import Tuple
 import numpy as np
 import numpy.typing as npt
 from MDAnalysis.core.groups import AtomGroup
+from MDAnalysis.core.groups import Residue
 
 from ..core.utils import _norm_proj
 from ..core.utils import _proj
@@ -24,10 +26,8 @@ from ..core.utils import _save_arccos_deg
 from ..link.linkage import Linkage
 from .basepair import BasePair
 
-# from ..core.utils import _norm
 # from ..core.utils import _v_proj
 
-# from crossover import Crossover
 # import MDAnalysis as mda
 # from ..core.utils import (
 #     C1P_BASEDIST, WC_HBONDS, WC_HBONDS_DIST, BB_ATOMS,
@@ -64,6 +64,7 @@ class BDna:
     co_angles: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        self.logger = logging.getLogger(__name__)
         self.bps = self._create_bps()
         self.eval_basepair()
         # self.eval_base()
@@ -154,7 +155,7 @@ class BDna:
     #         hbond_dist = mdamath.norm(atoms[1][idx].position - a1.position)
     #         hbond_should = WC_HBONDS_DIST[bp.sc.resname][idx]
     #         hbond_dev = abs(hbond_dist - hbond_should) / hbond_should
-    #         bnd = WC_HBONDS[bp.sc.resname][idx] + WC_HBONDS[bp.st.resname][idx]
+    #         bnd = WC_HBONDS[bp.scaffold.resname][idx] + WC_HBONDS[bp.st.resname][idx]
     #         quality[bnd] = (hbond_dev if hbond_dist > hbond_should
     #                         else -hbond_dev)
     #     return quality
@@ -197,10 +198,9 @@ class BDna:
     #     for res in self.link.u.residues:
     #         self.dh_quality[res.resindex] = self._get_dihedrals(res)
 
-    # # TODO: improve
     # def _get_dihedrals(self, res: "mda.residue") -> Dict[str, float]:
     #     def _get_residue_BB(res: "mda.residue"
-    #                         ) -> Tuple[Dict[str, "np.ndarray"],
+    #                         ) -> Tuple[Dict[str, npt.NDArray[np.float64]],
     #                                    Tuple[bool, bool, bool]
     #                                    ]:
     #         iniSeg, terSeg, ter5 = False, False, False
@@ -257,7 +257,7 @@ class BDna:
     #             dh_valid.append("beta")
     #         return dh_valid
 
-    #     def _get_dh_for_res(atoms: Dict[str, "np.ndarray"],
+    #     def _get_dh_for_res(atoms: Dict[str, npt.NDArray[np.float64]],
     #                         pyr: bool,
     #                         dh_valid: List[str],
     #                         ) -> Dict[str, float]:
@@ -270,7 +270,7 @@ class BDna:
     #             dh[dh_name] = angle
     #         return dh
 
-    #     def _get_dhangle(atoms: Dict[str, "np.ndarray"],
+    #     def _get_dhangle(atoms: Dict[str, npt.NDArray[np.float64]],
     #                      pyr: bool,
     #                      dh_name: str,
     #                      ) -> float:
@@ -298,10 +298,6 @@ class BDna:
     #     return dh
 
     # def eval_distances(self) -> None:
-    #     """ Affects
-    #         -------
-    #             self.distances
-    #     """
     #     for bp in self.bps.values():
     #         if bp.sc is not None:
     #             self.distances[bp.sc.resindex] = dict()
@@ -316,9 +312,9 @@ class BDna:
 
     # def _get_distance(self, bp: BasePair, name: str
     #                   ) -> Tuple[Dict[str, float], Dict[str, float]]:
-    #     def try_pos(res: "mda.residue",
+    #     def try_pos(res: Residue,
     #                 name: str,
-    #                 ) -> Optional["np.ndarray"]:
+    #                 ) -> Optional[npt.NDArray[np.float64]]:
     #         try:
     #             return res.atoms.select_atoms(name)[0].position
     #         except (AttributeError, IndexError):
@@ -358,12 +354,9 @@ class BDna:
 
     # def eval_co_angles(self) -> None:
     #     """ Definition: Bai, X. (2012).  doi: 10.1073/pnas.1215713109
-    #         Affects
-    #         -------
-    #             self.co_angles
     #     """
     #     def get_co_angles(co: Crossover, typ="C6C8"):
-    #         def P_from_p(p: Optional[BasePair], typ: str) -> "np.ndarray":
+    #         def P_from_p(p: Optional[BasePair], typ: str) -> npt.NDArray[np.float64]:
     #             if p is None:
     #                 return np.zeros(3)
     #             if p.plane is not None:
@@ -434,6 +427,18 @@ class BDna:
     #             "center-co": co_data["center-co"],
     #             "resindices": co_data["resindices"],
     #         }
+
+    def residue_distance(self, res1: Residue, res2: Residue, atom_name=None) -> float:
+        if atom_name is None:
+            # TODO use base trace as default
+            atom_name = "C1'"
+            self.logger.info("Calculating distance using C1' atoms.")
+
+        pos1 = res1.select_atoms(f"name {atom_name}")[0].position
+        pos2 = res2.select_atoms(f"name {atom_name}")[0].position
+
+        # TODO: catch wrong name error
+        return np.abs(np.linalg.norm(pos1 - pos2))  # type: ignore
 
     def pair_resid_selection(self, atoms=None) -> List[int]:
         residues = self.link.u.residues if atoms is None else atoms.residues
