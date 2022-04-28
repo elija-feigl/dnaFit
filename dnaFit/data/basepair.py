@@ -6,6 +6,7 @@
     their spatial orientation in real space.
     Olson et al. (2001). A standard reference frame for the description of nucleic acid base-pair geometry.
     """
+import logging
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Tuple
@@ -15,6 +16,7 @@ import numpy.typing as npt
 from MDAnalysis.core.groups import Residue
 
 from ..core.utils import _norm
+from ..core.utils import _project_v2plane
 
 
 @dataclass(frozen=True)
@@ -43,46 +45,24 @@ class BasePair:
     staple: Residue
     hp: Tuple[int, int]
 
-    # only computed if needed
     sc_plane: Plane = field(init=False)
     st_plane: Plane = field(init=False)
     plane: Plane = field(init=False)
 
     def __post_init__(self):
-        if self.scaffold is None or self.staple is None:
-            self.is_ds = False
-        else:
-            self.is_ds = True
+        self.logger = logging.getLogger(__name__)
 
     def calculate_baseplanes(self):
         """calculate base planes and basepair planes"""
-        if self.scaffold is not None:
-            self.sc_plane = self._get_base_plane(res=self.scaffold, is_scaf=True)
+        self.plane = self._get_bp_plane()
 
-        if self.staple is not None:
-            self.st_plane = self._get_base_plane(res=self.staple, is_scaf=False)
+        self.sc_plane = self._get_base_plane(res=self.scaffold, is_scaf=True)
 
-        if self.is_ds:
-            self.plane = self._get_bp_plane()
+        self.st_plane = self._get_base_plane(res=self.staple, is_scaf=False)
 
     @staticmethod
     def _atom_position(res: Residue, name: str) -> npt.NDArray[np.float64]:
         return res.atoms.select_atoms(f"name {name}")[0].position
-
-    def _get_base_plane(self, res: Residue, is_scaf: bool) -> Plane:
-        """definition in  Olson et al. (2001) unclear."""
-        atom = [self._atom_position(res, name) for name in ["C2", "C4", "C6"]]
-        normal = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[0])))
-
-        is_purine = res.resname in ["ADE", "GUA"]
-        if (is_purine and is_scaf) or (not is_purine and not is_scaf):
-            normal = -normal
-
-        origin = sum(atom) / 3.0
-
-        c6c8 = "C8" if res.resname in ["ADE", "GUA"] else "C6"
-        direction = self._atom_position(res, c6c8) - self._atom_position(res, "C1'")
-        return Plane(origin=origin, direction=direction, normal=normal)
 
     def _get_bp_plane(self) -> Plane:
         def c6c8_position(res: Residue) -> npt.NDArray[np.float64]:
@@ -104,4 +84,17 @@ class BasePair:
         origin = dyad_point - w + si * direction
 
         normal = _norm(np.cross((origin - dyad_point), direction))
+        return Plane(origin=origin, direction=direction, normal=normal)
+
+    def _get_base_plane(self, res: Residue, is_scaf: bool) -> Plane:
+        """projection on pyrimidine plane.
+        center in pyrimidine"""
+        pyr_names = ["N3", "N1", "C5"] if res.resname in ["ADE", "GUA"] else ["N1", "N3", "C5"]
+
+        atom = [self._atom_position(res, name) for name in pyr_names]
+        normal = _norm(np.cross((atom[1] - atom[0]), (atom[2] - atom[0])))
+        normal = normal if is_scaf else -normal
+        origin = sum(atom) / 3.0
+
+        direction = _project_v2plane(self.plane.direction, normal)
         return Plane(origin=origin, direction=direction, normal=normal)

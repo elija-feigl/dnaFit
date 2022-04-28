@@ -99,6 +99,13 @@ def _v_proj(u: npt.NDArray[np.float64], v: npt.NDArray[np.float64]) -> npt.NDArr
     return _proj(u, v) * _norm(v)
 
 
+def _project_v2plane(
+    v: npt.NDArray[np.float64], n0: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    v_projected = _v_proj(v, n0)
+    return v - v_projected
+
+
 def _proj2plane(
     vect: List[npt.NDArray[np.float64]], n0: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:

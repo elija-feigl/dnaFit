@@ -66,19 +66,22 @@ class BDna:
     def __post_init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.bps = self._create_bps()
-        self.eval_basepair()
+        self._eval_basepair()
         # self.eval_base()
 
         # self.eval_distances()
         # self.eval_dh()
         # self.eval_co_angles() TODO-low: wait for relevance
 
+    def Fid_Dhps(self, res_id: int) -> Tuple[int, int, bool]:
+        return self.link.DidDhps[self.link.FidDid[res_id]]  # type: ignore
+
     def _create_bps(self) -> Dict[Tuple[int, int], BasePair]:
         bps = dict()
         for scaffold_resid, staple_resid in self.link.Fbp.items():
             scaffold = self.link.u.residues[scaffold_resid]
             staple = self.link.u.residues[staple_resid]
-            h, p, _ = self.link.DidDhps[self.link.FidDid[scaffold_resid]]
+            h, p, _ = self.Fid_Dhps(scaffold_resid)
 
             bp = BasePair(scaffold=scaffold, staple=staple, hp=(h, p))
             bp.calculate_baseplanes()
@@ -107,7 +110,7 @@ class BDna:
 
         return self.bps.get((helix, n_position), None)
 
-    def eval_basepair(self) -> None:
+    def _eval_basepair(self) -> None:
         """Affects
         -------
             self.bp_...
@@ -120,15 +123,15 @@ class BDna:
             # scaffold 5'->3'
             n_bp = self._get_n_bp(bp=bp)  # , local=True)
             if n_bp is not None:
-                self.bp_rise[resindex] = self.get_bp_rise(bp, n_bp)
-                self.bp_shift[resindex] = self.get_bp_shift(bp, n_bp)
-                self.bp_slide[resindex] = self.get_bp_slide(bp, n_bp)
+                self.bp_rise[resindex] = self._get_bp_rise(bp, n_bp)
+                self.bp_shift[resindex] = self._get_bp_shift(bp, n_bp)
+                self.bp_slide[resindex] = self._get_bp_slide(bp, n_bp)
 
-                self.bp_twist[resindex] = self.get_bp_twist(bp, n_bp)
-                self.bp_roll[resindex] = self.get_bp_roll(bp, n_bp)
-                self.bp_tilt[resindex] = self.get_bp_tilt(bp, n_bp)
+                self.bp_twist[resindex] = self._get_bp_twist(bp, n_bp)
+                self.bp_roll[resindex] = self._get_bp_roll(bp, n_bp)
+                self.bp_tilt[resindex] = self._get_bp_tilt(bp, n_bp)
 
-    def eval_base(self) -> None:
+    def _eval_base(self) -> None:
         raise NotImplementedError
 
     # def _get_bp_quality(self, bp: BasePair) -> Dict[str, Any]:
@@ -161,32 +164,32 @@ class BDna:
     #     return quality
 
     @staticmethod
-    def get_bp_twist(bp: BasePair, n_bp: BasePair) -> float:
+    def _get_bp_twist(bp: BasePair, n_bp: BasePair) -> float:
         cos_phi = _norm_proj(bp.plane.direction, n_bp.plane.direction)
         return _save_arccos_deg(cos_phi)
 
     @staticmethod
-    def get_bp_tilt(bp: BasePair, n_bp: BasePair) -> float:
+    def _get_bp_tilt(bp: BasePair, n_bp: BasePair) -> float:
         cos_phi = _norm_proj(bp.plane.normal, n_bp.plane.normal)
         return _save_arccos_deg(cos_phi)
 
     @staticmethod
-    def get_bp_roll(bp: BasePair, n_bp: BasePair) -> float:
+    def _get_bp_roll(bp: BasePair, n_bp: BasePair) -> float:
         cos_phi = _norm_proj(bp.plane.vector3, n_bp.plane.vector3)
         return _save_arccos_deg(cos_phi)
 
     @staticmethod
-    def get_bp_rise(bp: BasePair, n_bp: BasePair) -> float:
+    def _get_bp_rise(bp: BasePair, n_bp: BasePair) -> float:
         trace = n_bp.plane.origin - bp.plane.origin  # TODO: check abs
         return np.abs(_proj(trace, bp.plane.normal))  # type: ignore
 
     @staticmethod
-    def get_bp_slide(bp: BasePair, n_bp: BasePair) -> float:
+    def _get_bp_slide(bp: BasePair, n_bp: BasePair) -> float:
         trace = n_bp.plane.origin - bp.plane.origin
         return _proj(trace, bp.plane.direction)  # type: ignore
 
     @staticmethod
-    def get_bp_shift(bp: BasePair, n_bp: BasePair) -> float:
+    def _get_bp_shift(bp: BasePair, n_bp: BasePair) -> float:
         trace = n_bp.plane.origin - bp.plane.origin
         return _proj(trace, bp.plane.vector3)  # type: ignore
 
@@ -430,15 +433,31 @@ class BDna:
 
     def residue_distance(self, res1: Residue, res2: Residue, atom_name=None) -> float:
         if atom_name is None:
-            # TODO use base trace as default
-            atom_name = "C1'"
-            self.logger.info("Calculating distance using C1' atoms.")
+            has_plane = res1.resid in self.link.Fbp_full and res2.resid in self.link.Fbp_full
+            if has_plane:
+                self.logger.info("Calculating distance pyrimidine centers.")
+                positions = list()
+                for res in [res1, res2]:
+                    h, p, _ = self.Fid_Dhps(res.resid)
+                    bp = self.bps[(h, p)]
+                    pos = bp.sc_plane.origin if res.resid in self.link.Fbp else bp.st_plane.origin
+                    positions.append(pos)
+            else:
+                atom_name = "C1'"
+                self.logger.info("Calculating distance using C1' atoms.")
+                positions = [
+                    res.atoms.select_atoms(f"name {atom_name}")[0].position for res in [res1, res2]
+                ]
+        else:
+            try:
+                positions = [
+                    res.atoms.select_atoms(f"name {atom_name}")[0].position for res in [res1, res2]
+                ]
+            except IndexError:
+                self.logger.info("No atoms of name %s present in these residues", atom_name)
+                return 0.0
 
-        pos1 = res1.select_atoms(f"name {atom_name}")[0].position
-        pos2 = res2.select_atoms(f"name {atom_name}")[0].position
-
-        # TODO: catch wrong name error
-        return np.abs(np.linalg.norm(pos1 - pos2))  # type: ignore
+        return np.abs(np.linalg.norm(positions[1] - positions[0]))  # type: ignore
 
     def pair_resid_selection(self, atoms=None) -> List[int]:
         residues = self.link.u.residues if atoms is None else atoms.residues
