@@ -10,16 +10,19 @@ from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Optional
 from typing import Tuple
 
 import numpy as np
 import numpy.typing as npt
-from basepair import BasePair
+from MDAnalysis.core.groups import AtomGroup
 
+from ..core.utils import _norm_proj
 from ..core.utils import _proj
 from ..core.utils import _save_arccos_deg
 from ..link.linkage import Linkage
+from .basepair import BasePair
 
 # from ..core.utils import _norm
 # from ..core.utils import _v_proj
@@ -36,6 +39,8 @@ from ..link.linkage import Linkage
 @dataclass
 class BDna:
     link: Linkage
+
+    bps: Dict[Tuple[int, int], BasePair] = field(default_factory=dict)
 
     bp_trace: Dict[int, npt.NDArray[np.float64]] = field(default_factory=dict)
 
@@ -58,9 +63,8 @@ class BDna:
     # distances: Dict[int, Any] = field(default_factory=dict) TODO-low: any value/interest?
     co_angles: Dict[str, Any] = field(default_factory=dict)
 
-    def __attrs_post_init__(self) -> None:
-        self.bps: Dict[Tuple[int, int], BasePair] = self._create_bps()
-
+    def __post_init__(self) -> None:
+        self.bps = self._create_bps()
         self.eval_basepair()
         # self.eval_base()
 
@@ -70,23 +74,21 @@ class BDna:
 
     def _create_bps(self) -> Dict[Tuple[int, int], BasePair]:
         bps = dict()
-        for sc, st in self.link.Fbp.items():
-            h, p, _ = self.link.DidDhps[self.link.FidDid[sc]]
-            bp = BasePair(sc=sc, st=st, hp=(h, p))
+        for scaffold_resid, staple_resid in self.link.Fbp.items():
+            scaffold = self.link.u.residues[scaffold_resid]
+            staple = self.link.u.residues[staple_resid]
+            h, p, _ = self.link.DidDhps[self.link.FidDid[scaffold_resid]]
+
+            bp = BasePair(scaffold=scaffold, staple=staple, hp=(h, p))
             bp.calculate_baseplanes()
             bps[(h, p)] = bp
         return bps
 
-    def _get_n_bp(
-        self,
-        bp: BasePair,
-        steps: int = 1,
-        local=True,
-    ) -> Optional[BasePair]:
+    def _get_n_bp(self, bp: BasePair, steps: int = 1) -> Optional[BasePair]:
         if steps == 0:
             return bp
         helix, position = bp.hp
-        if (helix % 2) == 1 and local:
+        if (helix % 2) == 1:  # and local:
             steps = -steps
         direct = np.sign(steps)
         n_position = position + steps
@@ -111,18 +113,19 @@ class BDna:
         """
         for bp in self.bps.values():
 
-            resindex = bp.sc.resindex
+            resindex = bp.scaffold.resindex
             self.bp_trace[resindex] = bp.plane.origin
 
             # scaffold 5'->3'
-            n_bp = self._get_n_bp(bp=bp, local=True)
+            n_bp = self._get_n_bp(bp=bp)  # , local=True)
             if n_bp is not None:
-                self.bp_twist[resindex] = self.get_bp_twist(bp, n_bp)
                 self.bp_rise[resindex] = self.get_bp_rise(bp, n_bp)
-                # self.bp_slide[resindex] = self.get_bp_slide(bp, n_bp)
-                # self.bp_roll[resindex] = self.get_bp_roll(bp, n_bp)
-                # self.bp_tilt[resindex] = self.get_bp_tilt(bp, n_bp)
-                # self.bp_shift[resindex] = self.get_bp_shift(bp, n_bp)
+                self.bp_shift[resindex] = self.get_bp_shift(bp, n_bp)
+                self.bp_slide[resindex] = self.get_bp_slide(bp, n_bp)
+
+                self.bp_twist[resindex] = self.get_bp_twist(bp, n_bp)
+                self.bp_roll[resindex] = self.get_bp_roll(bp, n_bp)
+                self.bp_tilt[resindex] = self.get_bp_tilt(bp, n_bp)
 
     def eval_base(self) -> None:
         raise NotImplementedError
@@ -158,61 +161,33 @@ class BDna:
 
     @staticmethod
     def get_bp_twist(bp: BasePair, n_bp: BasePair) -> float:
-        cos_phi = _proj(bp.plane.direction, n_bp.plane.direction)
+        cos_phi = _norm_proj(bp.plane.direction, n_bp.plane.direction)
+        return _save_arccos_deg(cos_phi)
+
+    @staticmethod
+    def get_bp_tilt(bp: BasePair, n_bp: BasePair) -> float:
+        cos_phi = _norm_proj(bp.plane.normal, n_bp.plane.normal)
+        return _save_arccos_deg(cos_phi)
+
+    @staticmethod
+    def get_bp_roll(bp: BasePair, n_bp: BasePair) -> float:
+        cos_phi = _norm_proj(bp.plane.vector3, n_bp.plane.vector3)
         return _save_arccos_deg(cos_phi)
 
     @staticmethod
     def get_bp_rise(bp: BasePair, n_bp: BasePair) -> float:
+        trace = n_bp.plane.origin - bp.plane.origin  # TODO: check abs
+        return np.abs(_proj(trace, bp.plane.normal))  # type: ignore
+
+    @staticmethod
+    def get_bp_slide(bp: BasePair, n_bp: BasePair) -> float:
         trace = n_bp.plane.origin - bp.plane.origin
-        return np.inner(trace, bp.plane.normal)  # type: ignore
+        return _proj(trace, bp.plane.direction)  # type: ignore
 
-    # @staticmethod
-    # def get_bp_shift(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
-    #     shift = dict()
-    #     n0 = bp.plane.n0
-    #     for (
-    #         key,
-    #         P,
-    #     ) in bp.plane.P.items():
-    #         a = bp.plane.a[key]
-    #         n_P = n_bp.plane.P[key]
-    #         m0 = _norm(np.cross(n0, a))
-    #         shift[key] = np.inner((n_P - P), m0)
-    #     return shift
-
-    # @staticmethod
-    # def get_bp_slide(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
-    #     slide = dict()
-    #     for key, P in bp.plane.P.items():
-    #         a = bp.plane.a[key]
-    #         n_P = n_bp.plane.P[key]
-    #         slide[key] = np.inner((n_P - P), _norm(a))
-    #     return slide
-
-    # @staticmethod
-    # def get_bp_tilt(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
-    #     tilt = dict()
-    #     n0 = bp.plane.n0
-    #     n_n0 = n_bp.plane.n0
-    #     for key, a in bp.plane.a.items():
-    #         rot_axis = np.cross(a, n0)
-    #         projn0 = n0 - _v_proj(n0, rot_axis)
-    #         projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
-    #         proj = _proj(projn0, projn_n0)
-    #         tilt[key] = _save_arccos_deg(proj)
-    #     return tilt
-
-    # @staticmethod
-    # def get_bp_roll(bp: BasePair, n_bp: BasePair) -> Dict[str, float]:
-    #     roll = dict()
-    #     n0 = bp.plane.n0
-    #     n_n0 = n_bp.plane.n0
-    #     for key, rot_axis in bp.plane.a.items():
-    #         projn0 = n0 - _v_proj(n0, rot_axis)
-    #         projn_n0 = n_n0 - _v_proj(n_n0, rot_axis)
-    #         proj = _proj(projn0, projn_n0)
-    #         roll[key] = _save_arccos_deg(proj)
-    #     return roll
+    @staticmethod
+    def get_bp_shift(bp: BasePair, n_bp: BasePair) -> float:
+        trace = n_bp.plane.origin - bp.plane.origin
+        return _proj(trace, bp.plane.vector3)  # type: ignore
 
     # def eval_dh(self) -> None:
     #     """ Affects
@@ -460,4 +435,11 @@ class BDna:
     #             "resindices": co_data["resindices"],
     #         }
 
-    # TODO: selection from atomgroup
+    def pair_resid_selection(self, atoms=None) -> List[int]:
+        residues = self.link.u.residues if atoms is None else atoms.residues
+
+        atoms_sc = AtomGroup([], self.link.u)
+        for residue in residues:
+            if residue.resindex in self.link.Fbp.keys():
+                atoms_sc += residue.atoms
+        return list(atoms_sc.resids)

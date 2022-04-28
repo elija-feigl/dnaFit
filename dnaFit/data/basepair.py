@@ -7,7 +7,7 @@
     Olson et al. (2001). A standard reference frame for the description of nucleic acid base-pair geometry.
     """
 from dataclasses import dataclass
-from typing import Optional
+from dataclasses import field
 from typing import Tuple
 
 import numpy as np
@@ -44,9 +44,9 @@ class BasePair:
     hp: Tuple[int, int]
 
     # only computed if needed
-    sc_plane: Optional[Plane] = None
-    st_plane: Optional[Plane] = None
-    plane: Optional[Plane] = None
+    sc_plane: Plane = field(init=False)
+    st_plane: Plane = field(init=False)
+    plane: Plane = field(init=False)
 
     def __post_init__(self):
         if self.scaffold is None or self.staple is None:
@@ -56,17 +56,14 @@ class BasePair:
 
     def calculate_baseplanes(self):
         """calculate base planes and basepair planes"""
-        self.sc_plane = (
-            self._get_base_plane(res=self.scaffold, is_scaf=True)
-            if self.scaffold is not None
-            else None
-        )
-        self.st_plane = (
-            self._get_base_plane(res=self.staple, is_scaf=False)
-            if self.staple is not None
-            else None
-        )
-        self.plane = self._get_bp_plane() if self.is_ds else None
+        if self.scaffold is not None:
+            self.sc_plane = self._get_base_plane(res=self.scaffold, is_scaf=True)
+
+        if self.staple is not None:
+            self.st_plane = self._get_base_plane(res=self.staple, is_scaf=False)
+
+        if self.is_ds:
+            self.plane = self._get_bp_plane()
 
     @staticmethod
     def _atom_position(res: Residue, name: str) -> npt.NDArray[np.float64]:
@@ -89,7 +86,7 @@ class BasePair:
 
     def _get_bp_plane(self) -> Plane:
         def c6c8_position(res: Residue) -> npt.NDArray[np.float64]:
-            atom_name = "C8" if res.atoms.resname in ["ADE", "GUA"] else "C6"
+            atom_name = "C8" if res.resname in ["ADE", "GUA"] else "C6"
             return self._atom_position(res=res, name=atom_name)
 
         st_c1p = self._atom_position(self.staple, "C1'")
@@ -101,10 +98,10 @@ class BasePair:
         origin_direction = sc_c6c8 - c6c8_position(self.staple)
 
         # intersect c6-c8 line with pseudo-dyad plane of C1'-C1'
-        projection_on_dyad_plane = direction.dot(origin_direction)
+        projection_on_dyad_plane = np.inner(direction, origin_direction)
         w = dyad_point - sc_c6c8
-        si = direction.dot(w) / projection_on_dyad_plane
+        si = np.inner(direction, w) / projection_on_dyad_plane
         origin = dyad_point - w + si * direction
 
-        normal = origin - dyad_point
+        normal = _norm(np.cross((origin - dyad_point), direction))
         return Plane(origin=origin, direction=direction, normal=normal)
