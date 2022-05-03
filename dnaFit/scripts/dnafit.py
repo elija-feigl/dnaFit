@@ -19,6 +19,7 @@
  """
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 from shutil import copyfile
 from shutil import copytree
@@ -121,6 +122,9 @@ def mrdna(cadnano, mrc, sequence, gpu, prefix, multidomain, coarse_steps, bond_c
     SEQUENCE is the scaffold strand sequence file [.txt, .seq]
     MRC is the name of the cryo EM volumetric data file [.mrc]
     """
+    start_time = datetime.now()
+    logger.info("Start mrDNA simulation protocol. %s", start_time)
+
     file_types = {
         cadnano: [".json"],
         mrc: [".mrc"],
@@ -146,6 +150,11 @@ def mrdna(cadnano, mrc, sequence, gpu, prefix, multidomain, coarse_steps, bond_c
         "Config file is moved to center of mass with mrc map but still \
         has to be rotated before fitting. execute vmd_info for additional info"
     )
+
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
+    logger.info("Completed mrDNA simulation. %s", end_time)
+    logger.info("Overall real time passed: %s", elapsed_time)
 
 
 @cli.command()
@@ -300,6 +309,8 @@ def fit(
     CONF is the name of the namd configuration file, docked to map (VMD)  [.pdb, .coor]
     EXB is the name of the enrgMD extrabond file (expect mrDNA > march 2021) [.exb]
     """
+    start_time = datetime.now()
+    logger.info("Start shrink wrap fitting protocol. %s", start_time)
     file_types = {
         cadnano: [".json"],
         sequence: [".seq", ".txt"],
@@ -308,6 +319,7 @@ def fit(
         conf: [".pdb", ".coor"],
         exb: [".exb"],
     }
+
     for file, types in file_types.items():
         _check_path(file, types)
     prefix = cadnano.stem if prefix is None else prefix
@@ -354,6 +366,11 @@ def fit(
     finally:
         os.chdir(home_directory)
         logger.debug("Changing directory to: %s", Path.cwd())
+
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
+    logger.info("Completed shrink wrap fitting protocol. %s", end_time)
+    logger.info("Overall real time passed: %s", elapsed_time)
 
 
 @cli.command()
