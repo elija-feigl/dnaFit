@@ -473,13 +473,13 @@ class BDna:
 
     def write_trace_pdb(self, filepath: Path) -> None:
         # TODO: check filepath
-        trace_pdb = ["CRYST1 500.000  500.000  500.000  90.00  90.00  90.00 P 1           1"]
-        for idx, (res_id, trace_point) in enumerate(self.bp_trace.values()):
+        trace_pdb = ["CRYST1 500.000  500.000  500.000  90.00  90.00  90.00 P 1           1\n"]
+        for idx, (res_id, trace_point) in enumerate(self.bp_trace.items()):
             opacity = 0.0  # TODO: crossover info
             temperature = 0.0  # TODO: pair info
             helix, pos, _ = self.Fid_Dhps(res_id)
-            sc_sequence = self.link.u.residues[res_id]
-            st_sequence = self.link.u.residues[self.link.Fbp[res_id]]
+            sc_sequence = self.link.u.residues[res_id].resname[0]
+            st_sequence = self.link.u.residues[self.link.Fbp[res_id]].resname[0]
             name = (sc_sequence + st_sequence).rjust(5, " ")
             res_name = "P" + f"{pos}".ljust(3, "0")
 
@@ -498,13 +498,13 @@ class BDna:
                     f"{opacity: .2f}".rjust(6, " "),
                     f"{temperature: .2f}".rjust(6, " "),
                     (6 * " "),
-                    pdb_types.Number(helix).as_segName4namd(width=4),
+                    pdb_types.Number(helix).as_pdb4namd(width=4),
                     (3 * " "),
                     "\n",
                 ]
             )
             trace_pdb.append(entry)
-        trace_pdb = ["END"]
+        trace_pdb.append("END")
 
         with open(filepath, mode="w+") as out_file:
             out_file.writelines(trace_pdb)
