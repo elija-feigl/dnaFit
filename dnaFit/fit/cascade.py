@@ -106,7 +106,7 @@ class Cascade:
                 top=self.top,
                 json=self.json,
                 seq=self.seq,
-                generated_with_mrdna=self.generated_with_mrdna,
+                reorder_helices=self.generated_with_mrdna,
             )
             linker.write_internal_gridpdb(dest=Path(f"run/{grid_pdb}"), exclude_ss=exclude_ss)
         return grid_pdb

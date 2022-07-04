@@ -34,6 +34,12 @@ class Fit:
     def _get_universe(self) -> mda.Universe:
         if self.top.exists() and self.conf.exists():
             universe = mda.Universe(str(self.top), str(self.conf))
+        elif self.conf.exists():  # NOTE: in this case, top is a dummy "pdb-only" path
+            self.logger.warning(
+                "Attempting PDB-only universe setup: %s. This might break some functionality",
+                self.conf,
+            )
+            universe = mda.Universe(str(self.top), str(self.conf))
         else:
             self.logger.error(
                 "Failed to initialize mda.Universe due to missing files: %s %s", self.top, self.conf
@@ -42,7 +48,7 @@ class Fit:
         return universe
 
     def _split_strands(self) -> Tuple[Segment, List[Segment]]:
-        # TODO: -low- multiscaffold
+        # TODO: -low- multi scaffold
         strands = self.u.segments
         scaffold = max(strands, key=attrgetter("residues.n_residues"))
         staples = [strand for strand in strands if len(strand.atoms) != len(scaffold.atoms)]

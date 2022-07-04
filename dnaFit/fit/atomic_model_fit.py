@@ -32,7 +32,7 @@ class AtomicModelFit:
     json: Optional[Path] = None
     seq: Optional[Path] = None
     linkage: Optional[Linkage] = None
-    generated_with_mrdna: bool = True
+    reorder_helices: bool = True
 
     def __post_init__(self) -> None:
         self.logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ class AtomicModelFit:
             top=self.top,
             json=json,
             seq=seq,
-            generated_with_mrdna=self.generated_with_mrdna,
+            reorder_helices=self.reorder_helices,
         )
         return linker.create_linkage()
 
@@ -86,7 +86,7 @@ class AtomicModelFit:
             copyfile(filepath, dest / f"{filepath.stem}-AtomicModelFit{filepath.suffix}")
 
         if write_mmcif:
-            # NOTE: Hydrogen removed is standart for RCSB upload
+            # NOTE: Hydrogen removed is standard for RCSB upload
             structure = Structure(path=self.conf, remove_H=True)
             structure.parse_pdb()
             mmcif = self.conf.with_suffix(".cif")

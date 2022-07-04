@@ -405,7 +405,7 @@ def link(cadnano, sequence, top, conf, enrgmd_server):
     for file, types in file_types.items():
         _check_path(file, types)
 
-    model = AtomicModelFit(conf=conf, top=top, mrc=None, generated_with_mrdna=(not enrgmd_server))
+    model = AtomicModelFit(conf=conf, top=top, mrc=None, reorder_helices=(not enrgmd_server))
     model.write_linkage(json=cadnano, seq=sequence)
 
 
@@ -441,7 +441,7 @@ def mask(mrc, top, conf, enrgmd_server, no_cut_box, keep_full):
     for file, types in file_types.items():
         _check_path(file, types)
 
-    model = AtomicModelFit(conf=conf, top=top, mrc=mrc, generated_with_mrdna=enrgmd_server)
+    model = AtomicModelFit(conf=conf, top=top, mrc=mrc, reorder_helices=enrgmd_server)
     universe = model.get_universe()
     mrc_masked = mrc.with_name(f"{mrc.stem}-masked.mrc")
     write_mrc_from_atoms(

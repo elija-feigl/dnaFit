@@ -27,13 +27,14 @@ class Design:
     """DNA Origami design class, based on nanodesign"""
 
     json: Path
-    seq: Optional[Path]
-    generated_with_mrdna: bool = True
+    seq: Optional[Path] = None
+    reorder_helices: bool = True
 
     def __post_init__(self):
         self.logger = logging.getLogger(__name__)
         logging.getLogger("nanodesign").setLevel(logging.ERROR)
         self.design = self._get_design()
+        self.strands = self.design.strands
         self.scaffold = self._scaffold()
         self.staples = self._staple()
         self.helixorder = self._create_helix_order()
@@ -110,7 +111,7 @@ class Design:
             stapleorder
                 nanodesign -> enrgMD
         """
-        if self.generated_with_mrdna:
+        if self.reorder_helices:
             Dhps = [(s[0].h, s[0].p) for s in self.staples]
         else:
             Dhps = [(self.helixorder[s[0].h], s[0].p) for s in self.staples]

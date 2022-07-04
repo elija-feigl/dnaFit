@@ -39,21 +39,24 @@ class Viewer:
     """FitViewer main app class"""
 
     conf: Path
-    top: Path
     mrc: Path
     json: Path
     seq: Path
+    top: Path = Path("pdb-only")
     is_mrdna: bool = True
+    is_tacox: bool = False
 
     def __post_init__(self):
         self.logger = logging.getLogger(__name__)
         warnings.filterwarnings("ignore")
+
+        reorder_helices = self.is_mrdna or self.is_tacox
         self.linker = Linker(
             conf=self.conf,
             top=self.top,
             json=self.json,
             seq=self.seq,
-            generated_with_mrdna=self.is_mrdna,
+            reorder_helices=reorder_helices,
         )
         try:
             self.link: Linkage = self.linker.create_linkage()

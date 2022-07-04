@@ -36,11 +36,10 @@ class Linker:
     """
 
     conf: Path
-    top: Path
     json: Path
-    seq: Optional[Path]
-    generated_with_mrdna: bool = True
-
+    top: Path
+    seq: Optional[Path] = None
+    reorder_helices: bool = True
     link: Linkage = field(init=False)
 
     Fbp: Dict[int, int] = field(default_factory=dict)
@@ -56,9 +55,10 @@ class Linker:
     Dcolor: Dict[int, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+
         self.fit: Fit = Fit(top=self.top, conf=self.conf)
         self.design: Design = Design(
-            json=self.json, seq=self.seq, generated_with_mrdna=self.generated_with_mrdna
+            json=self.json, seq=self.seq, reorder_helices=self.reorder_helices
         )
         self.logger = logging.getLogger(__name__)
 
@@ -152,7 +152,14 @@ class Linker:
         updates linker attributes corresponding to the respective mapping
         and returns them.
         """
-        self._link()
+        try:
+            self._sequence_match_link()
+        except Exception:
+            self.logger.warning(
+                "Could not match design and model via strand sequences. Attempting strand-order specific matching."
+            )
+            self._link()
+
         self._identify_bp()
         self._identify_crossover()
         self._identify_nicks()
@@ -186,6 +193,7 @@ class Linker:
             Dhp.append(hps)
         return Dhp
 
+    # NOTE: deprecated, only used as fallback fot _sequence_match_link() failure
     def _link(
         self,
     ) -> Tuple[Dict[int, int], Dict[Tuple[int, int, bool], int]]:
@@ -267,6 +275,35 @@ class Linker:
 
         self.DidFid = {**DidFid_sc, **DidFid_st}
         self.DhpsDid = {**DhpsDid_sc, **DhpsDid_st}
+        return (self.DidFid, self.DhpsDid)
+
+    def _sequence_match_link(
+        self,
+    ) -> Tuple[Dict[int, int], Dict[Tuple[int, int, bool], int]]:
+        design_sequences = [
+            "".join([base.seq for base in seg.tour]).upper().replace("N", "T")
+            for seg in self.design.strands
+        ]
+
+        sequence_pos = (
+            1 if self.fit.u.residues[0].resname[0] == "D" else 0
+        )  # NOTE: DT,DA,DG,DC vs THY,ADE,GUA,CYT nomenclature
+        fit_sequences = [
+            "".join([res.resname[sequence_pos] for res in seg.residues])
+            for seg in self.fit.u.segments
+        ]
+        strand_DidFid = [fit_sequences.index(seq) for seq in design_sequences]
+
+        for strand in self.design.design.strands:
+            for base_tour_idx, base in enumerate(strand.tour):
+                strand_Fid = strand_DidFid[strand.id]
+                self.DidFid[base.id] = (
+                    self.fit.u.segments[strand_Fid].residues[base_tour_idx].resindex
+                )
+                self.DhpsDid[(base.h, base.p, base.is_scaf)] = base.id
+
+                self.Dcolor[strand_Fid] = strand.icolor  # TODO: might be wrong
+
         return (self.DidFid, self.DhpsDid)
 
     def _identify_bp(self) -> Dict[int, int]:
