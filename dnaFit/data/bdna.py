@@ -9,6 +9,7 @@
 import logging
 from dataclasses import dataclass
 from dataclasses import field
+from pathlib import Path
 from typing import Any
 from typing import Dict
 from typing import List
@@ -17,6 +18,7 @@ from typing import Tuple
 
 import numpy as np
 import numpy.typing as npt
+import pdb2cif.pdb.types as pdb_types
 from MDAnalysis.core.groups import AtomGroup
 from MDAnalysis.core.groups import Residue
 
@@ -468,3 +470,43 @@ class BDna:
             if residue.resindex in self.link.Fbp.keys():
                 atoms_sc += residue.atoms
         return list(atoms_sc.resids)
+
+    def write_trace_pdb(self, filepath: Path) -> None:
+        # TODO: check filepath
+        trace_pdb = ["CRYST1 500.000  500.000  500.000  90.00  90.00  90.00 P 1           1"]
+        for idx, (res_id, trace_point) in enumerate(self.bp_trace.values()):
+            opacity = 0.0  # TODO: crossover info
+            temperature = 0.0  # TODO: pair info
+            helix, pos, _ = self.Fid_Dhps(res_id)
+            sc_sequence = self.link.u.residues[res_id]
+            st_sequence = self.link.u.residues[self.link.Fbp[res_id]]
+            name = (sc_sequence + st_sequence).rjust(5, " ")
+            res_name = "P" + f"{pos}".ljust(3, "0")
+
+            entry = "".join(
+                [  # NOTE: scheme from pdb2cif
+                    "ATOM  ",
+                    pdb_types.Number(idx).as_pdb4namd(width=5),  # atom number
+                    name,
+                    res_name,
+                    pdb_types.Number(helix).as_pdb4namd(width=2),  # chain id
+                    pdb_types.Number(helix).as_pdb4namd(width=4),  # res number
+                    (4 * " "),
+                    f"{trace_point[0]: .3f}".rjust(8, " "),
+                    f"{trace_point[1]: .3f}".rjust(8, " "),
+                    f"{trace_point[2]: .3f}".rjust(8, " "),
+                    f"{opacity: .2f}".rjust(6, " "),
+                    f"{temperature: .2f}".rjust(6, " "),
+                    (6 * " "),
+                    pdb_types.Number(helix).as_segName4namd(width=4),
+                    (3 * " "),
+                    "\n",
+                ]
+            )
+            trace_pdb.append(entry)
+        trace_pdb = ["END"]
+
+        with open(filepath, mode="w+") as out_file:
+            out_file.writelines(trace_pdb)
+
+        return
