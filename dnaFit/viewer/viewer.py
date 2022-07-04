@@ -109,6 +109,22 @@ class Viewer:
                 atoms_sc += residue.atoms
         return atoms_sc
 
+    def select_sequence_motif(self, sequence: str, atoms=None):  # -> List[List[int]]:
+        """select all scaffold atoms of certain sequence
+        from provided atoms or the whole universe if None
+        returns residue-id list of lists
+        """
+        # seq_conv = {"A": "ADE", "T": "THY", "C": "CYT", "G": "GUA"}
+        # scaffold = self.select_scaffold(atoms).residues
+
+        # only checks for sequences starting with...
+        # for idx, letter in enumerate(sequence):
+        #     letter = seq_conv[letter.upper()]
+
+        #     motif = scaffold.segments & scaffold.select_atoms("resname {} and resid {}".format(letter, idx+1)).segments
+        # TODO
+        return NotImplementedError
+
     def select_without_H(self, atoms=None):
         """select all scaffold not containing H (hydrogen) in their name
         from provided atoms or the whole universe if None

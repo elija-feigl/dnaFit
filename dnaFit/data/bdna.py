@@ -436,6 +436,7 @@ class BDna:
             has_plane = res1.resid in self.link.Fbp_full and res2.resid in self.link.Fbp_full
             if has_plane:
                 self.logger.info("Calculating distance pyrimidine centers.")
+                # TODO: check results
                 positions = list()
                 for res in [res1, res2]:
                     h, p, _ = self.Fid_Dhps(res.resid)
