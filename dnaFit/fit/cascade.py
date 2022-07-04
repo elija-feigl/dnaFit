@@ -238,6 +238,9 @@ class Cascade:
                 # PART 2.2: annealing with decreased gscale (2nd cascade)
                 if cascade == 1 and step == 0:
                     self.data.set_folder(f"{self.data.step_counter}")
+                    self._relax(exb_file=f"{exb}.exb")
+
+                    self.data.set_folder(f"{self.data.step_counter}")
                     self._annealing(
                         grid_file=f"grid-{step}.dx",
                         exb_file=f"{exb}.exb",
