@@ -2,6 +2,7 @@
 # Copyright (C) 2021-Present  Elija Feigl
 # Full GPL-3 License can be found in `LICENSE` at the project root.
 """ module for linking cadnano design files with atomic model"""
+import fnmatch
 import logging
 from dataclasses import dataclass
 from dataclasses import field
@@ -40,6 +41,7 @@ class Linker:
     top: Path
     seq: Optional[Path] = None
     reorder_helices: bool = True
+    ss_reduction: bool = False
     link: Linkage = field(init=False)
 
     Fbp: Dict[int, int] = field(default_factory=dict)
@@ -58,7 +60,10 @@ class Linker:
 
         self.fit: Fit = Fit(top=self.top, conf=self.conf)
         self.design: Design = Design(
-            json=self.json, seq=self.seq, reorder_helices=self.reorder_helices
+            json=self.json,
+            seq=self.seq,
+            reorder_helices=self.reorder_helices,
+            ss_reduction=self.ss_reduction,
         )
         self.logger = logging.getLogger(__name__)
 
@@ -152,13 +157,13 @@ class Linker:
         updates linker attributes corresponding to the respective mapping
         and returns them.
         """
-        try:
-            self._sequence_match_link()
-        except Exception:
-            self.logger.warning(
-                "Could not match design and model via strand sequences. Attempting strand-order specific matching."
-            )
-            self._link()
+        # try:
+        self._sequence_match_link()
+        # except Exception:
+        #     self.logger.warning(
+        #         "Could not match design and model via strand sequences. Attempting strand-order specific matching."
+        #     )
+        #     self._link()
 
         self._identify_bp()
         self._identify_crossover()
@@ -279,11 +284,19 @@ class Linker:
 
     def _sequence_match_link(
         self,
+        scaffold_length_threshold=250,
     ) -> Tuple[Dict[int, int], Dict[Tuple[int, int, bool], int]]:
-        design_sequences = [
-            "".join([base.seq for base in seg.tour]).upper().replace("N", "T")
-            for seg in self.design.strands
-        ]
+        def design_sequence(nd_strand):
+            if not self.ss_reduction:
+                return "".join([base.seq for base in nd_strand.tour]).upper().replace("N", "T")
+            else:
+                ss_wildcard_sequence = []
+                for base in nd_strand.tour:
+                    seq = "*" if base.across is None else base.seq
+                    ss_wildcard_sequence.append(seq)
+                return "".join(ss_wildcard_sequence).upper()
+
+        design_sequences = [design_sequence(strand) for strand in self.design.strands]
 
         sequence_pos = (
             1 if self.fit.u.residues[0].resname[0] == "D" else 0
@@ -292,7 +305,21 @@ class Linker:
             "".join([res.resname[sequence_pos] for res in seg.residues])
             for seg in self.fit.u.segments
         ]
-        strand_DidFid = [fit_sequences.index(seq) for seq in design_sequences]
+
+        strand_DidFid = []
+        for design_seq in design_sequences:
+            if design_seq in fit_sequences:
+                strand_DidFid.append(fit_sequences.index(design_seq))
+                continue
+
+            if len(design_seq) > scaffold_length_threshold:
+                strand_DidFid.append(fit_sequences.index(max(fit_sequences, key=len)))
+                continue
+
+            for idx, fit_seq in enumerate(fit_sequences):
+                if fnmatch.fnmatch(fit_seq, design_seq):
+                    strand_DidFid.append(idx)
+                    break
 
         for strand in self.design.design.strands:
             for base_tour_idx, base in enumerate(strand.tour):
@@ -302,7 +329,10 @@ class Linker:
                 )
                 self.DhpsDid[(base.h, base.p, base.is_scaf)] = base.id
 
-                self.Dcolor[strand_Fid] = strand.icolor  # TODO: might be wrong
+                self.Dcolor[strand_Fid] = strand.icolor
+
+        # self.logger.info(self.DidFid)
+        # import ipdbipdb.set_trace()
 
         return (self.DidFid, self.DhpsDid)
 

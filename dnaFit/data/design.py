@@ -29,14 +29,18 @@ class Design:
     json: Path
     seq: Optional[Path] = None
     reorder_helices: bool = True
+    ss_reduction: bool = False  # NOTE: SNUPI2.0
 
     def __post_init__(self):
         self.logger = logging.getLogger(__name__)
         logging.getLogger("nanodesign").setLevel(logging.ERROR)
         self.design = self._get_design()
         self.strands = self.design.strands
+        if self.ss_reduction:
+            self._remove_ss_extension()
         self.scaffold = self._scaffold()
         self.staples = self._staple()
+
         self.helixorder = self._create_helix_order()
         self.stapleorder = self._create_staple_order()
         self.allbases = [b for s in self.design.strands for b in s.tour]
@@ -68,6 +72,34 @@ class Design:
 
     def _staple(self) -> List[List[DnaBase]]:
         return [s.tour for s in self.design.strands if not s.is_scaffold]
+
+    def _remove_ss_extension(self, terminal_threshold=10) -> None:
+        def delete_base(base, strand):
+            strand.tour.remove(base)
+            helix = self.design.structure_helices_map[base.h]
+            if base.is_scaf:
+                helix.scaffold_bases.remove(base)
+            else:
+                helix.staple_bases.remove(base)
+            if base.up is not None:
+                base.up.down = None
+            if base.down is not None:
+                base.down.up = None
+            if base in self.design.base_connectivity:
+                self.design.base_connectivity.remove(base)
+            del base
+            strand.base_id_list.clear()
+
+        for strand in self.strands:
+            removable_bases = []
+            for idx, base in enumerate(strand.tour):
+                is_ss_staple = base.across is None and not base.is_scaf
+                is_terminal = not (terminal_threshold < idx < len(strand.tour) - terminal_threshold)
+                if is_ss_staple and is_terminal:
+                    removable_bases.append(base)
+
+            for base in removable_bases:
+                delete_base(base, strand)
 
     def _get_design(self) -> DnaStructure:
         seq = str(self.seq) if self.seq is not None else None

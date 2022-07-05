@@ -45,6 +45,7 @@ class Viewer:
     top: Path = Path("pdb-only")
     is_mrdna: bool = True
     is_tacox: bool = False
+    is_snupi: bool = False
 
     def __post_init__(self):
         self.logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ class Viewer:
             json=self.json,
             seq=self.seq,
             reorder_helices=reorder_helices,
+            ss_reduction=self.is_snupi,
         )
         try:
             self.link: Linkage = self.linker.create_linkage()
