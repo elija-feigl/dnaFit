@@ -36,10 +36,10 @@ class Fit:
             universe = mda.Universe(str(self.top), str(self.conf))
         elif self.conf.exists():  # NOTE: in this case, top is a dummy "pdb-only" path
             self.logger.warning(
-                "Attempting PDB-only universe setup: %s. This might break some functionality",
+                "Attempting PDB-only universe setup: %s. This feature is not fully tested.",
                 self.conf,
             )
-            universe = mda.Universe(str(self.top), str(self.conf))
+            universe = mda.Universe(str(self.conf))
         else:
             self.logger.error(
                 "Failed to initialize mda.Universe due to missing files: %s %s", self.top, self.conf
