@@ -6,6 +6,8 @@
     cryo em reconstruction of specific bases
     Olson et al. (2001). A standard reference frame for the description of nucleic acid base-pair geometry.
 """
+import ast
+import itertools
 import logging
 from dataclasses import dataclass
 from dataclasses import field
@@ -473,24 +475,44 @@ class BDna:
 
     def write_trace_pdb(self, filepath: Path) -> None:
         # TODO: check filepath
-        trace_pdb = ["CRYST1 500.000  500.000  500.000  90.00  90.00  90.00 P 1           1\n"]
-        for idx, (res_id, trace_point) in enumerate(self.bp_trace.items()):
-            opacity = 0.0  # TODO: crossover info
-            temperature = 0.0  # TODO: pair info
-            helix, pos, _ = self.Fid_Dhps(res_id)
-            sc_sequence = self.link.u.residues[res_id].resname[0]
-            st_sequence = self.link.u.residues[self.link.Fbp[res_id]].resname[0]
-            name = (sc_sequence + st_sequence).rjust(5, " ")
-            res_name = "P" + f"{pos}".ljust(3, "0")
+        trace_pdb = [["CRYST1  500.000  500.000  500.000  90.00  90.00  90.00 P 1           1\n"]]
+        bond_pdb = []
+        prev_helix = -1
+        sequence_pos = (
+            1 if self.link.u.residues[0].resname[0] == "D" else 0
+        )  # NOTE: DT,DA,DG,DC vs THY,ADE,GUA,CYT nomenclature
+        crossover_hp = list(itertools.chain(*[ast.literal_eval(k) for k in self.link.Fco.keys()]))
 
-            entry = "".join(
-                [  # NOTE: scheme from pdb2cif
+        trace_info = [
+            (self.Fid_Dhps(res_id), res_id, trace_point)
+            for (res_id, trace_point) in self.bp_trace.items()
+        ]
+        trace_info = sorted(trace_info, key=lambda k: (k[0][0], k[0][1]))
+
+        for idx, ((h, pos, _), res_id, trace_point) in enumerate(trace_info):
+            opacity = 0.0
+            if self.link.Fbp[res_id] in self.link.Fnicks.keys():
+                temperature = 1.0
+            elif (h, pos) in crossover_hp:
+                temperature = -1.0
+            else:
+                temperature = 0.0
+
+            sc_sequence = self.link.u.residues[res_id].resname[sequence_pos]
+            st_sequence = self.link.u.residues[self.link.Fbp[res_id]].resname[sequence_pos]
+            name = f"  {sc_sequence}{st_sequence} "
+            res_name = " " + f"{pos}".rjust(3, "0")
+            atom_number = pdb_types.Number(idx + 1).as_pdb4namd(width=5)
+            helix = pdb_types.Number(h).as_pdb4namd(width=4)
+
+            trace_pdb.append(
+                [
                     "ATOM  ",
-                    pdb_types.Number(idx).as_pdb4namd(width=5),  # atom number
+                    atom_number,
                     name,
                     res_name,
-                    pdb_types.Number(helix).as_pdb4namd(width=2),  # chain id
-                    pdb_types.Number(helix).as_pdb4namd(width=4),  # res number
+                    pdb_types.Number(h).as_pdb4namd(width=2),  # chain id
+                    pdb_types.Number(pos).as_pdb4namd(width=4),  # res number
                     (4 * " "),
                     f"{trace_point[0]: .3f}".rjust(8, " "),
                     f"{trace_point[1]: .3f}".rjust(8, " "),
@@ -498,15 +520,26 @@ class BDna:
                     f"{opacity: .2f}".rjust(6, " "),
                     f"{temperature: .2f}".rjust(6, " "),
                     (6 * " "),
-                    pdb_types.Number(helix).as_pdb4namd(width=4),
+                    helix,
                     (3 * " "),
                     "\n",
                 ]
             )
-            trace_pdb.append(entry)
-        trace_pdb.append("END")
+            if prev_helix == helix:
+                bond_pdb.append(
+                    [
+                        "CONECT",
+                        pdb_types.Number(idx).as_pdb4namd(width=5),
+                        pdb_types.Number(idx + 1).as_pdb4namd(width=5),
+                        "\n",
+                    ]
+                )
+            prev_helix = helix
+
+        trace_pdb += bond_pdb
+        trace_pdb.append(["END"])
 
         with open(filepath, mode="w+") as out_file:
-            out_file.writelines(trace_pdb)
+            out_file.writelines(["".join(entry) for entry in trace_pdb])
 
         return
