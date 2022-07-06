@@ -46,19 +46,20 @@ class Viewer:
     is_mrdna: bool = True
     is_tacox: bool = False
     is_snupi: bool = False
+    is_ss_random: bool = False
 
     def __post_init__(self):
         self.logger = logging.getLogger(__name__)
         warnings.filterwarnings("ignore")
 
-        reorder_helices = self.is_mrdna or self.is_tacox
         self.linker = Linker(
             conf=self.conf,
             top=self.top,
             json=self.json,
             seq=self.seq,
-            reorder_helices=reorder_helices,
+            reorder_helices=(self.is_mrdna or self.is_tacox),
             ss_reduction=self.is_snupi,
+            ss_random=(self.is_ss_random or self.is_snupi),
         )
         try:
             self.link: Linkage = self.linker.create_linkage()
@@ -73,6 +74,7 @@ class Viewer:
         """select all atoms of the cadnano subset of helices and baseposition-range"""
 
         def DhpsFid(h, p, s) -> int:
+            # NOTE: not insertion safe
             return self.link.DidFid[self.link.DhpsDid[(h, p, s)]]
 
         u = self.link.u

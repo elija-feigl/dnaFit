@@ -18,6 +18,7 @@ from MDAnalysis.core.groups import AtomGroup
 from nanodesign.data.base import DnaBase
 from nanodesign.data.dna_structure_helix import DnaStructureHelix
 
+from ..core.utils import INS_OFFSET
 from ..data.bdna import BDna
 from ..data.crossover import Crossover
 from ..data.design import Design
@@ -42,6 +43,7 @@ class Linker:
     seq: Optional[Path] = None
     reorder_helices: bool = True
     ss_reduction: bool = False
+    ss_random: bool = False
     link: Linkage = field(init=False)
 
     Fbp: Dict[int, int] = field(default_factory=dict)
@@ -153,17 +155,17 @@ class Linker:
     def create_linkage(self) -> Linkage:
         """invoke _link_scaffold, _link_staples, _link_bp to compute mapping
         of every base design-id to fit-id as well as the basepair mapping.
-        basepairs are mapped from scaffold to staple, unique (invertable).
+        basepairs are mapped from scaffold to staple, unique (invertible).
         updates linker attributes corresponding to the respective mapping
         and returns them.
         """
-        # try:
-        self._sequence_match_link()
-        # except Exception:
-        #     self.logger.warning(
-        #         "Could not match design and model via strand sequences. Attempting strand-order specific matching."
-        #     )
-        #     self._link()
+        try:
+            self._sequence_match_link()
+        except ValueError:
+            self.logger.warning(
+                "Could not match design and model via strand sequences. Attempting strand-order specific matching."
+            )
+            self._link()
 
         self._identify_bp()
         self._identify_crossover()
@@ -287,14 +289,23 @@ class Linker:
         scaffold_length_threshold=250,
     ) -> Tuple[Dict[int, int], Dict[Tuple[int, int, bool], int]]:
         def design_sequence(nd_strand):
-            if not self.ss_reduction:
+            if not self.ss_random:
                 return "".join([base.seq for base in nd_strand.tour]).upper().replace("N", "T")
             else:
                 ss_wildcard_sequence = []
                 for base in nd_strand.tour:
-                    seq = "*" if base.across is None else base.seq
+                    seq = "?" if base.across is None else base.seq
                     ss_wildcard_sequence.append(seq)
                 return "".join(ss_wildcard_sequence).upper()
+
+        def pattern_search(target, pattern):
+            for idx, fit_seq in enumerate(target):
+                if len(fit_seq) > scaffold_length_threshold:
+                    continue
+                if fnmatch.fnmatch(fit_seq, pattern):
+                    strand_DidFid.append(idx)
+                    return True
+            return False
 
         design_sequences = [design_sequence(strand) for strand in self.design.strands]
 
@@ -316,10 +327,15 @@ class Linker:
                 strand_DidFid.append(fit_sequences.index(max(fit_sequences, key=len)))
                 continue
 
-            for idx, fit_seq in enumerate(fit_sequences):
-                if fnmatch.fnmatch(fit_seq, design_seq):
-                    strand_DidFid.append(idx)
-                    break
+            if pattern_search(target=fit_sequences, pattern=design_seq):
+                continue
+
+            self.logger.critical("Found no match for %s", design_seq)
+            raise ValueError
+
+        if len(strand_DidFid) != len(design_sequences):
+            self.logger.critical("Sequence matching error")
+            raise ValueError
 
         for strand in self.design.design.strands:
             for base_tour_idx, base in enumerate(strand.tour):
@@ -327,18 +343,19 @@ class Linker:
                 self.DidFid[base.id] = (
                     self.fit.u.segments[strand_Fid].residues[base_tour_idx].resindex
                 )
-                self.DhpsDid[(base.h, base.p, base.is_scaf)] = base.id
+                Dhps = (base.h, base.p, base.is_scaf)
+                while Dhps in self.DhpsDid:
+                    self.logger.debug("Insertion detected. Attempting Dhp dictionary workaround.")
+                    Dhps = (base.h, base.p + INS_OFFSET, base.is_scaf)
+                self.DhpsDid[Dhps] = base.id
 
                 self.Dcolor[strand_Fid] = strand.icolor
-
-        # self.logger.info(self.DidFid)
-        # import ipdbipdb.set_trace()
 
         return (self.DidFid, self.DhpsDid)
 
     def _identify_bp(self) -> Dict[int, int]:
         """link basepairs by mapping indices according to json (cadnano).
-            basepairs are mapped from scaffold to staple, unique (invertable).
+            basepairs are mapped from scaffold to staple, unique (invertible).
         -------
          Returns
             -------

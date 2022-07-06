@@ -13,7 +13,7 @@ from typing import Union
 import numpy as np
 import numpy.typing as npt
 
-
+INS_OFFSET: float = 0.1  # offset base position in design to account for insertions
 C1P_BASEDIST: float = 10.7
 TOL: float = 10e-6
 WC_DICT: Dict[str, str] = {

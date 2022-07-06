@@ -78,7 +78,12 @@ class BDna:
         # self.eval_co_angles() TODO-low: wait for relevance
 
     def Fid_Dhps(self, res_id: int) -> Tuple[int, int, bool]:
-        return self.link.DidDhps[self.link.FidDid[res_id]]  # type: ignore
+        Did = self.link.FidDid[res_id]
+        h, p, s = self.link.DidDhps[Did]
+        if isinstance(p, float):
+            self.logger.debug("Correcting hps dictionary output for insertion.")
+            p = int(p)
+        return (h, p, s)  # type: ignore
 
     def _create_bps(self) -> Dict[Tuple[int, int], BasePair]:
         bps = dict()
