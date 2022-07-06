@@ -4,6 +4,7 @@
 """ module for linking cadnano design files with atomic model"""
 import fnmatch
 import logging
+import sys
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
@@ -165,7 +166,13 @@ class Linker:
             self.logger.warning(
                 "Could not match design and model via strand sequences. Attempting strand-order specific matching."
             )
-            self._link()
+            try:
+                self._link()
+            except (KeyError, IndexError):
+                self.logger.critical(
+                    "Could not match design and model via strand-order specific matching. Abort"
+                )
+                sys.exit(1)
 
         self._identify_bp()
         self._identify_crossover()
@@ -294,7 +301,9 @@ class Linker:
             else:
                 ss_wildcard_sequence = []
                 for base in nd_strand.tour:
-                    seq = "?" if base.across is None else base.seq
+                    seq = (
+                        "?" if base.across is None else base.seq
+                    )  # NOTE: might need * as some shortened
                     ss_wildcard_sequence.append(seq)
                 return "".join(ss_wildcard_sequence).upper()
 

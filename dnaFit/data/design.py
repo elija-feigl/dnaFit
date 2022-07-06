@@ -73,7 +73,7 @@ class Design:
     def _staple(self) -> List[List[DnaBase]]:
         return [s.tour for s in self.design.strands if not s.is_scaffold]
 
-    def _remove_ss_extension(self, terminal_threshold=10) -> None:
+    def _remove_ss_extension(self) -> None:
         def delete_base(base, strand):
             strand.tour.remove(base)
             helix = self.design.structure_helices_map[base.h]
@@ -94,7 +94,9 @@ class Design:
             removable_bases = []
             for idx, base in enumerate(strand.tour):
                 is_ss_staple = base.across is None and not base.is_scaf
-                is_terminal = not (terminal_threshold < idx < len(strand.tour) - terminal_threshold)
+                is_terminal = all(b.seq == "N" for b in strand.tour[:idx]) or all(
+                    b.seq == "N" for b in strand.tour[idx:]
+                )
                 if is_ss_staple and is_terminal:
                     removable_bases.append(base)
 

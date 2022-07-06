@@ -13,6 +13,7 @@
     NOTE: requires ipywidgets and which is not listed in dnaFit requirements but with the ViewerApp
 """
 import logging
+import sys
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -64,7 +65,10 @@ class Viewer:
         try:
             self.link: Linkage = self.linker.create_linkage()
         except Exception:
-            self.logger.error("ERROR: The provided design is not compatible with the atomic model.")
+            self.logger.critical(
+                "ERROR: The provided design is not compatible with the atomic model."
+            )
+            sys.exit(1)
 
         self.u = self.linker.fit.u
         self.Hid2H = self.linker.design.design.structure_helices_map
