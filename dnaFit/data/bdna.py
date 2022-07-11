@@ -483,6 +483,7 @@ class BDna:
         trace_pdb = [["CRYST1  500.000  500.000  500.000  90.00  90.00  90.00 P 1           1\n"]]
         bond_pdb = []
         prev_helix = -1
+        prev_pos = -1
         sequence_pos = (
             1 if self.link.u.residues[0].resname[0] == "D" else 0
         )  # NOTE: DT,DA,DG,DC vs THY,ADE,GUA,CYT nomenclature
@@ -530,7 +531,7 @@ class BDna:
                     "\n",
                 ]
             )
-            if prev_helix == helix:
+            if (prev_helix == helix) and abs(pos - prev_pos) < 3:
                 bond_pdb.append(
                     [
                         "CONECT",
@@ -540,6 +541,7 @@ class BDna:
                     ]
                 )
             prev_helix = helix
+            prev_pos = pos
 
         trace_pdb += bond_pdb
         trace_pdb.append(["END"])
