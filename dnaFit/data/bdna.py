@@ -48,6 +48,12 @@ class BDna:
 
     bp_trace: Dict[int, npt.NDArray[np.float64]] = field(default_factory=dict)
 
+    bp_step_sequence: Dict[int, str] = field(default_factory=dict)
+    bp_pure_step_sequence: Dict[int, str] = field(default_factory=dict)
+
+    bp_tetra_sequence: Dict[int, str] = field(default_factory=dict)
+    bp_pure_tetra_sequence: Dict[int, str] = field(default_factory=dict)
+
     bp_twist: Dict[int, float] = field(default_factory=dict)
     bp_rise: Dict[int, float] = field(default_factory=dict)
     bp_tilt: Dict[int, float] = field(default_factory=dict)
@@ -108,13 +114,13 @@ class BDna:
 
         # first check the number of skips passed
         n_skips = 0
-        for n in range(direct, direct * (steps + 1), direct):
+        for n in range(direct, (steps + 1), direct):
             n_position = position + n
             if (helix, n_position) not in self.bps.keys():
                 n_skips += 1
         # move one position further if on skip
-        n_position = position + direct * (steps + n_skips)
-        if (helix, n_position) not in self.bps.keys():
+        n_test = position + direct * (steps + n_skips)
+        if (helix, n_test) not in self.bps.keys():
             n_position += direct
 
         return self.bps.get((helix, n_position), None)
@@ -130,8 +136,17 @@ class BDna:
             self.bp_trace[resindex] = bp.plane.origin
 
             # scaffold 5'->3'
-            n_bp = self._get_n_bp(bp=bp)  # , local=True)
+            n_bp = self._get_n_bp(bp=bp, steps=1)  # , local=True)
             if n_bp is not None:
+                step_seq = self._get_step_sequence(bp, n_bp)
+                self.bp_step_sequence[resindex] = step_seq
+                has_co = any(
+                    [(str(pair.hp) in "".join(self.link.Fco.keys())) for pair in [bp, n_bp]]
+                )
+                # has_nick
+                if not has_co:
+                    self.bp_pure_step_sequence[resindex] = step_seq
+
                 self.bp_rise[resindex] = self._get_bp_rise(bp, n_bp)
                 self.bp_shift[resindex] = self._get_bp_shift(bp, n_bp)
                 self.bp_slide[resindex] = self._get_bp_slide(bp, n_bp)
@@ -139,6 +154,23 @@ class BDna:
                 self.bp_twist[resindex] = self._get_bp_twist(bp, n_bp)
                 self.bp_roll[resindex] = self._get_bp_roll(bp, n_bp)
                 self.bp_tilt[resindex] = self._get_bp_tilt(bp, n_bp)
+
+                p_bp = self._get_n_bp(bp=bp, steps=-1)
+                nn_bp = self._get_n_bp(bp=bp, steps=2)
+                if nn_bp is not None and p_bp is not None:
+                    tetra_seq = self._get_tetra_sequence(p_bp, bp, n_bp, nn_bp)
+                    self.bp_tetra_sequence[resindex] = tetra_seq
+
+                    has_co = any(
+                        [
+                            (str(pair.hp) in "".join(self.link.Fco.keys()))
+                            for pair in [p_bp, bp, n_bp, nn_bp]
+                        ]
+                    )
+                    if not has_co:
+                        self.bp_pure_tetra_sequence[resindex] = self._get_tetra_sequence(
+                            p_bp, bp, n_bp, nn_bp
+                        )
 
     def _eval_base(self) -> None:
         raise NotImplementedError
@@ -171,6 +203,21 @@ class BDna:
     #         quality[bnd] = (hbond_dev if hbond_dist > hbond_should
     #                         else -hbond_dev)
     #     return quality
+
+    @staticmethod
+    def _get_step_sequence(bp: BasePair, n_bp: BasePair) -> str:
+        step: str = bp.scaffold.resname[0] + n_bp.scaffold.resname[0]
+        return step
+
+    @staticmethod
+    def _get_tetra_sequence(p_bp: BasePair, bp: BasePair, n_bp: BasePair, nn_bp: BasePair) -> str:
+        tetra: str = (
+            p_bp.scaffold.resname[0]
+            + bp.scaffold.resname[0]
+            + n_bp.scaffold.resname[0]
+            + nn_bp.scaffold.resname[0]
+        )
+        return tetra
 
     @staticmethod
     def _get_bp_twist(bp: BasePair, n_bp: BasePair) -> float:

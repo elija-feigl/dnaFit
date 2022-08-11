@@ -339,7 +339,7 @@ class Linker:
             if pattern_search(target=fit_sequences, pattern=design_seq):
                 continue
 
-            self.logger.critical("Found no match for %s", design_seq)
+            self.logger.error("Found no match for %s", design_seq)
             raise ValueError
 
         if len(strand_DidFid) != len(design_sequences):

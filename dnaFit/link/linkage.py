@@ -2,7 +2,7 @@
 # Copyright (C) 2021-Present  Elija Feigl
 # Full GPL-3 License can be found in `LICENSE` at the project root.
 """ Linkage class module
-    NOTE: (01.02.2021) does not support legacy pickle linkage
+    NOTE: (01.02.2021) does no longer support legacy pickle linkage
 """
 from dataclasses import dataclass
 from dataclasses import field
